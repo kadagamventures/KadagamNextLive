@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+/* ===== Global Reset & Background Fix ===== */
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow-x: hidden;
+  background-color: #ffffff; /* Set your desired background color */
+}
+
+/* ===== Glitter Animation for Floating Sparkles ===== */
+@keyframes floatingGlitter {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(40px) scale(0.5);
+    opacity: 0;
+  }
+}
+
+.animate-glitter {
+  position: absolute;
+  animation: floatingGlitter 1.5s ease-out infinite forwards;
+}
+
+/* ===== Glitter Shimmer Effect for Text ===== */
+@keyframes shimmerGlitter {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.glitter-text {
+  background: linear-gradient(45deg, #ffcc00, #ff6699, #ff33cc, #ffcc00);
+  background-size: 400% 400%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmerGlitter 3s infinite ease-in-out;
+  font-weight: bold;
+  position: relative;
+  display: inline-block;
+}
+
+.glitter-text::after {
+  content: "✨";
+  position: absolute;
+  top: -5px;
+  right: -10px;
+  font-size: 14px;
+  opacity: 0.8;
+  animation: floatingGlitter 1.5s ease-out infinite alternate;
+}
+
+/* ===== Animated Background Gradient ===== */
+@keyframes waveGradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animated-gradient {
+  background: linear-gradient(
+    45deg,
+    #a11b1bf8,
+    #164da5,
+    #bed10f,
+    #b20f87,
+    #940d43e8,
+    #5a2aacfa,
+    #a55eed,
+    #0ea5e9,
+    #14b8b5,
+    #10b981
+  );
+  background-size: 2000% 2000%;
+  animation: waveGradient 50s ease-in infinite;
+}
+
+/* ===== Marquee Animation ===== */
+@keyframes scroll-marquee {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.marquee-wrapper {
+  overflow: hidden;
+  position: relative;
+  width: 100%;              /* Full width to avoid horizontal overflow */
+  max-width: 1200px;        /* Optional: limits to a centered container */
+  margin: 0 auto;           /* Center the marquee */
+  background-color: #b91c1c; /* Tailwind red-700 */
+  border-radius: 9999px;    /* Full rounded */
+  padding: 1rem 0;
+}
+
+.marquee-content {
+  display: inline-flex;
+  gap: 2.5rem;             /* Tailwind gap-10 */
+  white-space: nowrap;
+  animation: scroll-marquee 20s linear infinite;
+  padding: 0 2.5rem;       /* Tailwind px-10 */
+}
