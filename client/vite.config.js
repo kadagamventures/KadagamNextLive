@@ -17,8 +17,14 @@ export default defineConfig({
   optimizeDeps: {
     include: ["aws-amplify/auth", "@aws-amplify/core"],
   },
+
+  // Force Vite to use esbuild for all CSS transformations
+  css: {
+    transformer: 'esbuild'
+  },
+
   build: {
-    // Use esbuild for CSS minification instead of LightningCSS
+    // And also for CSS minification
     cssMinify: 'esbuild',
   },
 });
