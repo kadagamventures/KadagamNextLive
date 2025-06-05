@@ -7,14 +7,18 @@ applications:
           commands:
             - nvm install 20
             - nvm use 20
+            # allow npm to install despite the TS peerConflict
+            - npm config set legacy-peer-deps true
             - npm ci
         build:
           commands:
             - npm run build
       artifacts:
+        # where CRA spits out the static build
         baseDirectory: dist
         files:
           - '**/*'
       cache:
         paths:
           - node_modules/**/*
+          - ~/.npm/**/*
