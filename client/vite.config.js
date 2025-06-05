@@ -17,4 +17,8 @@ export default defineConfig({
   optimizeDeps: {
     include: ["aws-amplify/auth", "@aws-amplify/core"],
   },
+  build: {
+    // Use esbuild for CSS minification instead of LightningCSS
+    cssMinify: 'esbuild',
+  },
 });
