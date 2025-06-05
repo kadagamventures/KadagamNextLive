@@ -1,0 +1,20 @@
+version: 1
+applications:
+  - appRoot: client            # ← Tell Amplify “CD into client/”
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - nvm install 20
+            - nvm use 20
+            - npm ci              # ← Install your client dependencies
+        build:
+          commands:
+            - npm run build       # ← Run Vite’s build
+      artifacts:
+        baseDirectory: dist      # ← Vite emits to client/dist
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*    # ← Cache your dependencies
