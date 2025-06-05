@@ -7,16 +7,17 @@ applications:
           commands:
             - nvm install 20
             - nvm use 20
-            # skip TS peer checks so you don't need to uninstall anything
+            # ignore TS/react-scripts peer deps
             - npm config set legacy-peer-deps true
-            # force Tailwind to use the JS compiler instead of native oxide
+            # force Tailwind to JS-only compiler
             - export TAILWIND_EXPERIMENTAL_SKIP_OPX_INSTALL=true
-            - npm ci
+            # use npm install so the lockfile you commit (with optionalDependencies)
+            # is honored instead of erroring on missing entries
+            - npm install
         build:
           commands:
             - npm run build
       artifacts:
-        # where Vite outputs your static site
         baseDirectory: dist
         files:
           - '**/*'
