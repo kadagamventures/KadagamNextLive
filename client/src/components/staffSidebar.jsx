@@ -23,7 +23,7 @@ import {
   setIntervalId,
   clearIntervalId,
   incrementTimer,
-} from "../redux/slices/staffSidebarSlice";
+} from "../redux/slices/staffSidebarslice";
 import { tokenRefreshInterceptor as axiosInstance } from "../utils/axiosInstance";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";

@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
 /* ===== Global Reset & Background Fix ===== */
 * {
   box-sizing: border-box;

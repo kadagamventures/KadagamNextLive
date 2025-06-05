@@ -34,6 +34,8 @@ import { initializeNotificationSocket } from "./websocket/notificationSocket";
 import { setSocketConnected } from "./redux/slices/chatSlice";
 import { setUserOnline, setUserOffline } from "./redux/slices/presenceSlice";
 
+import "./index.css";
+
 function App() {
   const dispatch = useDispatch();
   const auth = useSelector((state) => state.auth);
