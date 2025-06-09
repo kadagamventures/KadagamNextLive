@@ -32,13 +32,13 @@ app.set("trust proxy", 1);
 const CLIENT_URLS = [
   "https://www.kadagamnext.com",
   "https://kadagamnext.com",
-  "http://localhost:5173"
+  "http://localhost:5173",
+  "https://main.d2tclwkypqhvb0.amplifyapp.com" // ✅ Added Amplify domain
 ];
 
 // ─── DYNAMIC CORS SETUP ───────────────────────────────────────────────────────
 const corsOptions = {
   origin: (incomingOrigin, callback) => {
-    // allow server‐to‐server or tools without Origin header
     if (!incomingOrigin) return callback(null, true);
     if (CLIENT_URLS.includes(incomingOrigin)) {
       return callback(null, true);
@@ -73,7 +73,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === "production", // only over HTTPS
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: 1000 * 60 * 60 // 1 hour
   }
