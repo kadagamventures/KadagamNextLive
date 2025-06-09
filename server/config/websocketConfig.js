@@ -9,7 +9,7 @@ const jwtSecret = process.env.JWT_SECRET;
 if (!jwtSecret) throw new Error("Missing JWT_SECRET in environment variables");
 
 const CLIENT_URLS = [
-  "https://kadagamnextglobal.vercel.app",
+  "https://www.kadagamnext.com",
   "http://localhost:5173",
 ];
 
@@ -43,10 +43,7 @@ const initializeWebSocket = (server) => {
       pingTimeout: 10000,
     });
 
-    /**
-     * 🔐 WebSocket JWT Auth Middleware
-     * Accepts plain tokens or "Bearer <token>" style
-     */
+
     io.use((socket, next) => {
       let token = socket.handshake.auth?.token;
 

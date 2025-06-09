@@ -23,7 +23,7 @@ const PORT = process.env.PORT || 5000;
 
 // 🌐 Allowed Clients
 const CLIENT_URLS = [
-  "https://kadagamnextglobal.vercel.app",
+  "https://www.kadagamnext.com",
   "http://localhost:5173"
 ];
 
