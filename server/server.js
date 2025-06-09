@@ -24,6 +24,7 @@ const PORT = process.env.PORT || 5000;
 // 🌐 Allowed Clients
 const CLIENT_URLS = [
   "https://www.kadagamnext.com",
+  "https://kadagamnext.com",
   "http://localhost:5173"
 ];
 
