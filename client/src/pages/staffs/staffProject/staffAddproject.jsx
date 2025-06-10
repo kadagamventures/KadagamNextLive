@@ -108,16 +108,16 @@ const AddProject = () => {
           <button
             type="button"
             onClick={() => navigate("/staff/projects/list")}
-            className="px-6 py-3 bg-white text-gray-900 border font-semibold border-gray-300 rounded-full shadow hover:text-red-500 transition duration-300 ease-in-out transform hover:scale-105"
+            className="px-6 py-3 bg-white text-gray-900 border font-semibold border-gray-300 rounded-full shadow hover:text-black hover:bg-red-100"
             disabled={loading}
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
-            className={`px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-700 text-white font-semibold rounded-full shadow-lg hover:shadow-xl transition duration-300 ease-in-out transform hover:scale-105 ${loading
+            className={`px-6 py-3 bg-blue-700 text-white font-semibold rounded-full shadow-lg hover:shadow-xl ${loading
               ? "bg-blue-400 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700"
+              : "bg-blue-600 hover:bg-blue-800"
               }`}
             disabled={loading}
           >
@@ -154,7 +154,7 @@ const AddProject = () => {
                 placeholder="Enter project name"
                 maxLength={100}
                 required
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-violet-500 focus:border-violet-700 outline-none"
               />
             </div>
 
@@ -170,7 +170,7 @@ const AddProject = () => {
                 onChange={handleInputChange}
                 placeholder="E.g. Marketing, Development, Design"
                 required
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-violet-500 focus:border-violet-700 outline-none"
               />
             </div>
 
@@ -185,7 +185,7 @@ const AddProject = () => {
                 onChange={handleInputChange}
                 placeholder="Describe the project scope, goals, and key details..."
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-y min-h-[120px]"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-1 focus:ring-violet-500 focus:border-violet-700 outline-none resize-y min-h-[120px]"
               />
             </div>
           </div>

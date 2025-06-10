@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   fetchChatHistory,
@@ -160,11 +160,10 @@ const PermissionedManagerChatPage = () => {
             onClick={() =>
               navigate("/staff/chat/permissioned-manager?tab=taskChats")
             }
-            className={`px-4 py-2 rounded-md text-sm font-semibold ${
-              activeTab === "taskChats"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100 text-gray-600"
-            }`}
+            className={`px-4 py-2 rounded-full text-sm font-semibold ${activeTab === "taskChats"
+              ? "bg-violet-600 text-white"
+              : "bg-gray-100 text-gray-600 border border-gray-300" // Added border for non-active state
+              }`}
           >
             Task Chats
           </button>
@@ -172,11 +171,10 @@ const PermissionedManagerChatPage = () => {
             onClick={() =>
               navigate("/staff/chat/permissioned-manager?tab=chatRooms")
             }
-            className={`px-4 py-2 rounded-md text-sm font-semibold ${
-              activeTab === "chatRooms"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100 text-gray-600"
-            }`}
+            className={`px-4 py-2 rounded-full text-sm font-semibold ${activeTab === "chatRooms"
+              ? "bg-violet-700 text-white"
+              : "bg-gray-100 text-gray-600 border border-gray-300" // Added border for non-active state
+              }`}
           >
             Group Rooms
           </button>
@@ -185,7 +183,7 @@ const PermissionedManagerChatPage = () => {
         {activeTab === "chatRooms" && (
           <button
             onClick={() => navigate("/staff/chat/create-room")}
-            className="mb-4 flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-medium"
+            className="mb-4 flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-full text-sm font-medium border border-gray-300 hover:bg-violet-700 hover:text-white hover:border-transparent"
           >
             <PlusCircle className="w-5 h-5" />
             Create Chat Room
@@ -207,11 +205,10 @@ const PermissionedManagerChatPage = () => {
                     layout
                     key={task._id}
                     onClick={() => handleTaskClick(task)}
-                    className={`p-4 rounded-xl border cursor-pointer transition-all duration-300 ${
-                      isSelected
-                        ? "bg-blue-50 border-blue-500 shadow-md ring-2 ring-blue-400"
-                        : "bg-white border-gray-200 hover:bg-gray-50"
-                    }`}
+                    className={`p-4 rounded-xl border cursor-pointer transition-all duration-300 ${isSelected
+                      ? "bg-blue-50 border-blue-500 shadow-md ring-2 ring-blue-400"
+                      : "bg-white border-gray-200 hover:bg-gray-50"
+                      }`}
                   >
                     <div className="font-semibold text-base">{task.title}</div>
                     <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
@@ -238,11 +235,10 @@ const PermissionedManagerChatPage = () => {
                 layout
                 key={room._id}
                 onClick={() => handleRoomClick(room)}
-                className={`p-4 border rounded-xl bg-white hover:bg-gray-50 cursor-pointer transition ${
-                  selectedRoom?._id === room._id
-                    ? "border-blue-500 ring-2 ring-blue-400"
-                    : "border-gray-200"
-                }`}
+                className={`p-4 border rounded-xl bg-white hover:bg-gray-50 cursor-pointer transition ${selectedRoom?._id === room._id
+                  ? "border-violet-500 ring-1  ring-violet-700"
+                  : "border-gray-200"
+                  }`}
               >
                 <h3 className="font-semibold text-gray-800">{room.roomName}</h3>
                 <p className="text-sm text-gray-500">

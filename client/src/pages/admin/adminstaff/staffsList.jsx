@@ -76,9 +76,9 @@ const StaffList = () => {
           {role === "admin" && (
             <Link
               to="/admin/staffs/add"
-              className="px-4 py-2 hover:text-black text-gray-600 bg-white font-semibold rounded-lg shadow transition-all"
+              className="px-4 py-2 hover:text-black text-gray-600 bg-white font-semibold rounded-full shadow transition-all"
             >
-              + Add New Staff
+             <span className="text-violet-600 text-2xl">+</span>  Add New Staff
             </Link>
           )}
           <div className="relative">
@@ -87,9 +87,9 @@ const StaffList = () => {
               placeholder="Search staffs..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="block w-full pl-3 pr-3 bg-white py-2 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              className="block w-full pl-3 pr-3 bg-white py-2 text-sm md:text-base border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
             />
-            <FaSearch className="absolute right-3 top-2.5 text-gray-400" />
+            <FaSearch className="absolute right-3 top-2.5 text-violet-600" />
           </div>
         </div>
       </div>

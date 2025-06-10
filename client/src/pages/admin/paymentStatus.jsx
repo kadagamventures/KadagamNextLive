@@ -1,6 +1,5 @@
-// src/pages/admin/paymentStatus.jsx
 
-import React, { useState } from "react";
+import{ useState } from "react";
 import { HiPlus } from "react-icons/hi2";
 import { useNavigate } from "react-router-dom";
 
@@ -39,7 +38,7 @@ const PaymentStatus = () => {
           className="absolute top-0 right-5 inline-flex items-center space-x-1 px-4 py-2 bg-white text-gray-700 rounded-full shadow-md hover:shadow-lg transition-shadow duration-200"
         >
           <span className="text-sm font-medium">Add Plan</span>
-          <HiPlus className="w-4 h-4" />
+          <HiPlus className="w-5 h-5 text-violet-600" />
         </button>
       </div>
 
@@ -112,7 +111,7 @@ const PaymentStatus = () => {
               flex items-center justify-center
               bg-purple-600
               text-white
-              rounded-lg
+              rounded-full
               font-semibold
               hover:bg-purple-700
               transition-colors duration-200

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { tokenRefreshInterceptor as axiosInstance } from "../../../utils/axiosInstance";
 import AdminSidebar from "../../../components/sidebar";
 import LeaveList from "./leaveList";
+import { FaSearch } from "react-icons/fa";
 
 const LeaveApproval = () => {
   const [leaveRequests, setLeaveRequests] = useState([]);
@@ -104,7 +105,6 @@ const LeaveApproval = () => {
       <div className="flex-grow p-6 ml-64">
         <div className="max-w-6xl mx-auto">
           {/* Tabs */}
-          
 
           {activeTab === "approval" && (
             <>
@@ -116,11 +116,11 @@ const LeaveApproval = () => {
                   <input
                     type="text"
                     placeholder="Search by staff or ID…"
-                    className="w-full sm:w-64 px-3 py-2 pr-10 rounded-lg border border-gray-300 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    className="w-full sm:w-64 px-3 py-2 pr-10 rounded-full border border-gray-300 focus:outline-none focus:ring-1 focus:ring-purple-500"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
-                  <span className="absolute right-2 top-2 text-purple-600">🔍</span>
+                  <FaSearch className="absolute right-3 top-2.5 text-violet-600" />
                 </div>
               </div>
 
@@ -158,8 +158,20 @@ const LeaveApproval = () => {
                             <td className="px-4 py-4">
                               {r.status === "pending" && (
                                 <div className="flex space-x-2">
-                                  <button onClick={() => openModal(r._id, "approved")} className="px-3 py-1 rounded-full text-sm bg-green-100 text-green-700 hover:bg-green-200">Approve ✓</button>
-                                  <button onClick={() => openModal(r._id, "rejected")} className="px-3 py-1 rounded-full text-sm bg-red-100 text-red-700 hover:bg-red-200">Reject –</button>
+                                  <button
+                                    onClick={() => openModal(r._id, "approved")}
+                                    className="px-3 py-1 rounded-full text-sm bg-green-100 text-green-700 hover:bg-green-200"
+                                    disabled={processingId === r._id}
+                                  >
+                                    Approve ✓
+                                  </button>
+                                  <button
+                                    onClick={() => openModal(r._id, "rejected")}
+                                    className="px-3 py-1 rounded-full text-sm bg-red-100 text-red-700 hover:bg-red-200"
+                                    disabled={processingId === r._id}
+                                  >
+                                    Reject –
+                                  </button>
                                 </div>
                               )}
                             </td>
@@ -178,7 +190,7 @@ const LeaveApproval = () => {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-opacity-50 flex backdrop-blur-md items-center justify-center z-30">
+        <div className="fixed inset-0 bg-opacity-50 flex backdrop-blur-xs items-center justify-center z-30">
           <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-bold mb-4">{modalType === 'approved' ? 'Confirm Approval' : 'Confirm Rejection'}</h3>
             <p className="mb-4">{modalType === 'approved' ? 'Optionally, you may provide a reason for approval.' : 'A reason for rejection is required.'}</p>
@@ -186,7 +198,9 @@ const LeaveApproval = () => {
             {error && <div className="mb-2 text-red-600">{error}</div>}
             <div className="flex justify-end space-x-3">
               <button onClick={closeModal} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
-              <button onClick={confirmModal} className={`px-4 py-2 rounded text-white ${modalType === 'approved' ? 'bg-green-600' : 'bg-red-600'}`} disabled={modalType === 'rejected' && !modalReason.trim()}>{modalType === 'approved' ? 'Approve' : 'Reject'}</button>
+              <button onClick={confirmModal} className={`px-4 py-2 rounded text-white ${modalType === 'approved' ? 'bg-green-600' : 'bg-red-600'}`} disabled={modalType === 'rejected' && !modalReason.trim()}>
+                {modalType === 'approved' ? 'Approve' : 'Reject'}
+              </button>
             </div>
           </div>
         </div>

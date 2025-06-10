@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import StaffSidebar from "../../../components/staffSidebar";
-import { Doughnut, Bar } from "react-chartjs-2";
+import { Bar } from "react-chartjs-2"; // Removed Doughnut import
 import { tokenRefreshInterceptor as axiosInstance } from "../../../utils/axiosInstance";
 import "chart.js/auto";
 import {
@@ -10,6 +10,73 @@ import {
   FaAward, FaStar,
 } from "react-icons/fa";
 import PropTypes from "prop-types";
+
+// --- CustomDoughnutChart Component (Copied from previous tasks) ---
+const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 28, gapDegrees = 2 }) => {
+  const cx = chartSize / 2;
+  const cy = chartSize / 2;
+  const radius = (chartSize / 2) - (strokeThickness / 2);
+
+  const total = data.reduce((sum, d) => sum + (d.value || 0), 0);
+
+  const toRad = (deg) => ((deg - 90) * Math.PI) / 180;
+  const polarToCartesian = (cx, cy, r, deg) => ({
+    x: cx + r * Math.cos(toRad(deg)),
+    y: cy + r * Math.sin(toRad(deg)),
+  });
+
+  const describeArc = (cx, cy, r, start, end) => {
+    const s = polarToCartesian(cx, cy, r, end);
+    const e = polarToCartesian(cx, cy, r, start);
+    const laf = end - start <= 180 ? "0" : "1";
+    return `M${s.x.toFixed(3)} ${s.y.toFixed(3)} A${r.toFixed(3)} ${r.toFixed(3)} 0 ${laf} 0 ${e.x.toFixed(3)} ${e.y.toFixed(3)}`;
+  };
+
+  let angleAcc = 0;
+  const slices = data.map((d, i) => {
+    const val = d.value || 0;
+    let ang = total ? (val / total) * 360 : 0;
+
+    if (ang > 0 && total > 0) {
+      ang = Math.max(0, ang - gapDegrees);
+    }
+
+    const path = describeArc(cx, cy, radius, angleAcc + gapDegrees / 2, angleAcc + ang + gapDegrees / 2);
+
+    angleAcc += (total ? (val / total) * 360 : 0);
+    return { path, color: colors[i % colors.length], label: val, name: d.name };
+  });
+  return (
+    <div className="flex-1 flex items-center justify-center">
+      <svg width={chartSize} height={chartSize} viewBox={`0 0 ${chartSize} ${chartSize}`}>
+        {slices.map((s, i) => (
+          <path
+            key={i}
+            d={s.path}
+            fill="none"
+            stroke={s.color}
+            strokeWidth={strokeThickness}
+            strokeLinecap="round"
+          />
+        ))}
+      </svg>
+    </div>
+  );
+};
+
+CustomDoughnutChart.propTypes = {
+  data: PropTypes.arrayOf(
+    PropTypes.shape({
+      name: PropTypes.string,
+      value: PropTypes.number,
+    })
+  ).isRequired,
+  colors: PropTypes.arrayOf(PropTypes.string).isRequired,
+  chartSize: PropTypes.number,
+  strokeThickness: PropTypes.number,
+  gapDegrees: PropTypes.number,
+};
+// --- END CustomDoughnutChart Component ---
 
 const InfoBox = ({ Icon, iconBg, iconColor, label, value }) => (
   <motion.div
@@ -73,7 +140,7 @@ const StaffReport = () => {
   if (loading) return <div className="text-center p-4 text-lg font-semibold">Loading...</div>;
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen ">
       <StaffSidebar />
       <div className="flex-grow px-6 py-8 mx-auto max-w-screen-xl">
         <motion.div
@@ -87,7 +154,7 @@ const StaffReport = () => {
             <input
               type="text"
               placeholder="Search by ID"
-              className="p-2 border rounded-lg shadow-sm bg-white"
+              className="p-2 border-1 border-gray-500 rounded-full shadow-sm bg-white hover:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-700"
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -98,19 +165,19 @@ const StaffReport = () => {
               type="number"
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
-              className="p-2 border rounded-lg shadow-sm bg-white"
+              className="p-2 border-1 border-gray-500 rounded-full shadow-sm bg-white hover:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-700"
               placeholder="Year"
             />
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(Number(e.target.value))}
-              className="p-2 border rounded-lg shadow-sm bg-white"
+              className="p-2 border-1 border-gray-500 rounded-full shadow-sm bg-white hover:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-700"
             >
               {monthNames.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
             </select>
             <button
               onClick={handleSearchClick}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-5 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700"
             >
               Search
             </button>
@@ -127,7 +194,7 @@ const StaffReport = () => {
             initial="hidden"
             animate="visible"
             variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
-            className="bg-white p-6 rounded-xl shadow-md mb-8"
+            className="bg-white p-6 rounded-xl  mb-8"
           >
             <h2 className="text-xl font-semibold text-gray-700 mb-4">{individualPerformance.staffName}&#39;s Performance</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 justify-items-center">
@@ -152,46 +219,53 @@ const StaffReport = () => {
               className="grid grid-cols-1 md:grid-cols-2 gap-8 justify-items-center"
             >
               <motion.div
-                className="bg-white p-6 rounded-2xl shadow-lg w-full max-w-md relative"
+                className="bg-white p-6 rounded-2xl shadow-lg w-full max-w-md relative flex flex-col items-center justify-center" // Added flex classes
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
+                style={{
+                  width: '449px',
+                  height: '290px',
+                  borderRadius: '16.46px',
+                }}
               >
                 <h2 className="text-xl font-medium text-gray-700 mb-4">Attendance</h2>
-                <div className="relative h-64">
-                  <Doughnut
-                    data={{
-                      labels: ["Present", "Absent"],
-                      datasets: [{
-                        data: [
-                          individualPerformance.totalDaysPresent || 0,
-                          individualPerformance.totalDaysAbsent || 0
-                        ],
-                        backgroundColor: ["#41B6FF", "#FF0200"],
-                        hoverOffset: 4
-                      }]
-                    }}
-                    options={{
-                      cutout: "70%",
-                      plugins: {
-                        legend: {
-                          display: true,
-                          position: "right",
-                          labels: {
-                            usePointStyle: true,
-                            pointStyle: "circle",
-                            color: "#4B5563",
-                            padding: 10
-                          },
-                        },
-                        datalabels: { display: false }
-                      },
-                      maintainAspectRatio: false
-                    }}
+                <div className="flex w-full justify-center items-center h-full"> {/* Inner flex container */}
+                  <CustomDoughnutChart
+                    data={[
+                      { name: "Present", value: individualPerformance.totalDaysPresent || 0 },
+                      { name: "Absent", value: individualPerformance.totalDaysAbsent || 0 }
+                    ]}
+                    colors={["#41B6FF", "#FF0200"]}
+                    chartSize={180} // Adjusted size for better fit
+                    strokeThickness={28}
+                    gapDegrees={3}
                   />
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div
+                    className="absolute flex flex-col items-center justify-center pointer-events-none"
+                    style={{
+                      top: "56%", // Adjusted top for vertical centering
+                      left: "38%", // Adjusted left to compensate for legend
+                      transform: "translate(-50%, -50%)",
+                      width: "fit-content",
+                    }}
+                  >
                     <span className="text-center text-lg font-bold text-gray-900">
                       {individualPerformance.attendancePercentage || 0}%
                     </span>
+                  </div>
+                  {/* Manual Legend for CustomDoughnutChart */}
+                  <div className="flex-shrink-0 flex flex-col justify-center pl-4 pr-4">
+                    <ul className="space-y-2">
+                      {[{ name: "Present", value: individualPerformance.totalDaysPresent || 0 }, { name: "Absent", value: individualPerformance.totalDaysAbsent || 0 }].map((item, i) => (
+                        <li key={item.name} className="flex items-center text-gray-600 text-sm">
+                          <span
+                            className="w-4 h-4 rounded-sm mr-2"
+                            style={{ backgroundColor: ["#41B6FF", "#FF0200"][i] }}
+                          ></span>
+                          {item.name}: {item.value}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
               </motion.div>

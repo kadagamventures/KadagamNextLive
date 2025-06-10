@@ -1,4 +1,4 @@
-import React, {
+import {
   useEffect,
   useRef,
   useState,
@@ -22,9 +22,10 @@ import {
   joinRoom,
   leaveRoom,
 } from "../websocket/chatSocket";
-import { UserCircle2, Check, CheckCheck, Trash2, Pencil } from "lucide-react";
+import { UserCircle2, Check, CheckCheck, Trash2, Pencil, Save, X } from "lucide-react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
+import { FaTrash } from "react-icons/fa";
 
 dayjs.extend(relativeTime);
 
@@ -35,7 +36,7 @@ const GroupChatBox = ({ roomId, currentUser }) => {
 
   const [newMessage, setNewMessage] = useState("");
   const [typing, setTyping] = useState(false);
-  const [someoneTyping, setSomeoneTyping] = useState(null); // Changed to object {name}
+  const [someoneTyping, setSomeoneTyping] = useState(null);
   const [typingDots, setTypingDots] = useState(".");
   const [roomInfo, setRoomInfo] = useState(null);
   const [sendingMessage, setSendingMessage] = useState(false);
@@ -56,8 +57,8 @@ const GroupChatBox = ({ roomId, currentUser }) => {
     dayjs(timestamp).isSame(dayjs(), "day")
       ? "Today"
       : dayjs(timestamp).isSame(dayjs().subtract(1, "day"), "day")
-      ? "Yesterday"
-      : dayjs(timestamp).format("DD MMM YYYY");
+        ? "Yesterday"
+        : dayjs(timestamp).format("DD MMM YYYY");
 
   const formatTime = (timestamp) => dayjs(timestamp).format("hh:mm A");
 
@@ -199,7 +200,7 @@ const GroupChatBox = ({ roomId, currentUser }) => {
     if (!messageId || messageId.startsWith("temp-")) return;
     try {
       await dispatch(deleteRoomMessage({ roomId, messageId })).unwrap();
-    } catch {}
+    } catch { }
     finally {
       setConfirmDeleteId(null);
       setActiveMsgId(null);
@@ -218,7 +219,7 @@ const GroupChatBox = ({ roomId, currentUser }) => {
       setEditingMsgId(null);
       setEditText("");
       setActiveMsgId(null);
-    } catch {}
+    } catch { }
   };
 
   const handleEditCancel = () => {
@@ -235,7 +236,7 @@ const GroupChatBox = ({ roomId, currentUser }) => {
   return (
     <div className="h-full flex flex-col bg-white rounded-xl shadow-lg border overflow-hidden">
       {/* HEADER */}
-      <div className="p-4 bg-blue-700 text-white flex justify-between items-center gap-3 sticky top-0 z-10">
+      <div className="p-4 bg-violet-700 text-white flex justify-between items-center gap-3 sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <UserCircle2 className="w-8 h-8" />
           <div>
@@ -248,9 +249,10 @@ const GroupChatBox = ({ roomId, currentUser }) => {
         {isRoomCreator && (
           <button
             onClick={handleDeleteRoom}
-            className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded-md text-sm text-white"
+            className="bg-white hover:bg-gray-200 px-5 py-2 rounded-full text-sm text-black flex items-center gap-2"
           >
             Delete Room
+            <FaTrash className="text-red-500" />
           </button>
         )}
       </div>
@@ -272,24 +274,22 @@ const GroupChatBox = ({ roomId, currentUser }) => {
                 <div className="text-center text-xs text-gray-400 my-1">{lastDate}</div>
               )}
               <div className={`flex ${isMine ? "justify-end" : "justify-start"} mb-1`}>
-                <div className="relative max-w-xs flex flex-col items-end">
-                  {/* Sender name */}
-                  {!isMine && (
-                    <div className="text-xs text-gray-600 font-semibold mb-1">
-                      {msg.sender?.name || "Unknown"}
-                    </div>
-                  )}
+                <div className="relative max-w-xs flex flex-col">
                   <div
                     onClick={(e) => {
                       e.stopPropagation();
                       setActiveMsgId(isActive ? null : messageKey);
                     }}
-                    className={`chat-msg-bubble px-4 py-2 rounded-2xl shadow-md cursor-pointer break-words ${
-                      isMine
-                        ? "bg-blue-500 text-white"
-                        : "bg-white text-gray-900 border"
-                    }`}
+                    className={`chat-msg-bubble px-4 py-2 rounded-2xl shadow-md cursor-pointer break-words flex flex-col ${isMine
+                        ? "bg-violet-200 text-black"
+                        : "bg-gray-100 text-gray-900"
+                      } ${isMine ? "rounded-tr-none" : "rounded-tl-none"}`}
                   >
+                    {/* Conditional rendering for sender name */}
+                    <span className="text-xs text-gray-700 font-semibold mb-1">
+                      {isMine ? "You" : msg.sender?.name || "Unknown"}
+                    </span>
+
                     {editingMsgId === msg._id ? (
                       <div className="flex flex-col gap-2">
                         <input
@@ -303,12 +303,14 @@ const GroupChatBox = ({ roomId, currentUser }) => {
                             className="text-green-600 hover:underline"
                             onClick={handleEditSubmit}
                           >
+                            <Save className="inline w-3 h-3 mr-1"/>
                             Save
                           </button>
                           <button
                             className="text-gray-500 hover:underline"
                             onClick={handleEditCancel}
                           >
+                            <X className="inline w-3 h-3 mr-1"/>
                             Cancel
                           </button>
                         </div>
@@ -317,16 +319,16 @@ const GroupChatBox = ({ roomId, currentUser }) => {
                       <div>
                         {msg.text || "[no content]"}
                         {msg.edited && (
-                          <span className="ml-2 text-[10px] italic text-gray-200">
+                          <span className="ml-2 text-[10px] italic text-gray-500">
                             (edited)
                           </span>
                         )}
                       </div>
                     )}
-                    <div className="mt-1 flex justify-between text-xs">
+                    <div className="mt-1 flex justify-end text-xs text-gray-500">
                       <span>{formatTime(msg.timestamp)}</span>
                       {isMine && (
-                        <span>
+                        <span className="ml-2">
                           {msg.status === "read" ? (
                             <CheckCheck className="w-4 h-4" />
                           ) : (
@@ -337,8 +339,8 @@ const GroupChatBox = ({ roomId, currentUser }) => {
                     </div>
                   </div>
 
-                  {isMine && isActive && (
-                    <div className="chat-msg-action mt-1 flex gap-2 text-gray-400">
+                  {isMine && isActive && editingMsgId !== msg._id && (
+                    <div className="chat-msg-action mt-1 flex gap-2 text-gray-400 self-end">
                       <button title="Edit" onClick={() => handleEditStart(msg)}>
                         <Pencil className="w-4 h-4 hover:text-blue-500" />
                       </button>
@@ -349,7 +351,7 @@ const GroupChatBox = ({ roomId, currentUser }) => {
                   )}
 
                   {confirmDeleteId === messageKey && (
-                    <div className="chat-msg-confirm mt-2 bg-white border rounded shadow-lg p-4 w-64 z-50">
+                    <div className="chat-msg-confirm mt-2 bg-white border rounded shadow-lg p-4 w-64 z-50 absolute right-0">
                       <p className="text-sm text-gray-700 mb-3">
                         Are you sure you want to delete this message?
                       </p>
@@ -392,7 +394,7 @@ const GroupChatBox = ({ roomId, currentUser }) => {
           onChange={(e) => setNewMessage(e.target.value)}
           onKeyDown={handleTyping}
           onKeyUp={(e) => e.key === "Enter" && handleSend()}
-          className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-green-400"
+          className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-700"
           disabled={!socketConnected || sendingMessage}
         />
         <button

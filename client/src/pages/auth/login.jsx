@@ -123,14 +123,12 @@ const AdminLogin = () => {
                 <FiLock size={18} />
               </div>
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 name="password"
                 placeholder="Password"
                 value={credentials.password}
                 onChange={handleChange}
-
-
-                className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 disabled={loading}
               />
               <button
@@ -141,8 +139,8 @@ const AdminLogin = () => {
               >
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
               </button>
-
             </div>
+
 
             <button
               type="submit"

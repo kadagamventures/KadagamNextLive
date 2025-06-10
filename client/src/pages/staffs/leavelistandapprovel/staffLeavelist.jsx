@@ -58,7 +58,7 @@ const LeaveList = () => {
       <div className="flex justify-end items-center mb-6">
         <div className="relative">
           <select
-            className="appearance-none bg-white border border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm leading-5 text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            className="appearance-none bg-white border border-gray-300 rounded-full py-2 pl-3 pr-10 text-sm leading-5 text-gray-700 focus:outline-none focus:ring-1 focus:ring-violet-700 focus:border-violet-500"
             value={selectedMonth}
             onChange={handleMonthChange}
           >

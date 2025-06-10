@@ -222,7 +222,7 @@ const StaffForm = () => {
         <div className="flex items-center gap-3 mt-4 md:mt-0">
           <button
             onClick={() => navigate("/staff/staffs/list")}
-            className="px-6 py-3 bg-white text-gray-900 border font-semibold border-gray-300 rounded-full shadow hover:text-red-500 transition duration-300 ease-in-out transform hover:scale-105"
+            className="px-6 py-3 bg-white text-gray-900 border font-semibold border-gray-300 rounded-full shadow hover:text-red-500 "
           >
             Cancel
           </button>

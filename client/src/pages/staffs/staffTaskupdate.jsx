@@ -137,7 +137,7 @@ useEffect(() => {
               <input
                 type="text"
                 placeholder="Search Staff, Task, or Comment..."
-                className="w-64 px-3 py-2 pr-10 rounded-lg border border-gray-300 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                className="w-64 px-3 py-2 pr-10 rounded-full border border-gray-300 hover:border-violet-600 focus:outline-none focus:ring-1 focus:ring-purple-700"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />

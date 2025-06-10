@@ -80,12 +80,12 @@ const AdminSidebar = () => {
       </style>
 
       {/* Header */}
-      <div className="p-4 md:p-6">
+      <div className="p-1  md:p-1 mb-5">
         <div className="flex items-center mb-3 whitespace-nowrap">
           <img
             src={kadagamLogo}
             alt="Logo"
-            className="w-10 h-10 md:w-12 md:h-12 mr-0 md:mr-2"
+            className="w-10 h-10 md:w-12 md:h-12 mr-7 md:mr-0"
           />
           <h3 className="hidden md:block font-extrabold text-red-600">
             Kadagam <span className="text-blue-600">Ventures</span>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { tokenRefreshInterceptor as axiosInstance } from "../../utils/axiosInstance";
@@ -113,7 +113,7 @@ const AdminCreateChatRoomPage = () => {
             type="text"
             value={roomName}
             onChange={(e) => setRoomName(e.target.value)}
-            className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-violet-700"
             placeholder="e.g. Project Alpha Team"
           />
         </div>
@@ -130,7 +130,7 @@ const AdminCreateChatRoomPage = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search by name or email..."
-              className="w-full border border-gray-300 rounded-xl px-10 py-2 text-sm focus:outline-none focus:ring focus:border-blue-300"
+              className="w-full border border-gray-300 rounded-xl px-10 py-2 focus:outline-none focus:ring-2 focus:ring-violet-700"
             />
             <Search className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
           </div>
@@ -143,11 +143,10 @@ const AdminCreateChatRoomPage = () => {
                 <li
                   key={staff._id}
                   onClick={() => toggleSelectStaff(staff._id)}
-                  className={`cursor-pointer flex items-center p-3 rounded-xl border transition-all duration-300 ${
-                    selectedStaffIds.includes(staff._id)
+                  className={`cursor-pointer flex items-center p-3 rounded-xl border transition-all duration-300 ${selectedStaffIds.includes(staff._id)
                       ? "bg-blue-100 border-blue-400 shadow-md"
                       : "bg-white border-gray-200 hover:bg-gray-50"
-                  }`}
+                    }`}
                 >
                   <UserCircle2 className="w-8 h-8 text-gray-600 mr-3" />
                   <div>
@@ -164,18 +163,20 @@ const AdminCreateChatRoomPage = () => {
         </div>
 
         {/* Create Room Button */}
-        <button
-          onClick={handleCreateRoom}
-          disabled={loading}
-          className={`w-full flex items-center justify-center gap-3 py-3 px-6 rounded-xl text-lg font-semibold transition-transform ${
-            loading
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:scale-105"
-          }`}
-        >
-          <PlusCircle className="w-6 h-6" />
-          {loading ? "Creating..." : "Create Chat Room"}
-        </button>
+        <div className="flex justify-center">
+          <button
+            onClick={handleCreateRoom}
+            disabled={loading}
+            className={`w-[250px] flex items-center justify-center gap-3 py-3 px-6 rounded-full text-lg font-semibold transition-transform ${loading
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:bg-violet-500"
+              }`}
+          >
+            <PlusCircle className="w-6 h-6" />
+            {loading ? "Creating..." : "Create Chat Room"}
+          </button>
+        </div>
+
       </div>
     </div>
   );

@@ -1,17 +1,19 @@
 import { useEffect, useState } from "react";
-import { Doughnut, Bar } from "react-chartjs-2";
+import { Bar } from "react-chartjs-2"; // Keep Bar import
 import { tokenRefreshInterceptor as axiosInstance } from "../../../utils/axiosInstance";
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   BarElement,
-  ArcElement,
   Title,
-  Tooltip,
-  Legend,
+  Tooltip, // Keep Tooltip and Legend for Bar chart
+  Legend,  // Keep Tooltip and Legend for Bar chart
 } from "chart.js";
-import ChartDataLabels from "chartjs-plugin-datalabels";
+// No need for ChartDataLabels or ArcElement if Doughnut is custom
+// import ChartDataLabels from "chartjs-plugin-datalabels"; // Removed
+// import { ArcElement } from "chart.js"; // Removed
+
 import { motion } from "framer-motion";
 import CountUp from "react-countup";
 import {
@@ -24,16 +26,86 @@ import {
   FaDownload,
 } from "react-icons/fa";
 
+// Register Chart.js components only for the Bar chart
 ChartJS.register(
   CategoryScale,
   LinearScale,
   BarElement,
-  ArcElement,
   Title,
   Tooltip,
-  Legend,
-  ChartDataLabels
+  Legend
 );
+
+// --- CustomDoughnutChart Component (Copied for use in Task page) ---
+import PropTypes from "prop-types";
+
+const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 28, gapDegrees = 2 }) => {
+  const cx = chartSize / 2;
+  const cy = chartSize / 2;
+  const radius = (chartSize / 2) - (strokeThickness / 2);
+
+  const total = data.reduce((sum, d) => sum + (d.value || 0), 0);
+
+  const toRad = (deg) => ((deg - 90) * Math.PI) / 180;
+  const polarToCartesian = (cx, cy, r, deg) => ({
+    x: cx + r * Math.cos(toRad(deg)),
+    y: cy + r * Math.sin(toRad(deg)),
+  });
+
+  const describeArc = (cx, cy, r, start, end) => {
+    const s = polarToCartesian(cx, cy, r, end);
+    const e = polarToCartesian(cx, cy, r, start);
+    const laf = end - start <= 180 ? "0" : "1";
+    return `M${s.x.toFixed(3)} ${s.y.toFixed(3)} A${r.toFixed(3)} ${r.toFixed(3)} 0 ${laf} 0 ${e.x.toFixed(3)} ${e.y.toFixed(3)}`;
+  };
+
+  let angleAcc = 0;
+  const slices = data.map((d, i) => {
+    const val = d.value || 0;
+    let ang = total ? (val / total) * 360 : 0;
+
+    if (ang > 0 && total > 0) {
+      ang = Math.max(0, ang - gapDegrees);
+    }
+
+    const path = describeArc(cx, cy, radius, angleAcc + gapDegrees / 2, angleAcc + ang + gapDegrees / 2);
+
+    angleAcc += (total ? (val / total) * 360 : 0);
+    return { path, color: colors[i % colors.length], label: val, name: d.name };
+  });
+
+  return (
+    <div className="flex-1 flex items-center justify-center">
+      <svg width={chartSize} height={chartSize} viewBox={`0 0 ${chartSize} ${chartSize}`}>
+        {slices.map((s, i) => (
+          <path
+            key={i}
+            d={s.path}
+            fill="none"
+            stroke={s.color}
+            strokeWidth={strokeThickness}
+            strokeLinecap="round" // This gives the rounded ends on both sides
+          />
+        ))}
+      </svg>
+    </div>
+  );
+};
+
+CustomDoughnutChart.propTypes = {
+  data: PropTypes.arrayOf(
+    PropTypes.shape({
+      name: PropTypes.string,
+      value: PropTypes.number,
+    })
+  ).isRequired,
+  colors: PropTypes.arrayOf(PropTypes.string).isRequired,
+  chartSize: PropTypes.number,
+  strokeThickness: PropTypes.number,
+  gapDegrees: PropTypes.number,
+};
+// --- END CustomDoughnutChart Component ---
+
 
 const Task = () => {
   const [taskStats, setTaskStats] = useState(null);
@@ -45,19 +117,18 @@ const Task = () => {
       try {
         const { data } = await axiosInstance.get("/reports/tasks/live-stats");
         setTaskStats(data.stats);
+
+        // Prepare data for CustomDoughnutChart
+        const highPriorityValue = data.stats.highPriorityTasks || 0;
+        const otherTasksValue = (data.stats.totalTasks || 0) - highPriorityValue;
+
         setChartData({
-          distribution: {
-            labels: ["High Priority", "Other Tasks"],
-            datasets: [
-              {
-                data: [
-                  data.stats.highPriorityTasks,
-                  data.stats.totalTasks - data.stats.highPriorityTasks,
-                ],
-                backgroundColor: ["#EF4444", "#10B981"],
-              },
-            ],
-          },
+          // This will be used by CustomDoughnutChart
+          distributionCustom: [
+            { name: "High Priority", value: highPriorityValue },
+            { name: "Other Tasks", value: otherTasksValue },
+          ],
+          // This remains for the Bar chart
           overview: {
             labels: ["Total", "Completed", "Ongoing", "Overdue", "To Do"],
             datasets: [
@@ -70,11 +141,11 @@ const Task = () => {
                   data.stats.toDoTasks,
                 ],
                 backgroundColor: [
-                  "#6366F1",
-                  "#10B981",
-                  "#F59E0B",
-                  "#EF4444",
-                  "#EAB308",
+                  "#6366F1", // Indigo
+                  "#10B981", // Green
+                  "#F59E0B", // Amber
+                  "#EF4444", // Red
+                  "#EAB308", // Yellow
                 ],
               },
             ],
@@ -86,117 +157,114 @@ const Task = () => {
     })();
   }, []);
 
- const handleDownloadReport = async () => {
-  if (!selectedMonth) {
-    alert("Please select a month first.");
-    return;
-  }
-
-  try {
-    const payload = {
-      month: String(selectedMonth).padStart(2, "0"),
-      year: new Date().getFullYear(),
-    };
-
-    const res = await axiosInstance.post("/reports/generate/task", payload);
-
-    const downloadUrl = res.data?.downloadUrl || res.data?.url;
-
-    if (!downloadUrl || typeof downloadUrl !== "string" || !downloadUrl.startsWith("http")) {
-      alert("Download link not available.");
+  const handleDownloadReport = async () => {
+    if (!selectedMonth) {
+      alert("Please select a month first.");
       return;
     }
 
-    if (res.data.fallback) {
-      alert("Monthly report not found. Showing yearly summary instead.");
-    }
+    try {
+      const payload = {
+        month: String(selectedMonth).padStart(2, "0"),
+        year: new Date().getFullYear(),
+      };
 
-    const opened = window.open(downloadUrl, "_blank");
-    if (!opened) {
-      alert("Popup blocked! Please allow popups for this site.");
-    }
+      const res = await axiosInstance.post("/reports/generate/task", payload);
 
-  } catch (err) {
-    console.error("Report generation error:", err);
-    alert("Failed to generate or fetch the task report.");
-  }
-};
+      const downloadUrl = res.data?.downloadUrl || res.data?.url;
+
+      if (!downloadUrl || typeof downloadUrl !== "string" || !downloadUrl.startsWith("http")) {
+        alert("Download link not available.");
+        return;
+      }
+
+      if (res.data.fallback) {
+        alert("Monthly report not found. Showing yearly summary instead.");
+      }
+
+      const opened = window.open(downloadUrl, "_blank");
+      if (!opened) {
+        alert("Popup blocked! Please allow popups for this site.");
+      }
+
+    } catch (err) {
+      console.error("Report generation error:", err);
+      alert("Failed to generate or fetch the task report.");
+    }
+  };
 
   const stats = taskStats
     ? [
-        {
-          label: "Total Tasks",
-          value: taskStats.totalTasks,
-          icon: <FaTasks className="text-blue-500 w-6 h-6" />,
-          circleBg: "bg-blue-100",
-        },
-        {
-          label: "Completed",
-          value: taskStats.completedTasks,
-          icon: <FaCheckCircle className="text-green-500 w-6 h-6" />,
-          circleBg: "bg-green-100",
-        },
-        {
-          label: "Ongoing",
-          value: taskStats.ongoingTasks,
-          icon: <FaSyncAlt className="text-yellow-500 w-6 h-6" />,
-          circleBg: "bg-yellow-100",
-        },
-        {
-          label: "Overdue",
-          value: taskStats.overdueTasks,
-          icon: <FaExclamationCircle className="text-red-500 w-6 h-6" />,
-          circleBg: "bg-red-100",
-        },
-        {
-          label: "To Do",
-          value: taskStats.toDoTasks,
-          icon: <FaClipboardList className="text-indigo-500 w-6 h-6" />,
-          circleBg: "bg-indigo-100",
-        },
-        {
-          label: "High Priority",
-          value: taskStats.highPriorityTasks,
-          icon: <FaStar className="text-pink-500 w-6 h-6" />,
-          circleBg: "bg-pink-100",
-        },
-      ]
+      {
+        label: "Total Tasks",
+        value: taskStats.totalTasks,
+        icon: <FaTasks className="text-blue-500 w-6 h-6" />,
+        circleBg: "bg-blue-100",
+      },
+      {
+        label: "Completed",
+        value: taskStats.completedTasks,
+        icon: <FaCheckCircle className="text-green-500 w-6 h-6" />,
+        circleBg: "bg-green-100",
+      },
+      {
+        label: "Ongoing",
+        value: taskStats.ongoingTasks,
+        icon: <FaSyncAlt className="text-yellow-500 w-6 h-6" />,
+        circleBg: "bg-yellow-100",
+      },
+      {
+        label: "Overdue",
+        value: taskStats.overdueTasks,
+        icon: <FaExclamationCircle className="text-red-500 w-6 h-6" />,
+        circleBg: "bg-red-100",
+      },
+      {
+        label: "To Do",
+        value: taskStats.toDoTasks,
+        icon: <FaClipboardList className="text-indigo-500 w-6 h-6" />,
+        circleBg: "bg-indigo-100",
+      },
+      {
+        label: "High Priority",
+        value: taskStats.highPriorityTasks,
+        icon: <FaStar className="text-pink-500 w-6 h-6" />,
+        circleBg: "bg-pink-100",
+      },
+    ]
     : [];
 
-  const chartOptions = {
-    cutout: "70%",
+  // Options for the Bar chart only.
+  const barChartOptions = {
+    responsive: true,
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { color: "#6B7280" }
+      },
+      y: {
+        beginAtZero: true,
+        ticks: { stepSize: 1, color: "#6B7280" },
+        grid: { color: "#E5E7EB" }
+      },
+    },
     plugins: {
-      legend: {
-        display: true,
-        position: "right",
-        labels: {
-          usePointStyle: true,
-          pointStyle: "circle",
-          color: "#4B5563",
-          padding: 20,
-          generateLabels: (chart) =>
-            chart.data.labels.map((label, i) => ({
-              text: `${label} - ${chart.data.datasets[0].data[i]}`,
-              fillStyle: chart.data.datasets[0].backgroundColor[i],
-              strokeStyle: chart.data.datasets[0].backgroundColor[i],
-              index: i,
-            })),
-        },
-      },
-      datalabels: {
-        display: true,
-        formatter: (value, ctx) => {
-          const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-          return total ? Math.round((value / total) * 100) + "%" : "";
-        },
-        color: "#111827",
-        font: { size: 18, weight: "bold" },
-        anchor: "center",
-        align: "center",
-      },
+      legend: { display: false }, // Hide legend as per original code for Bar
+      tooltip: { enabled: true }
     },
     maintainAspectRatio: false,
   };
+
+  // Colors for the CustomDoughnutChart (High Priority vs Other Tasks)
+  const customDoughnutColors = ["#EF4444", "#10B981"]; // Red for High Priority, Green for Other Tasks
+
+  // Calculate percentage for the center of the Doughnut chart
+  const highPriorityValue = taskStats ? taskStats.highPriorityTasks : 0;
+  const totalTasksForDoughnut = taskStats ? taskStats.totalTasks : 0;
+  const centerPercentage = totalTasksForDoughnut
+    ? Math.round((highPriorityValue / totalTasksForDoughnut) * 100) + "%"
+    : "0%";
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -209,7 +277,7 @@ const Task = () => {
           Task Reports
         </motion.h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {stats.map((s, i) => (
             <motion.div
               key={i}
@@ -231,46 +299,79 @@ const Task = () => {
 
         {chartData && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Custom Doughnut Chart */}
             <motion.div
-              className="bg-white p-6 rounded-2xl shadow-lg"
+              className="bg-white p-6 shadow-lg flex" // Use flex for chart and legend alignment
+              style={{
+                width: '446px', // Explicit width
+                height: '276px', // Explicit height
+                borderRadius: '16.46px', // Explicit border-radius
+              }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
             >
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">
-                Task Distribution
-              </h3>
-              <div className="relative h-96">
-                <Doughnut data={chartData.distribution} options={chartOptions} />
-                <div
-                  className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
-                  style={{
-                    top: "50%",
-                    left: "37%",
-                    transform: "translate(-50%, -50%)",
-                    width: "fit-content",
-                  }}
-                >
-                  <span className="text-sm text-gray-500">High Priority</span>
-                  <span className="text-2xl font-bold text-gray-900">
-                    {Math.round(
-                      (chartData.distribution.datasets[0].data[0] /
-                        (chartData.distribution.datasets[0].data.reduce((a, b) => a + b, 0) || 1)) * 100
-                    ) + "%"}
-                  </span>
+              <div className="flex-1"> {/* This div contains the title and chart */}
+                <h3 className="text-xl font-semibold text-gray-800 mb-4">
+                  Task Distribution
+                </h3>
+                <div className="relative flex items-center justify-center" style={{ height: 'calc(100% - 2rem)' }}> {/* Adjusted height for chart container */}
+                  <CustomDoughnutChart
+                    data={chartData.distributionCustom}
+                    colors={customDoughnutColors}
+                    chartSize={200} // Adjusted chartSize to fit within the new explicit height of its container
+                    strokeThickness={28} // Kept default for consistency unless specified otherwise
+                    gapDegrees={2} // Kept default for consistency unless specified otherwise
+                  />
+                  {/* Center text for percentage */}
+                  <div
+                    className="absolute flex flex-col items-center justify-center pointer-events-none"
+                    style={{
+                      top: "50%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      width: "fit-content",
+                    }}
+                  >
+                    <span className="text-sm text-gray-500">High Priority</span>
+                    <span className="text-2xl font-bold text-gray-900">
+                      {centerPercentage}
+                    </span>
+                  </div>
                 </div>
+              </div>
+
+              {/* Right side Legend for CustomDoughnutChart */}
+              <div className="flex-shrink-0 flex flex-col justify-center pl-8 pr-4">
+                <ul className="space-y-2">
+                  {chartData.distributionCustom.map((item, i) => (
+                    <li key={item.name} className="flex items-center text-gray-600">
+                      <span
+                        className="w-4 h-4 rounded-sm mr-2"
+                        style={{ backgroundColor: customDoughnutColors[i % customDoughnutColors.length] }}
+                      ></span>
+                      {item.name} - {item.value}
+                    </li>
+                  ))}
+                </ul>
               </div>
             </motion.div>
 
+            {/* Bar Chart */}
             <motion.div
-              className="bg-white p-6 rounded-2xl shadow-lg"
+              className="bg-white p-6 shadow-lg"
+              style={{
+                width: '445px', // Explicit width
+                height: '277px', // Explicit height
+                borderRadius: '14.3px', // Explicit border-radius
+              }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
             >
               <h3 className="text-xl font-semibold text-gray-800 mb-4">
                 Task Overview
               </h3>
-              <div className="h-96">
-                <Bar data={chartData.overview} options={chartOptions} />
+              <div className="relative" style={{ height: 'calc(100% - 2rem)' }}> {/* Adjusted height for chart container */}
+                <Bar data={chartData.overview} options={barChartOptions} />
               </div>
             </motion.div>
           </div>

@@ -97,13 +97,13 @@ const StaffProfile = () => {
               <div className="flex justify-center space-x-6 pt-4">
                 <button
                   onClick={handleAskLeave}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-8 rounded-lg text-sm transition duration-200 transform hover:scale-105"
+                  className="bg-indigo-600 text-white font-semibold py-3 px-8 rounded-full text-sm transition duration-200 transform hover:bg-indigo-800"
                 >
                   Ask Leave
                 </button>
                 <button
                   onClick={handleOfficeRules}
-                  className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-8 rounded-lg text-sm transition duration-200 transform hover:scale-105"
+                  className="bg-green-600 text-white font-semibold py-2 px-8 rounded-full text-sm transition duration-200 transform hover:bg-green-800"
                 >
                   Office Rules
                 </button>

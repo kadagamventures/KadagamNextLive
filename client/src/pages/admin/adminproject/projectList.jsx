@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { tokenRefreshInterceptor as axiosInstance }  from "../../../utils/axiosInstance";
+import { tokenRefreshInterceptor as axiosInstance } from "../../../utils/axiosInstance";
 import { FaPencilAlt, FaTrash, FaSearch } from "react-icons/fa";
 
 const ProjectList = () => {
@@ -70,20 +70,20 @@ const ProjectList = () => {
         <div className="flex items-center space-x-3">
           <button
             onClick={() => navigate("/admin/projects/add")}
-            className="px-4 py-2 hover:text-black text-gray-600 bg-white font-semibold rounded-lg shadow transition-all"
+            className="px-4 py-2 hover:text-black text-gray-600 bg-white font-semibold rounded-full shadow transition-all"
           >
-            + Add New Project
+            <span className="text-violet-600 text-2xl">+</span>  Add New Project
           </button>
           <div className="relative">
             <input
               type="text"
               placeholder="Search Projects..."
-              className="block w-full pl-3 pr-3 py-2 bg-white text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              className="block w-full pl-3 pr-3 py-2 bg-white text-sm md:text-base border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              
+
             />
-             <FaSearch className="absolute right-3 top-2.5 text-gray-400" />
+            <FaSearch className="absolute right-3 top-2.5 text-violet-600" />
           </div>
         </div>
       </div>
@@ -145,16 +145,18 @@ const ProjectList = () => {
                           onClick={() => handleEdit(project._id)}
                           className="flex items-center gap-1 px-3 py-2 bg-white text-gray-500 border border-gray-300 rounded-full shadow transition hover:bg-green-50"
                         >
-                          <FaPencilAlt w-6 h-5 className="text-green-500" />
+
                           <span>Edit</span>
+                          <FaPencilAlt w-6 h-5 className="text-green-500" />
                         </button>
                         {/* UPDATED DELETE BUTTON */}
                         <button
                           onClick={() => setConfirmDeleteId(project._id)}
                           className="flex items-center gap-1 px-3 py-2 bg-white text-gray-500 border border-gray-300 rounded-full shadow transition hover:bg-red-50"
                         >
-                          <FaTrash w-6 h-5 className="text-red-500" />
+
                           <span>Delete</span>
+                          <FaTrash w-6 h-5 className="text-red-500" />
                         </button>
                       </div>
                     </td>

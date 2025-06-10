@@ -1,9 +1,6 @@
-import { Doughnut, Bar } from "react-chartjs-2";
+import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend,
   CategoryScale,
   LinearScale,
   BarElement,
@@ -19,14 +16,79 @@ import {
   FaClone,
   FaClipboardCheck,
   FaClipboardList,
-
 } from "react-icons/fa";
 import CountUp from "react-countup";
+import PropTypes from "prop-types"; // Import PropTypes for the CustomDoughnutChart
+
+// --- CustomDoughnutChart Component (Copied from previous task) ---
+const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 28, gapDegrees = 2 }) => {
+  const cx = chartSize / 2;
+  const cy = chartSize / 2;
+  const radius = (chartSize / 2) - (strokeThickness / 2);
+
+  const total = data.reduce((sum, d) => sum + (d.value || 0), 0);
+
+  const toRad = (deg) => ((deg - 90) * Math.PI) / 180;
+  const polarToCartesian = (cx, cy, r, deg) => ({
+    x: cx + r * Math.cos(toRad(deg)),
+    y: cy + r * Math.sin(toRad(deg)),
+  });
+
+  const describeArc = (cx, cy, r, start, end) => {
+    const s = polarToCartesian(cx, cy, r, end);
+    const e = polarToCartesian(cx, cy, r, start);
+    const laf = end - start <= 180 ? "0" : "1";
+    return `M${s.x.toFixed(3)} ${s.y.toFixed(3)} A${r.toFixed(3)} ${r.toFixed(3)} 0 ${laf} 0 ${e.x.toFixed(3)} ${e.y.toFixed(3)}`;
+  };
+
+  let angleAcc = 0;
+  const slices = data.map((d, i) => {
+    const val = d.value || 0;
+    let ang = total ? (val / total) * 360 : 0;
+
+    if (ang > 0 && total > 0) {
+      ang = Math.max(0, ang - gapDegrees);
+    }
+
+    const path = describeArc(cx, cy, radius, angleAcc + gapDegrees / 2, angleAcc + ang + gapDegrees / 2);
+
+    angleAcc += (total ? (val / total) * 360 : 0);
+    return { path, color: colors[i % colors.length], label: val, name: d.name };
+  });
+  return (
+    <div className="flex-1 flex items-center justify-center">
+      <svg width={chartSize} height={chartSize} viewBox={`0 0 ${chartSize} ${chartSize}`}>
+        {slices.map((s, i) => (
+          <path
+            key={i}
+            d={s.path}
+            fill="none"
+            stroke={s.color}
+            strokeWidth={strokeThickness}
+            strokeLinecap="round"
+          />
+        ))}
+      </svg>
+    </div>
+  );
+};
+
+CustomDoughnutChart.propTypes = {
+  data: PropTypes.arrayOf(
+    PropTypes.shape({
+      name: PropTypes.string,
+      value: PropTypes.number,
+    })
+  ).isRequired,
+  colors: PropTypes.arrayOf(PropTypes.string).isRequired,
+  chartSize: PropTypes.number,
+  strokeThickness: PropTypes.number,
+  gapDegrees: PropTypes.number,
+};
+// --- END CustomDoughnutChart Component ---
+
 
 ChartJS.register(
-  ArcElement,
-  Tooltip,
-  Legend,
   CategoryScale,
   LinearScale,
   BarElement,
@@ -109,55 +171,20 @@ const Reports = () => {
     },
   ];
 
-  const doughnutData = {
-    labels: ["Total Project", "Total Staff", "Total Task"],
-    datasets: [
-      {
-        data: [
-          overviewData.totalProjects,
-          overviewData.totalStaff,
-          overviewData.totalTasks,
-        ],
-        backgroundColor: ["#41B6FF", "#752BdF", "#FF4C80"],
-        borderWidth: 0,
-      },
-    ],
-  };
+  // --- Data for CustomDoughnutChart (Updated) ---
+  const customDoughnutData = [
+    { name: "Total Tasks", value: overviewData.totalTasks || 0 },
+    { name: "Ongoing Tasks", value: overviewData.ongoingTasks || 0 },
+    { name: "Completed Tasks", value: overviewData.completedTasks || 0 },
+  ];
 
-  const doughnutOptions = {
-    cutout: "70%",
-    plugins: {
-      legend: {
-        display: true,
-        position: "right",
-        labels: {
-          usePointStyle: true,
-          pointStyle: "circle",
-          color: "#4B5563",
-          padding: 20,
-          generateLabels: (chart) =>
-            chart.data.labels.map((label, i) => ({
-              text: `${label} - ${chart.data.datasets[0].data[i]}`,
-              fillStyle: chart.data.datasets[0].backgroundColor[i],
-              strokeStyle: chart.data.datasets[0].backgroundColor[i],
-              index: i,
-            })),
-        },
-      },
-      datalabels: {
-        display: true,
-        formatter: (value, ctx) => {
-          const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-          return total ? Math.round((value / total) * 100) + "%" : "";
-        },
-        color: "#111827",
-        font: { size: 18, weight: "bold" },
-        anchor: "center",
-        align: "center",
-      },
-    },
-    maintainAspectRatio: false,
-  };
+  // Colors for the custom doughnut chart (keeping original-like colors, adjusting as needed)
+  const customDoughnutColors = ["#FF4C80", "#41B6FF", "#752BdF"]; // Using colors from the original doughnut for consistency, but reordered for the new labels
+
+  // Calculate percentage for center text based on completion rate of tasks
+  const centerTextPercentage = overviewData.totalTasks > 0
+    ? `${Math.round((overviewData.completedTasks / overviewData.totalTasks) * 100)}%`
+    : "0%";
 
   const barData = {
     labels: ["Ongoing Task", "Completed Task"],
@@ -179,18 +206,8 @@ const Reports = () => {
     maintainAspectRatio: false,
   };
 
-  const centerPercentage = overviewData.totalTasks
-    ? Math.round(
-      (overviewData.totalTasks /
-        (overviewData.totalProjects +
-          overviewData.totalStaff +
-          overviewData.totalTasks)) *
-      100
-    ) + "%"
-    : "0%";
-
   return (
-    <div className="min-h-screen bg-gray-50  p-8">
+    <div className="min-h-screen bg-gray-50  p-8">
       <motion.h2
         className="text-3xl items-center font-bold text-gray-900 mb-6 pb-6 text-center font-poppins font-weight-500 size-32px"
         initial={{ opacity: 0, y: -10 }}
@@ -200,7 +217,7 @@ const Reports = () => {
       </motion.h2>
 
       {/* Six Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-6">
         {cards.map((c) => (
           <div
             key={c.label}
@@ -221,38 +238,68 @@ const Reports = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left Doughnut */}
         <motion.div
-          className="bg-white rounded-2xl p-6 shadow-md relative"
+          className="bg-white rounded-2xl p-6 shadow-md relative flex flex-col items-center justify-center"
           whileHover={{ scale: 1.02 }}
+          style={{
+            width: '470px',
+            height: '300px',
+            borderRadius: '16.46px',
+          }}
         >
           <h3 className="text-lg font-medium text-gray-700 mb-4">
-            Project, Staff, Task
+            Task Distribution
           </h3>
-          <div className="relative h-80">
-            <Doughnut data={doughnutData} options={doughnutOptions} />
+          <div className="flex w-full justify-center items-center h-full"> {/* Ensure inner flex takes full height */}
+            <CustomDoughnutChart
+              data={customDoughnutData}
+              colors={customDoughnutColors}
+              chartSize={180} // Adjusted for better fit within the fixed height, can be fine-tuned
+              strokeThickness={28}
+              gapDegrees={3}
+            />
             <div
-              className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
+              className="absolute flex flex-col items-center justify-center pointer-events-none"
               style={{
-                top: "50%",
-                left: "35%",
+                top: "58%", // Adjusted top for vertical centering
+                left: "32%", // Adjusted left to compensate for legend
                 transform: "translate(-50%, -50%)",
                 width: "fit-content",
               }}
             >
-              <span className="text-sm text-gray-500">Higher Rate</span>
+              <span className="text-sm text-gray-500">Completed</span>
               <span className="text-2xl font-bold text-gray-900">
-                {centerPercentage}
+                {centerTextPercentage}
               </span>
+            </div>
+            {/* Legend for CustomDoughnutChart */}
+            <div className="flex-shrink-0 flex flex-col justify-center pl-4 pr-4">
+              <ul className="space-y-2">
+                {customDoughnutData.map((item, i) => (
+                  <li key={item.name} className="flex items-center text-gray-600 text-sm">
+                    <span
+                      className="w-4 h-4 rounded-sm mr-2"
+                      style={{ backgroundColor: customDoughnutColors[i % customDoughnutColors.length] }}
+                    ></span>
+                    {item.name}: {item.value}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </motion.div>
 
         {/* Right Bar */}
         <motion.div
-          className="bg-white rounded-2xl p-6 shadow-md"
+          className="bg-white rounded-2xl p-6 "
           whileHover={{ scale: 1.02 }}
+          style={{
+            width: '460px',
+            height: '300px',
+            borderRadius: '14.3px',
+          }}
         >
           <h3 className="text-lg font-medium text-gray-700 mb-4">Task</h3>
-          <div className="relative h-80">
+          <div className="relative h-full"> {/* Changed to h-full to fill parent height */}
             <Bar data={barData} options={barOptions} />
           </div>
         </motion.div>

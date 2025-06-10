@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { tokenRefreshInterceptor as axiosInstance } from "../../../utils/axiosInstance";
 import AdminSidebar from "../../../components/staffSidebar";
 import LeaveList from "../../staffs/leavelistandapprovel/staffLeavelist";
+import { FaSearch } from "react-icons/fa";
 
 const LeaveApproval = () => {
   const [leaveRequests, setLeaveRequests] = useState([]);
@@ -138,11 +139,11 @@ const LeaveApproval = () => {
                   <input
                     type="text"
                     placeholder="Search by staff or ID…"
-                    className="w-full sm:w-64 px-3 py-2 pr-10 rounded-lg border border-gray-300 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    className="w-full sm:w-64 px-3 py-2 pr-10 rounded-full border border-gray-300 focus:outline-none focus:ring-1 focus:ring-purple-500"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
-                  <span className="absolute right-2 top-2 text-purple-600">🔍</span>
+                  <FaSearch className="absolute right-3 top-2.5 text-violet-600" />
                 </div>
               </div>
 
@@ -217,7 +218,7 @@ const LeaveApproval = () => {
               rows={4}
               value={modalReason}
               onChange={(e) => setModalReason(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded mb-4 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full p-2 border border-gray-300 rounded mb-4 focus:outline-none focus:ring-2 focus:ring-purple-700"
               placeholder="Enter reason..."
             />
             {error && <div className="text-red-600 mb-2">{error}</div>}
