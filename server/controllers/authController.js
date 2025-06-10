@@ -161,8 +161,12 @@ exports.requestPasswordReset = asyncHandler(async (req, res) => {
   user.resetPasswordExpires = Date.now() + ONE_HOUR;
   await user.save();
 
-  // Send path-param link
-  await emailService.sendPasswordResetEmail(user.email, resetToken, user.companyName);
+  // Send path-param link with companyId instead of companyName
+  await emailService.sendPasswordResetEmail(
+    user.email,
+    resetToken,
+    user.companyId.toString()
+  );
 
   res.json({ message: "Password reset link sent to email." });
 });
@@ -187,9 +191,9 @@ exports.resetPassword = asyncHandler(async (req, res) => {
   }
 
   // Update password & clear reset fields
-  user.password               = await bcrypt.hash(newPassword, 12);
-  user.resetPasswordToken     = undefined;
-  user.resetPasswordExpires   = undefined;
+  user.password             = await bcrypt.hash(newPassword, 12);
+  user.resetPasswordToken   = undefined;
+  user.resetPasswordExpires = undefined;
   await user.save();
 
   // Blacklist old tokens
