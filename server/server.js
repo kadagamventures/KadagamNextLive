@@ -19,11 +19,6 @@ const { errorHandler, notFoundHandler } = require("./middlewares/errorMiddleware
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ─── FAIL FAST ON MISSING SECRETS ─────────────────────────────────────────────
-if (!process.env.SESSION_SECRET) {
-  console.error("FATAL: SESSION_SECRET is not defined");
-  process.exit(1);
-}
 
 // ─── TRUST PROXY (FOR ELB/ALB) ────────────────────────────────────────────────
 app.set("trust proxy", 1);
