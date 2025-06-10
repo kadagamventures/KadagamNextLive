@@ -19,25 +19,44 @@ const { errorHandler, notFoundHandler } = require("./middlewares/errorMiddleware
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-
 // ─── TRUST PROXY (FOR ELB/ALB) ────────────────────────────────────────────────
 app.set("trust proxy", 1);
 
-// ─── ALLOWED ORIGINS ─────────────────────────────────────────────────────────
+// ─── SESSION & PASSPORT ───────────────────────────────────────────────────────
+const isProd = process.env.NODE_ENV === "production";
+
+// Provide a fallback for dev, but throw in production if missing
+const SESSION_SECRET = process.env.SESSION_SECRET
+  || (isProd
+      ? (() => { throw new Error("SESSION_SECRET is required in production"); })()
+      : "dev_secret_change_me");
+
+app.use(session({
+  secret: SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: isProd,      // HTTPS only in prod
+    sameSite: "lax",
+    maxAge: 1000 * 60 * 60, // 1 hour
+  },
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+// ─── ALLOWED ORIGINS & CORS ─────────────────────────────────────────────────
 const CLIENT_URLS = [
   "https://www.kadagamnext.com",
   "https://kadagamnext.com",
   "http://localhost:5173",
-  "https://main.d2tclwkypqhvb0.amplifyapp.com" // ✅ Added Amplify domain
+  "https://main.d2tclwkypqhvb0.amplifyapp.com"
 ];
 
-// ─── DYNAMIC CORS SETUP ───────────────────────────────────────────────────────
 const corsOptions = {
   origin: (incomingOrigin, callback) => {
     if (!incomingOrigin) return callback(null, true);
-    if (CLIENT_URLS.includes(incomingOrigin)) {
-      return callback(null, true);
-    }
+    if (CLIENT_URLS.includes(incomingOrigin)) return callback(null, true);
     return callback(new Error("CORS policy violation"), false);
   },
   credentials: true,
@@ -61,20 +80,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(helmet());
 app.use(morgan("combined"));
-
-// ─── SESSION & PASSPORT ───────────────────────────────────────────────────────
-app.use(session({
-  secret: process.env.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 1000 * 60 * 60 // 1 hour
-  }
-}));
-app.use(passport.initialize());
-app.use(passport.session());
 
 // ─── HEALTH CHECK & ROOT ─────────────────────────────────────────────────────
 app.get("/health", (req, res) => res.status(200).json({ status: "UP" }));
