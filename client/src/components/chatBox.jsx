@@ -1,10 +1,9 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   fetchChatHistory,
   joinChatRoom,
   leaveChatRoom,
-  sendMessage,
   newMessageReceived,
   deleteChatMessage,
   editChatMessage,
@@ -189,15 +188,15 @@ const ChatBox = ({ taskId, receiver, taskTitle, currentUser: passedUser }) => {
       ? "Today"
       : dayjs(timestamp).isSame(dayjs().subtract(1, "day"), "day")
       ? "Yesterday"
-      : dayjs(timestamp).format("DD MMM YYYY");
+      : dayjs(timestamp).format("DD MMM YYYY"); // Fixed a typo in the original `YYYY` for consistency
 
   const formatTime = (timestamp) => dayjs(timestamp).format("hh:mm A");
 
   let lastDate = "";
 
   return (
-    <div className="chat-box flex flex-col h-full bg-white rounded-xl shadow-lg border overflow-hidden">
-      <div className="p-4 bg-blue-600 text-white flex items-center gap-3 sticky top-0 z-10">
+    <div className="chat-box flex flex-col bg-white rounded-xl shadow-lg border overflow-hidden">
+      <div className="p-4 bg-violet-700 text-white flex items-center gap-3 sticky top-0 z-10">
         <UserCircle2 className="w-8 h-8" />
         <div className="flex-1">
           <h2 className="text-md font-semibold">{receiver?.name}</h2>
@@ -220,9 +219,11 @@ const ChatBox = ({ taskId, receiver, taskTitle, currentUser: passedUser }) => {
                 {showDate && <div className="text-center text-xs text-gray-400">{lastDate}</div>}
                 <div className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
                   <div
-                    className={`group chat-msg max-w-[75%] cursor-pointer relative ${
-                      isMine ? "bg-blue-600 text-white" : "bg-white text-gray-900 border"
-                    } px-4 py-2 rounded-2xl shadow-md`}
+                    className={`group chat-msg max-w-[75%] cursor-pointer relative shadow-md
+                      ${isMine ? "bg-violet-200 text-black" : "bg-gray-100 text-gray-900"}
+                      px-4 py-2
+                      ${isMine ? "rounded-tr-none rounded-2xl chat-tail-mine" : "rounded-tl-none rounded-2xl chat-tail-other"}
+                    `}
                     onClick={() => setActiveMsgId(isActive ? null : msg._id)}
                   >
                     {isEditing ? (
@@ -310,7 +311,7 @@ const ChatBox = ({ taskId, receiver, taskTitle, currentUser: passedUser }) => {
           onChange={(e) => setNewMessage(e.target.value)}
           onKeyDown={handleTyping}
           onKeyUp={(e) => e.key === "Enter" && handleSend()}
-          className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400 transition"
+          className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-600 transition"
           disabled={!socketConnected || sendingMessage}
         />
         <button

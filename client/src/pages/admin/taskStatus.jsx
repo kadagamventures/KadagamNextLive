@@ -203,11 +203,11 @@ const DailyStatusDashboard = () => {
               <input
                 type="text"
                 placeholder="Search Staff, Task, or Comment..."
-                className="w-64 px-3 py-2 pr-10 rounded-lg border border-gray-300 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                className="w-64 px-3 py-2 pr-10 rounded-full border border-gray-300 focus:outline-none focus:ring-1 focus:ring-purple-500"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
-              <button className="absolute right-2 top-2 text-purple-600">
+              <button className="absolute right-2 top-2 text-gray-400">
                 <FaSearch className="h-5 w-5" />
               </button>
             </div>

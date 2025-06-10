@@ -35,7 +35,7 @@ const ReportTabs = () => {
   return (
     <div className="pl-64 pr-8 min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       {/* Fixed Report Tabs */}
-      <div className="fixed top-0 left-64 right-8 bg-white shadow-lg z-50 p-5">
+      <div className="fixed top-0 left-64 right-8 bg-gray-50 z-50 p-5">
         <nav className="flex justify-center space-x-6">
           {tabs.map((tab, index) => (
             <NavLink

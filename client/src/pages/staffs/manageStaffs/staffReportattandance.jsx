@@ -1,13 +1,10 @@
 import { useEffect, useState } from "react";
-import { Doughnut, Bar } from "react-chartjs-2";
+import { Bar } from "react-chartjs-2"; // Removed Doughnut as we're using CustomDoughnutChart
 import { tokenRefreshInterceptor as axiosInstance } from "../../../utils/axiosInstance";
 import { motion } from "framer-motion";
 import CountUp from "react-countup";
 import {
   Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend,
   CategoryScale,
   LinearScale,
   BarElement,
@@ -23,11 +20,77 @@ import {
   FaSignOutAlt,
   FaUserSlash,
 } from "react-icons/fa";
+import PropTypes from "prop-types"; // Import PropTypes for the CustomDoughnutChart
+
+
+// --- CustomDoughnutChart Component (Copied from previous tasks) ---
+const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 28, gapDegrees = 2 }) => {
+  const cx = chartSize / 2;
+  const cy = chartSize / 2;
+  const radius = (chartSize / 2) - (strokeThickness / 2);
+
+  const total = data.reduce((sum, d) => sum + (d.value || 0), 0);
+
+  const toRad = (deg) => ((deg - 90) * Math.PI) / 180;
+  const polarToCartesian = (cx, cy, r, deg) => ({
+    x: cx + r * Math.cos(toRad(deg)),
+    y: cy + r * Math.sin(toRad(deg)),
+  });
+
+  const describeArc = (cx, cy, r, start, end) => {
+    const s = polarToCartesian(cx, cy, r, end);
+    const e = polarToCartesian(cx, cy, r, start);
+    const laf = end - start <= 180 ? "0" : "1";
+    return `M${s.x.toFixed(3)} ${s.y.toFixed(3)} A${r.toFixed(3)} ${r.toFixed(3)} 0 ${laf} 0 ${e.x.toFixed(3)} ${e.y.toFixed(3)}`;
+  };
+
+  let angleAcc = 0;
+  const slices = data.map((d, i) => {
+    const val = d.value || 0;
+    let ang = total ? (val / total) * 360 : 0;
+
+    if (ang > 0 && total > 0) {
+      ang = Math.max(0, ang - gapDegrees);
+    }
+
+    const path = describeArc(cx, cy, radius, angleAcc + gapDegrees / 2, angleAcc + ang + gapDegrees / 2);
+
+    angleAcc += (total ? (val / total) * 360 : 0);
+    return { path, color: colors[i % colors.length], label: val, name: d.name };
+  });
+  return (
+    <div className="flex-1 flex items-center justify-center">
+      <svg width={chartSize} height={chartSize} viewBox={`0 0 ${chartSize} ${chartSize}`}>
+        {slices.map((s, i) => (
+          <path
+            key={i}
+            d={s.path}
+            fill="none"
+            stroke={s.color}
+            strokeWidth={strokeThickness}
+            strokeLinecap="round"
+          />
+        ))}
+      </svg>
+    </div>
+  );
+};
+
+CustomDoughnutChart.propTypes = {
+  data: PropTypes.arrayOf(
+    PropTypes.shape({
+      name: PropTypes.string,
+      value: PropTypes.number,
+    })
+  ).isRequired,
+  colors: PropTypes.arrayOf(PropTypes.string).isRequired,
+  chartSize: PropTypes.number,
+  strokeThickness: PropTypes.number,
+  gapDegrees: PropTypes.number,
+};
+// --- END CustomDoughnutChart Component ---
 
 ChartJS.register(
-  ArcElement,
-  Tooltip,
-  Legend,
   CategoryScale,
   LinearScale,
   BarElement,
@@ -82,76 +145,24 @@ const Attendance = () => {
     }
   };
 
-  // Doughnut: Total Staff, Present, Absent
-  const doughnutData = {
-    labels: ["Total Staff", "Present", "Absent"],
-    datasets: [
-      {
-        data: attendanceData
-          ? [
-            attendanceData.totalStaff,
-            attendanceData.presentStaff,
-            attendanceData.absentStaff,
-          ]
-          : [0, 0, 0],
-        backgroundColor: ["#752BdF", "#41B6FF", "#FF0200"],
-        hoverOffset: 4,
-      },
-    ],
-  };
+  // --- Data for CustomDoughnutChart (Updated) ---
+  const customDoughnutData = attendanceData
+    ? [
+      { name: "Total Staff", value: attendanceData.totalStaff },
+      { name: "Present", value: attendanceData.presentStaff },
+      { name: "Absent", value: attendanceData.absentStaff },
+    ]
+    : [
+      { name: "Total Staff", value: 0 },
+      { name: "Present", value: 0 },
+      { name: "Absent", value: 0 },
+    ];
 
-  const doughnutOptions = {
-    cutout: "70%",
-    plugins: {
-      legend: {
-        display: true,
-        position: "right",
-        labels: {
-          usePointStyle: true,
-          pointStyle: "circle",
-          color: "#4B5563",
-          padding: 20,
-          generateLabels: (chart) =>
-            chart.data.labels.map((label, i) => ({
-              text: `${label} - ${chart.data.datasets[0].data[i]}`,
-              fillStyle: chart.data.datasets[0].backgroundColor[i],
-              strokeStyle: chart.data.datasets[0].backgroundColor[i],
-              index: i,
-            })),
-        },
-      },
-      datalabels: {
-        display: true,
-        formatter: (value, ctx) => {
-          const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-          return total ? Math.round((value / total) * 100) + "%" : "";
-        },
-        color: "#111827",
-        font: { size: 18, weight: "bold" },
-        anchor: "center",
-        align: "center",
-      },
-    },
-    maintainAspectRatio: false,
-  }
+  const customDoughnutColors = ["#752BdF", "#41B6FF", "#FF0200"]; // Keeping original colors
 
-
-
-  // Calculate center percentage: largest slice / sum
-  const totalSum = attendanceData
-    ? attendanceData.totalStaff +
-    attendanceData.presentStaff +
-    attendanceData.absentStaff
-    : 0;
-  const maxValue = attendanceData
-    ? Math.max(
-      attendanceData.totalStaff,
-      attendanceData.presentStaff,
-      attendanceData.absentStaff
-    )
-    : 0;
-  const centerPercentage = totalSum
-    ? Math.round((maxValue / totalSum) * 100) + "%"
+  // Calculate center percentage based on the number of present staff out of total staff
+  const centerPercentage = attendanceData && attendanceData.totalStaff > 0
+    ? `${Math.round((attendanceData.presentStaff / attendanceData.totalStaff) * 100)}%`
     : "0%";
 
   // Bar chart: Late Arrivals vs Early Departures
@@ -219,7 +230,7 @@ const Attendance = () => {
       <div className="max-w-7xl mx-auto px-6 py-10">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl items-center font-bold text-gray-900 mb-6 pb-6  font-poppins font-weight-500 size-32px">
+          <h1 className="text-3xl items-center font-bold text-gray-900 mb-6 pb-6  font-poppins font-weight-500 size-32px">
             Attendance Dashboard
           </h1>
           <div className="flex items-center space-x-3">
@@ -228,7 +239,7 @@ const Attendance = () => {
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="border border-gray-300 rounded-lg p-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="border border-gray-300 rounded-full p-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-violet-700"
               max={new Date().toISOString().split("T")[0]}
             />
           </div>
@@ -240,7 +251,7 @@ const Attendance = () => {
 
         {/* Stats Cards */}
         {attendanceData && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 mb-6">
             {stats.map((s, i) => (
               <motion.div
                 key={i}
@@ -263,28 +274,53 @@ const Attendance = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Doughnut */}
           <motion.div
-            className="bg-white p-6 rounded-2xl shadow-lg"
+            className="bg-white p-6 rounded-2xl shadow-lg flex flex-col items-center justify-center relative"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
+            style={{
+              width: '448px',
+              height: '280px',
+              borderRadius: '16.46px',
+            }}
           >
             <h2 className="text-lg font-medium text-gray-700 mb-4">
               Attendance Distribution
             </h2>
-            <div className="relative h-80">
-              <Doughnut data={doughnutData} options={doughnutOptions} />
+            <div className="flex w-full justify-center items-center h-full">
+              <CustomDoughnutChart
+                data={customDoughnutData}
+                colors={customDoughnutColors}
+                chartSize={180} // Adjusted for better fit within the fixed height
+                strokeThickness={28}
+                gapDegrees={3}
+              />
               <div
-                className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
+                className="absolute flex flex-col items-center justify-center pointer-events-none"
                 style={{
-                  top: "50%",
-                  left: "37%",
+                  top: "55%", // Adjusted top for vertical centering
+                  left: "36%", // Adjusted left to compensate for legend
                   transform: "translate(-50%, -50%)",
                   width: "fit-content",
                 }}
               >
-                <span className="text-sm text-gray-500">Higher Rate</span>
+                <span className="text-sm text-gray-500">Present</span>
                 <span className="text-2xl font-bold text-gray-900">
                   {centerPercentage}
                 </span>
+              </div>
+              {/* Legend for CustomDoughnutChart */}
+              <div className="flex-shrink-0 flex flex-col justify-center pl-4 pr-4">
+                <ul className="space-y-2">
+                  {customDoughnutData.map((item, i) => (
+                    <li key={item.name} className="flex items-center text-gray-600 text-sm">
+                      <span
+                        className="w-4 h-4 rounded-sm mr-2"
+                        style={{ backgroundColor: customDoughnutColors[i % customDoughnutColors.length] }}
+                      ></span>
+                      {item.name}: {item.value}
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           </motion.div>
@@ -293,9 +329,14 @@ const Attendance = () => {
           <motion.div
             className="bg-white rounded-2xl p-6 shadow-md"
             whileHover={{ scale: 1.02 }}
+            style={{
+              width: '445px',
+              height: '280px',
+              borderRadius: '14.3px',
+            }}
           >
             <h3 className="text-lg font-medium text-gray-700 mb-4">Late Arrivals And Early Departures</h3>
-            <div className="relative h-80">
+            <div className="relative h-full">
               <Bar data={barData} options={barOptions} />
             </div>
           </motion.div>
@@ -306,7 +347,7 @@ const Attendance = () => {
           <select
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            className="border border-gray-300 rounded-lg p-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="border border-gray-300 rounded-full p-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">Select Month</option>
             {[...Array(12)].map((_, idx) => (
@@ -319,7 +360,7 @@ const Attendance = () => {
           </select>
           <motion.button
             onClick={handleDownloadPDF}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg shadow"
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-full shadow"
             whileHover={{ scale: 1.05 }}
           >
             <FaDownload />

@@ -1,5 +1,5 @@
-// src/pages/Dashboard.jsx
-import React, { useState, useEffect } from "react";
+
+import { useState, useEffect } from "react";
 import {
   FaProjectDiagram,
   FaUsers,
@@ -11,7 +11,7 @@ import NotificationBell from "../../components/notificationBell";
 import { tokenRefreshInterceptor as axiosInstance } from "../../utils/axiosInstance";
 
 import tasksIcon from "../../assets/icons/task-icon.png";
-import boltIcon  from "../../assets/icons/bolt-icon.png";
+import boltIcon from "../../assets/icons/bolt-icon.png";
 
 const Dashboard = () => {
   const [overviewData, setOverviewData] = useState([]);
@@ -30,11 +30,11 @@ const Dashboard = () => {
       const ch = chRes.data.data;
 
       setOverviewData([
-        { name: "Total Project",   value: ov.totalProjects },
-        { name: "Total Staff",     value: ov.totalStaff },
-        { name: "Total Tasks",     value: ov.totalTasks },
-        { name: "Ongoing Task",    value: ov.ongoingTasks },
-        { name: "Completed Task",  value: ov.completedTasks },
+        { name: "Total Project", value: ov.totalProjects },
+        { name: "Total Staff", value: ov.totalStaff },
+        { name: "Total Tasks", value: ov.totalTasks },
+        { name: "Ongoing Task", value: ov.ongoingTasks },
+        { name: "Completed Task", value: ov.completedTasks },
       ]);
 
       setTaskChartData([
@@ -187,7 +187,7 @@ const TaskDistributionDonut = ({ data }) => {
     const val = d.value || 0;
     const ang = total ? (val / total) * 360 : 0;
     const path = describeArc(cx, cy, radius, angleAcc, angleAcc + ang);
-    const mid  = polarToCartesian(cx, cy, radius, angleAcc + ang / 2);
+    const mid = polarToCartesian(cx, cy, radius, angleAcc + ang / 2);
     angleAcc += ang;
     return { path, color: COLORS[i], label: val, x: mid.x, y: mid.y, name: d.name };
   });
@@ -240,8 +240,8 @@ const TaskDistributionDonut = ({ data }) => {
 // OverviewDonut (increased size)
 const OverviewDonut = ({ data }) => {
   const COLORS = ["#29B6F6", "#AB47BC", "#FF4081", "#FF9800", "#4CAF50"];
-  const labels = ["Total Project","Total Staff","Total Tasks","Ongoing Task","Completed Task"];
-  const total  = data.reduce((sum, d) => sum + (d.value || 0), 0);
+  const labels = ["Total Project", "Total Staff", "Total Tasks", "Ongoing Task", "Completed Task"];
+  const total = data.reduce((sum, d) => sum + (d.value || 0), 0);
 
   // Increased dimensions
   const size = 240, cx = 120, cy = 120, radius = 100, strokeWidth = 24;
@@ -262,7 +262,7 @@ const OverviewDonut = ({ data }) => {
     const val = d.value || 0;
     const ang = total ? (val / total) * 360 : 0;
     const path = describeArc(cx, cy, radius, acc, acc + ang);
-    const mid  = polarToCartesian(cx, cy, radius, acc + ang / 2);
+    const mid = polarToCartesian(cx, cy, radius, acc + ang / 2);
     acc += ang;
     return { path, color: COLORS[i], label: val, x: mid.x, y: mid.y, name: labels[i] };
   });

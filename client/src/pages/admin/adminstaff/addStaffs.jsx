@@ -13,10 +13,10 @@ const API_BASE_URL =
 
 // Permission options with matching display labels
 const permissionOptions = [
-  "All Permission", 
-  "manage_project",  
-  "manage_task",     
-  "manage_staff",    
+  "All Permission",
+  "manage_project",
+  "manage_task",
+  "manage_staff",
   "No Permission",
 ];
 
@@ -77,7 +77,7 @@ const StaffForm = () => {
         phone: selectedStaff.phone || "",
         salary: selectedStaff.salary || "",
         role: selectedStaff.role || "",
-        assignedTeam: selectedStaff.team|| "",
+        assignedTeam: selectedStaff.team || "",
         assignedProjects: selectedStaff.assignedProjects?.map(p => p._id) || [],
         permissions: selectedStaff.permissions || [],
         profilePic: selectedStaff.profilePic || null,
@@ -87,7 +87,7 @@ const StaffForm = () => {
       setStaffIdValid(true);
     }
   }, [isEditMode, id, selectedStaff]);
-  
+
 
   // Debounced staff ID validation
   const validateStaffId = useCallback(
@@ -151,34 +151,34 @@ const StaffForm = () => {
   };
 
   // Delete file handler
- // Add this helper inside StaffForm component
-const handleDeleteFile = async (fieldName) => {
-  try {
-    // Only attempt server delete if the current field is a URL string (already uploaded)
-    if (typeof newStaff[fieldName] === "string" && newStaff[fieldName].startsWith("http")) {
-      const url = new URL(newStaff[fieldName]);
-      const fileKey = url.pathname.substring(1); // remove leading slash
+  // Add this helper inside StaffForm component
+  const handleDeleteFile = async (fieldName) => {
+    try {
+      // Only attempt server delete if the current field is a URL string (already uploaded)
+      if (typeof newStaff[fieldName] === "string" && newStaff[fieldName].startsWith("http")) {
+        const url = new URL(newStaff[fieldName]);
+        const fileKey = url.pathname.substring(1); // remove leading slash
 
-      // Call backend to delete file by key
-      await axiosInstance.post("/admin/staff/file/delete", { fileKey });
+        // Call backend to delete file by key
+        await axiosInstance.post("/admin/staff/file/delete", { fileKey });
+      }
+      // Clear file locally
+      setNewStaff((prev) => ({ ...prev, [fieldName]: null }));
+
+      // Reset file input to allow re-upload
+      if (fieldName === "profilePic") setProfilePicKey(Date.now());
+      else if (fieldName === "resume") setResumeKey(Date.now());
+    } catch (err) {
+      console.error("Failed to delete file:", err);
+      alert("Failed to delete file on server.");
     }
-    // Clear file locally
-    setNewStaff((prev) => ({ ...prev, [fieldName]: null }));
-
-    // Reset file input to allow re-upload
-    if (fieldName === "profilePic") setProfilePicKey(Date.now());
-    else if (fieldName === "resume") setResumeKey(Date.now());
-  } catch (err) {
-    console.error("Failed to delete file:", err);
-    alert("Failed to delete file on server.");
-  }
-};
+  };
 
 
   const handleAddOrUpdateStaff = async () => {
     if (!newStaff.name.trim() || !newStaff.email.trim()) return;
     if (!newStaff.staffId.trim() || staffIdValid === false) return;
-  
+
     const formData = new FormData();
     formData.append("name", newStaff.name);
     formData.append("email", newStaff.email);
@@ -189,32 +189,32 @@ const handleDeleteFile = async (fieldName) => {
     formData.append("staffId", newStaff.staffId);
     formData.append("assignedProjects", JSON.stringify(newStaff.assignedProjects));
     formData.append("permissions", JSON.stringify(newStaff.permissions));
-  
+
     if (newStaff.profilePic instanceof File) {
       formData.append("profilePic", newStaff.profilePic);
     } else if (typeof newStaff.profilePic === "string") {
       formData.append("profilePic", newStaff.profilePic);
     }
-  
+
     if (newStaff.resume instanceof File) {
       formData.append("resume", newStaff.resume);
     } else if (typeof newStaff.resume === "string") {
       formData.append("resume", newStaff.resume);
     }
-  
+
     try {
       const resultAction = await dispatch(
         isEditMode
           ? updateStaff({ id: newStaff._id || id, formData })
           : addStaff(formData)
       );
-  
+
       if (resultAction.meta.requestStatus === "fulfilled") {
         const message = isEditMode
           ? "Staff updated successfully!"
           : "Staff created successfully! The temporary password has been sent to the staff's email.";
         setSuccessMessage(message);
-  
+
         // Delay briefly to show success message before navigation (optional)
         setTimeout(() => {
           navigate("/admin/staffs/list");
@@ -224,8 +224,8 @@ const handleDeleteFile = async (fieldName) => {
       console.error("❌ Error saving staff:", error);
     }
   };
-  
-  
+
+
 
   // Open modal to preview full image
   const openImageModal = (imgSrc) => {
@@ -252,13 +252,14 @@ const handleDeleteFile = async (fieldName) => {
         <div className="flex items-center gap-3 mt-4 md:mt-0">
           <button
             onClick={() => navigate("/admin/staffs/list")}
-            className="px-6 py-3 bg-white text-gray-900 border font-semibold border-gray-300 rounded-full shadow hover:text-red-500 transition duration-300 ease-in-out transform hover:scale-105"
+            className="px-6 py-3 bg-white text-gray-900 border font-semibold border-gray-300 rounded-full shadow hover:bg-red-100 "
           >
             Cancel
           </button>
           <button
             onClick={handleAddOrUpdateStaff}
-            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-700 text-white font-semibold rounded-full shadow-lg hover:shadow-xl transition duration-300 ease-in-out transform hover:scale-105"
+            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-700 text-white font-semibold rounded-full shadow-lg 
+             hover:from-blue-600 hover:to-blue-800 "
           >
             {isEditMode ? "Update Staff" : "Add Staff"}
           </button>
@@ -287,7 +288,7 @@ const handleDeleteFile = async (fieldName) => {
                 value={newStaff.name}
                 onChange={handleInputChange}
                 placeholder="Enter Staff Name"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-violet-700 hover:border-violet-500 focus:outline-none"
               />
             </div>
             <div>
@@ -298,7 +299,7 @@ const handleDeleteFile = async (fieldName) => {
                 value={newStaff.email}
                 onChange={handleInputChange}
                 placeholder="Enter Staff Email"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-violet-700 hover:border-violet-500 focus:outline-none"
               />
             </div>
             <div>
@@ -309,7 +310,7 @@ const handleDeleteFile = async (fieldName) => {
                 value={newStaff.phone}
                 onChange={handleInputChange}
                 placeholder="Enter Phone Number"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-violet-700 hover:border-violet-500 focus:outline-none"
               />
             </div>
             <div>
@@ -320,7 +321,7 @@ const handleDeleteFile = async (fieldName) => {
                 value={newStaff.salary}
                 onChange={handleInputChange}
                 placeholder="Enter Employee Salary"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-violet-700 hover:border-violet-500 focus:outline-none"
               />
             </div>
           </div>
@@ -338,7 +339,7 @@ const handleDeleteFile = async (fieldName) => {
                 value={newStaff.role}
                 onChange={handleInputChange}
                 placeholder="Enter Role"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-violet-700 hover:border-violet-500 focus:outline-none"
               />
             </div>
             <div>
@@ -349,7 +350,7 @@ const handleDeleteFile = async (fieldName) => {
                 value={newStaff.assignedTeam}
                 onChange={handleInputChange}
                 placeholder="Enter Team"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-violet-700 hover:border-violet-500 focus:outline-none"
               />
             </div>
             <div>
@@ -392,7 +393,7 @@ const handleDeleteFile = async (fieldName) => {
                   multiValueRemove: (base) => ({
                     ...base,
                     color: "white",
-                    ":hover": { backgroundColor: "#2563EB" },
+                    ":hover": { backgroundColor: "#752BDF" },
                   }),
                 }}
               />
@@ -405,7 +406,7 @@ const handleDeleteFile = async (fieldName) => {
                 value={newStaff.staffId}
                 onChange={handleInputChange}
                 placeholder="Enter Staff ID"
-                className={`w-full px-4 py-2 border rounded-md focus:ring-blue-500 ${staffIdValid === false ? "border-red-500" : "border-gray-300"
+                className={`w-full px-4 py-2 border rounded-md focus:ring-violet-700 hover:border-violet-500 focus:outline-none ${staffIdValid === false ? "border-red-500" : "border-gray-300"
                   }`}
               />
               {staffIdValid === false && suggestedStaffId && (
@@ -432,94 +433,94 @@ const handleDeleteFile = async (fieldName) => {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-800 pb-2">Documents</h3>
               {/* Profile Picture Upload */}
-<div>
-  <label className="block text-sm text-gray-500 mb-1">
-    Profile Picture (Optional)
-  </label>
-  <input
-    key={profilePicKey}
-    type="file"
-    name="profilePic"
-    onChange={handleInputChange}
-    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500"
-  />
-  {newStaff.profilePic && (
-    <div className="mt-2 flex items-center gap-2">
-      <span className="text-sm text-gray-600 truncate max-w-[140px]" title={
-        newStaff.profilePic instanceof File
-          ? newStaff.profilePic.name
-          : newStaff.profilePic
-      }>
-        {newStaff.profilePic instanceof File
-          ? newStaff.profilePic.name
-          : newStaff.profilePic.split("/").pop()}
-      </span>
-      <button
-        onClick={() =>
-          openImageModal(
-            newStaff.profilePic instanceof File
-              ? newStaff.profilePic.preview
-              : newStaff.profilePic
-          )
-        }
-        className="p-1 bg-white rounded-full"
-      >
-        <FaEye className="w-4 h-4 text-blue-600" />
-      </button>
-      <button
-        onClick={() => handleDeleteFile("profilePic")}
-        className="p-1 bg-white rounded-full"
-      >
-        <FaTrashAlt className="w-4 h-4 text-red-600" />
-      </button>
-    </div>
-  )}
-</div>
+              <div>
+                <label className="block text-sm text-gray-500 mb-1">
+                  Profile Picture (Optional)
+                </label>
+                <input
+                  key={profilePicKey}
+                  type="file"
+                  name="profilePic"
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-violet-700 hover:border-violet-500 focus:outline-none"
+                />
+                {newStaff.profilePic && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-sm text-gray-600 truncate max-w-[140px]" title={
+                      newStaff.profilePic instanceof File
+                        ? newStaff.profilePic.name
+                        : newStaff.profilePic
+                    }>
+                      {newStaff.profilePic instanceof File
+                        ? newStaff.profilePic.name
+                        : newStaff.profilePic.split("/").pop()}
+                    </span>
+                    <button
+                      onClick={() =>
+                        openImageModal(
+                          newStaff.profilePic instanceof File
+                            ? newStaff.profilePic.preview
+                            : newStaff.profilePic
+                        )
+                      }
+                      className="p-1 bg-white rounded-full"
+                    >
+                      <FaEye className="w-4 h-4 text-blue-600" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteFile("profilePic")}
+                      className="p-1 bg-white rounded-full"
+                    >
+                      <FaTrashAlt className="w-4 h-4 text-red-600" />
+                    </button>
+                  </div>
+                )}
+              </div>
 
-{/* ✅ Resume Section */}
-<div>
-  <label className="block text-sm text-gray-500 mb-1">
-    Resume (Optional)
-  </label>
-  <input
-    key={resumeKey}
-    type="file"
-    name="resume"
-    onChange={handleInputChange}
-    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500"
-  />
-  {newStaff.resume && (
-    <div className="mt-2 flex items-center gap-2">
-      <span
-        className="text-sm text-gray-600 truncate max-w-[140px]"
-        title={newStaff.resume instanceof File ? newStaff.resume.name : newStaff.resume}
-      >
-        {newStaff.resume instanceof File
-          ? newStaff.resume.name
-          : newStaff.resume.split("/").pop()}
-      </span>
-      <button
-        onClick={() =>
-          window.open(
-            newStaff.resume instanceof File
-              ? newStaff.resume.preview || URL.createObjectURL(newStaff.resume)
-              : newStaff.resume,
-            "_blank"
-          )
-        }
-        className="p-1 bg-white rounded-full"
-      >
-        <FaEye className="w-4 h-4 text-blue-600" />
-      </button>
-      <button
-        onClick={() => handleDeleteFile("resume")}
-        className="p-1 bg-white rounded-full"
-      >
-        <FaTrashAlt className="w-4 h-4 text-red-600" />
-      </button>
-    </div>
-  )}
-</div>
+              {/* ✅ Resume Section */}
+              <div>
+                <label className="block text-sm text-gray-500 mb-1">
+                  Resume (Optional)
+                </label>
+                <input
+                  key={resumeKey}
+                  type="file"
+                  name="resume"
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-violet-700 hover:border-violet-500 focus:outline-none"
+                />
+                {newStaff.resume && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span
+                      className="text-sm text-gray-600 truncate max-w-[140px]"
+                      title={newStaff.resume instanceof File ? newStaff.resume.name : newStaff.resume}
+                    >
+                      {newStaff.resume instanceof File
+                        ? newStaff.resume.name
+                        : newStaff.resume.split("/").pop()}
+                    </span>
+                    <button
+                      onClick={() =>
+                        window.open(
+                          newStaff.resume instanceof File
+                            ? newStaff.resume.preview || URL.createObjectURL(newStaff.resume)
+                            : newStaff.resume,
+                          "_blank"
+                        )
+                      }
+                      className="p-1 bg-white rounded-full"
+                    >
+                      <FaEye className="w-4 h-4 text-blue-600" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteFile("resume")}
+                      className="p-1 bg-white rounded-full"
+                    >
+                      <FaTrashAlt className="w-4 h-4 text-red-600" />
+                    </button>
+                  </div>
+                )}
+              </div>
 
             </div>
             {/* Permissions Section */}

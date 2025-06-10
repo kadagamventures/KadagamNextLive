@@ -199,8 +199,8 @@ const StaffDashboard = () => {
               task.priority === "High"
                 ? "text-red-600"
                 : task.priority === "Medium"
-                ? "text-yellow-500"
-                : "text-green-600"
+                  ? "text-yellow-500"
+                  : "text-green-600"
             }
           >
             {task.priority}
@@ -301,7 +301,7 @@ const StaffDashboard = () => {
 
       {/* Review Modal */}
       {reviewModal.open && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+        <div className="fixed inset-0 backdrop-blur-sm bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-md text-center space-y-4">
             <h2 className="text-xl font-bold text-gray-800">Move to Review</h2>
             <p className="text-gray-600 text-sm">
@@ -481,7 +481,7 @@ const StaffDashboard = () => {
                 </label>
                 <textarea
                   rows={4}
-                  className="w-full p-3 border rounded-lg text-sm resize-none"
+                  className="w-full p-3 border rounded-lg text-sm resize-none border-violet-700 hover:border-violet-700 focus:outline-none focus:ring-1 focus:ring-violet-700"
                   placeholder="Enter your update..."
                   value={dailyModal.comment}
                   onChange={(e) =>
@@ -492,13 +492,13 @@ const StaffDashboard = () => {
 
               <div className="flex justify-end mt-4 gap-2">
                 <button
-                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-sm font-medium rounded-lg"
+                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-sm font-medium rounded-full"
                   onClick={() => setDailyModal((m) => ({ ...m, open: false }))}
                 >
                   Cancel
                 </button>
                 <button
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg"
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-full"
                   onClick={async () => {
                     const { task, comment, file } = dailyModal;
                     if (!comment && !file) {

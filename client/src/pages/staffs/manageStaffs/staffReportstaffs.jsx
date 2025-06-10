@@ -1,21 +1,19 @@
 import { useState, useEffect } from "react";
-import { Doughnut, Bar } from "react-chartjs-2";
+import { Bar } from "react-chartjs-2"; // Removed Doughnut import as we're using CustomDoughnutChart
 import { tokenRefreshInterceptor as axiosInstance } from "../../../utils/axiosInstance"; // Secure API requests
 import { motion } from "framer-motion";
 import CountUp from "react-countup";
 import {
   Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend,
   CategoryScale,
   LinearScale,
   BarElement,
   Title,
+  Tooltip, // Keep Tooltip and Legend for Bar chart if needed
+  Legend,
 } from "chart.js";
 import {
   FaUsers,
-
   FaCalendarAlt,
   FaClipboardCheck,
   FaClock,
@@ -23,16 +21,83 @@ import {
   FaStar,
   FaDownload
 } from "react-icons/fa";
+import PropTypes from "prop-types"; // Import PropTypes for CustomDoughnutChart
+
+// --- CustomDoughnutChart Component (Re-added here for completeness) ---
+const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 28, gapDegrees = 2 }) => {
+  const cx = chartSize / 2;
+  const cy = chartSize / 2;
+  const radius = (chartSize / 2) - (strokeThickness / 2);
+
+  const total = data.reduce((sum, d) => sum + (d.value || 0), 0);
+
+  const toRad = (deg) => ((deg - 90) * Math.PI) / 180;
+  const polarToCartesian = (cx, cy, r, deg) => ({
+    x: cx + r * Math.cos(toRad(deg)),
+    y: cy + r * Math.sin(toRad(deg)),
+  });
+
+  const describeArc = (cx, cy, r, start, end) => {
+    const s = polarToCartesian(cx, cy, r, end);
+    const e = polarToCartesian(cx, cy, r, start);
+    const laf = end - start <= 180 ? "0" : "1";
+    return `M${s.x.toFixed(3)} ${s.y.toFixed(3)} A${r.toFixed(3)} ${r.toFixed(3)} 0 ${laf} 0 ${e.x.toFixed(3)} ${e.y.toFixed(3)}`;
+  };
+
+  let angleAcc = 0;
+  const slices = data.map((d, i) => {
+    const val = d.value || 0;
+    let ang = total ? (val / total) * 360 : 0;
+
+    if (ang > 0 && total > 0) {
+      ang = Math.max(0, ang - gapDegrees);
+    }
+
+    const path = describeArc(cx, cy, radius, angleAcc + gapDegrees / 2, angleAcc + ang + gapDegrees / 2);
+
+    angleAcc += (total ? (val / total) * 360 : 0);
+    return { path, color: colors[i % colors.length], label: val, name: d.name };
+  });
+  return (
+    <div className="flex-1 flex items-center justify-center">
+      <svg width={chartSize} height={chartSize} viewBox={`0 0 ${chartSize} ${chartSize}`}>
+        {slices.map((s, i) => (
+          <path
+            key={i}
+            d={s.path}
+            fill="none"
+            stroke={s.color}
+            strokeWidth={strokeThickness}
+            strokeLinecap="round"
+          />
+        ))}
+      </svg>
+    </div>
+  );
+};
+
+CustomDoughnutChart.propTypes = {
+  data: PropTypes.arrayOf(
+    PropTypes.shape({
+      name: PropTypes.string,
+      value: PropTypes.number,
+    })
+  ).isRequired,
+  colors: PropTypes.arrayOf(PropTypes.string).isRequired,
+  chartSize: PropTypes.number,
+  strokeThickness: PropTypes.number,
+  gapDegrees: PropTypes.number,
+};
+// --- END CustomDoughnutChart Component ---
 
 // Register Chart.js components
 ChartJS.register(
-  ArcElement,
-  Tooltip,
-  Legend,
   CategoryScale,
   LinearScale,
   BarElement,
-  Title
+  Title,
+  Tooltip,
+  Legend // Keep Tooltip and Legend for Bar chart
 );
 
 const StaffReports = () => {
@@ -70,53 +135,19 @@ const StaffReports = () => {
     topPerformer = null,
   } = overallData || {};
 
-  // Staff report doughnut chart
-  const taskCompletionData = {
-    labels: ["Total Staff", "Task Completion", "Success Rate"],
-    datasets: [
-      {
-        data: [
-          totalStaff,
-          parseFloat(taskCompletionRate),
-          parseFloat(successRate),
-        ],
-        backgroundColor: ["#752BdF", "#41B6FF", "#FF0200"],
-        hoverOffset: 4,
-      },
-    ],
-  };
+  // Staff report doughnut chart data for CustomDoughnutChart
+  const customDoughnutData = [
+    { name: "Task Completion", value: parseFloat(taskCompletionRate) },
+    { name: "Success Rate", value: parseFloat(successRate) },
+    // Removed "Total Staff" as it might not be a percentage for the custom chart
+    // If you need total staff represented, consider if it should be a slice
+    // or if the chart should only represent percentages.
+  ];
 
-  const doughnutOptions = {
-    cutout: "70%",
-    plugins: {
-      legend: {
-        display: true,
-        position: "right",
-        labels: {
-          usePointStyle: true,
-          pointStyle: "circle",
-          color: "#4B5563",
-          padding: 20,
-          generateLabels: (chart) =>
-            chart.data.labels.map((label, i) => ({
-              text: `${label} - ${chart.data.datasets[0].data[i]}`,
-              fillStyle: chart.data.datasets[0].backgroundColor[i],
-              strokeStyle: chart.data.datasets[0].backgroundColor[i],
-              index: i,
-            })),
-        },
-      },
-    },
-    maintainAspectRatio: false,
-  };
+  const customDoughnutColors = ["#41B6FF", "#FF0200"]; // Colors for Task Completion, Success Rate
 
-  // Calculate center percentage for largest slice
-  const maxValue = Math.max(
-    totalStaff,
-    parseFloat(taskCompletionRate),
-    parseFloat(successRate)
-  );
-  const centerPercentage = maxValue ? Math.round(maxValue) + "%" : "0%";
+  // Calculate center percentage for the doughnut chart (e.g., Task Completion)
+  const centerPercentage = parseFloat(taskCompletionRate) ? `${parseFloat(taskCompletionRate).toFixed(0)}%` : "0%";
 
   // Attendance bar chart
   const attendanceData = {
@@ -142,6 +173,7 @@ const StaffReports = () => {
       }
     },
     plugins: { legend: { display: false } },
+    maintainAspectRatio: false, // Ensure this is false for fixed height
   };
 
   // Stats cards
@@ -212,7 +244,7 @@ const StaffReports = () => {
           <h1 className="text-3xl font-bold text-gray-900 mb-6 pb-6 font-poppins">
             Staff Reports
           </h1>
-
+          {/* Removed select and download button from here */}
         </div>
 
         {/* Stats Cards */}
@@ -245,22 +277,33 @@ const StaffReports = () => {
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Staff Report Chart */}
+          {/* Staff Report Chart - CustomDoughnutChart */}
           <motion.div
-            className="bg-white p-6 rounded-2xl shadow-lg"
+            className="bg-white p-6 rounded-2xl shadow-lg flex flex-col items-center justify-center relative"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
+            style={{
+              width: '448px',
+              height: '280px',
+              borderRadius: '16.46px',
+            }}
           >
             <h2 className="text-lg font-medium text-gray-700 mb-4">
-              Staff Report
+              Staff Performance Overview
             </h2>
-            <div className="relative h-80">
-              <Doughnut data={taskCompletionData} options={doughnutOptions} />
+            <div className="flex w-full justify-center items-center h-full">
+              <CustomDoughnutChart
+                data={customDoughnutData}
+                colors={customDoughnutColors}
+                chartSize={180} // Adjusted size for better fit
+                strokeThickness={28}
+                gapDegrees={3}
+              />
               <div
-                className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
+                className="absolute flex flex-col items-center justify-center pointer-events-none"
                 style={{
-                  top: "50%",
-                  left: "30%",
+                  top: "59%", // Adjusted top for vertical centering
+                  left: "27%", // Adjusted left to compensate for legend
                   transform: "translate(-50%, -50%)",
                   width: "fit-content",
                 }}
@@ -270,42 +313,62 @@ const StaffReports = () => {
                   {centerPercentage}
                 </span>
               </div>
+              {/* Manual Legend for CustomDoughnutChart */}
+              <div className="flex-shrink-0 flex flex-col justify-center pl-4 pr-4">
+                <ul className="space-y-2">
+                  {customDoughnutData.map((item, i) => (
+                    <li key={item.name} className="flex items-center text-gray-600 text-sm">
+                      <span
+                        className="w-4 h-4 rounded-sm mr-2"
+                        style={{ backgroundColor: customDoughnutColors[i % customDoughnutColors.length] }}
+                      ></span>
+                      {item.name}: {item.value.toFixed(2)}%
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </motion.div>
 
           {/* Attendance Chart */}
           <motion.div
-            className="bg-white rounded-2xl p-6 shadow-md"
+            className="bg-white rounded-2xl p-6 pb-11 shadow-md"
             whileHover={{ scale: 1.02 }}
+            style={{
+              width: '445px',
+              height: '280px',
+              borderRadius: '14.3px',
+            }}
           >
             <h3 className="text-lg font-medium text-gray-700 mb-4">Attendance Overview</h3>
-            <div className="relative h-80">
+            <div className="relative h-full">
               <Bar data={attendanceData} options={barOptions} />
             </div>
           </motion.div>
+        </div>
 
-          <div className="flex justify-end items-center space-x-4">
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="border border-gray-300 rounded-lg p-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="">Select Month</option>
-              {Array.from({ length: 12 }, (_, i) => (
-                <option key={i + 1} value={i + 1}>
-                  {new Date(0, i).toLocaleString("default", { month: "long" })}
-                </option>
-              ))}
-            </select>
-            <motion.button
-              onClick={handleDownloadPDF}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg shadow"
-              whileHover={{ scale: 1.05 }}
-            >
-              <FaDownload />
-              Download PDF
-            </motion.button>
-          </div>
+        {/* Moved Month Selection and Download Button here */}
+        <div className="flex justify-end items-center space-x-4 mt-8"> {/* Added mt-8 for spacing */}
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="border border-gray-300 rounded-full p-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">Select Month</option>
+            {Array.from({ length: 12 }, (_, i) => (
+              <option key={i + 1} value={i + 1}>
+                {new Date(0, i).toLocaleString("default", { month: "long" })}
+              </option>
+            ))}
+          </select>
+          <motion.button
+            onClick={handleDownloadPDF}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-full shadow"
+            whileHover={{ scale: 1.05 }}
+          >
+            <FaDownload />
+            Download PDF
+          </motion.button>
         </div>
       </div>
     </div>

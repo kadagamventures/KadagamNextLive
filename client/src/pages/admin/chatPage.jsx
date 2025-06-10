@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   fetchChatHistory,
@@ -151,36 +151,42 @@ const ChatPage = () => {
   };
 
   return (
-    <div className="ml-64 flex h-[calc(100vh-4rem)] bg-gradient-to-br from-gray-100 to-blue-100">
-      <aside className="w-[28%] bg-white p-6 border-r border-gray-200 shadow-xl overflow-y-auto">
+    <div className="ml-64 flex h-[calc(105vh-4rem)] bg-gradient-to-br from-gray-100 to-blue-100">
+      <aside className="w-[28%] h-[100%] bg-white p-6 border-r border-gray-200 shadow-xl overflow-y-auto">
         <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-          <MessageSquareText className="w-6 h-6 text-blue-500" />
+          {/* <MessageSquareText className="w-6 h-6 text-blue-500" /> */}
           {activeTab === "taskChats" ? "Task Conversations" : "Chat Rooms"}
         </h2>
 
         <div className="flex gap-2 mb-4">
           <button
             onClick={() => navigate("/admin/chat?tab=taskChats")}
-            className={`px-4 py-2 rounded-md text-sm font-semibold ${
-              activeTab === "taskChats" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"
-            }`}
-          >
+            className={`px-4 py-2 rounded-full text-sm font-semibold w-[110px] 
+      ${activeTab === "taskChats"
+                ? "bg-violet-700 text-white border-none"
+                : "bg-gray-100 text-black border-[1.5px] border-black"
+              }`}>
             Task Chats
           </button>
+
           <button
             onClick={() => navigate("/admin/chat?tab=chatRooms")}
-            className={`px-4 py-2 rounded-md text-sm font-semibold ${
-              activeTab === "chatRooms" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"
-            }`}
-          >
+            className={`px-4 py-2 rounded-full text-sm font-semibold w-[125px] 
+      ${activeTab === "chatRooms"
+                ? "bg-violet-700 text-white border-none"
+                : "bg-white text-black border-[1.5px] border-black"
+              }`}>
             Group Rooms
           </button>
         </div>
 
+
         {activeTab === "chatRooms" && (
           <button
             onClick={() => navigate("/admin/chat/create-room")}
-            className="mb-4 flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-medium"
+            className={`mb-4 flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-full w-[190px] 
+      bg-white text-black border-[1.5px] border-black 
+      hover:bg-violet-700 hover:text-white hover:border-none transition-all duration-200`}
           >
             <PlusCircle className="w-5 h-5" />
             Create Chat Room
@@ -202,11 +208,10 @@ const ChatPage = () => {
                     layout
                     key={task._id}
                     onClick={() => handleTaskClick(task)}
-                    className={`p-4 rounded-xl border cursor-pointer transition-all duration-300 ${
-                      isSelected
-                        ? "bg-blue-50 border-blue-500 shadow-md ring-2 ring-blue-400"
-                        : "bg-white border-gray-200 hover:bg-gray-50"
-                    }`}
+                    className={`p-4 rounded-xl border cursor-pointer transition-all duration-300 ${isSelected
+                      ? "bg-blue-50 border-purple-700 shadow-md ring-0.5 ring-purple-700"
+                      : "bg-white border-gray-200 hover:bg-gray-50"
+                      }`}
                   >
                     <div className="font-semibold text-base">{task.title}</div>
                     <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
@@ -233,9 +238,8 @@ const ChatPage = () => {
                 layout
                 key={room._id}
                 onClick={() => handleRoomClick(room)}
-                className={`p-4 border rounded-xl bg-white hover:bg-gray-50 cursor-pointer transition ${
-                  selectedRoom?._id === room._id ? "border-blue-500 ring-2 ring-blue-400" : "border-gray-200"
-                }`}
+                className={`p-4 border rounded-xl bg-white hover:bg-gray-50 cursor-pointer transition ${selectedRoom?._id === room._id ? "border-violet-700 ring-0.5 ring-violet-700" : "border-gray-200"
+                  }`}
               >
                 <h3 className="font-semibold text-gray-800">{room.roomName}</h3>
                 <p className="text-sm text-gray-500">{room.lastMessage || "No recent messages"}</p>

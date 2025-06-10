@@ -1,4 +1,3 @@
-
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -34,7 +33,7 @@ const StaffChatLandingPage = () => {
       },
     }),
     tap: { scale: 0.97 },
-    hover: { scale: 1.03 },
+    // Removed 'hover' property from buttonVariants
   };
 
   const chatOptions = [
@@ -43,25 +42,31 @@ const StaffChatLandingPage = () => {
       icon: <UserCog className="w-6 h-6" />,
       to: "/staff/chat/permissioned-manager",
       gradient: "from-blue-600 to-indigo-700",
+      hoverGradient: "hover:from-blue-700 hover:to-indigo-800", // Added new prop for hover effect
     },
     {
       label: "Chats Assigned to Me",
       icon: <UserCircle2 className="w-6 h-6" />,
       to: "/staff/chat/permissioned-staff",
       gradient: "from-purple-500 to-pink-600",
+      hoverGradient: "hover:from-purple-600 hover:to-pink-700", // Added new prop for hover effect
     },
-    
   ];
 
   return (
-    <div className="animated-gradient w-full h-screen flex items-center justify-center pl-50">
+    <div className=" w-full h-screen flex items-center justify-center pl-50">
       <motion.div
         variants={containerVariants}
         initial="hidden"
         animate="visible"
         className="w-full max-w-xl bg-white/80 backdrop-blur-md shadow-2xl rounded-3xl p-10 text-center space-y-6"
       >
-        <h1 className="text-4xl font-extrabold text-gray-900">Chat Hub</h1>
+        <h1 className="text-4xl font-extrabold text-gray-900"
+          style={{
+            fontFamily: "poppins !important",
+            fontWeight: "600",
+            fontSize: "38px",
+          }}>Chat Assignment</h1>
         <p className="text-gray-700">
           Choose how you’d like to connect and stay on top of your tasks!
         </p>
@@ -74,10 +79,10 @@ const StaffChatLandingPage = () => {
               initial="initial"
               animate="animate"
               whileTap="tap"
-              whileHover="hover"
+              // Removed whileHover="hover"
               variants={buttonVariants}
               onClick={() => handleGoToPage(btn.to)}
-              className={`w-full flex items-center justify-center gap-3 py-3 px-6 rounded-xl text-lg font-semibold text-white bg-gradient-to-r ${btn.gradient} transition-shadow`}
+              className={`w-full flex items-center justify-center gap-3 py-3 px-6 rounded-xl text-lg font-semibold text-white bg-gradient-to-r ${btn.gradient} ${btn.hoverGradient} transition-colors duration-300`} // Added btn.hoverGradient and transition
             >
               {btn.icon}
               {btn.label}

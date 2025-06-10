@@ -8,7 +8,7 @@ import {
   initializeChatSocketThunk,
 } from "../../../redux/slices/chatSlice";
 import { tokenRefreshInterceptor as axiosInstance } from "../../../utils/axiosInstance";
-import ChatBox from "../../../components/chatBox";
+import ChatBox from "../../../components/chatBox"; // This is the component we'll update
 import { MessageSquareText, UserCircle2, AlertCircle } from "lucide-react";
 
 const PermissionedStaffChatPage = () => {
@@ -93,9 +93,11 @@ const PermissionedStaffChatPage = () => {
   );
 
   return (
-    <div className="ml-64 flex h-[calc(100vh-4rem)] bg-gray-100">
+    // Set a fixed height for the entire chat container
+    // This is the main container that dictates the overall height
+    <div className="ml-64 flex h-[620px] bg-gray-100">
       {/* Sidebar */}
-      <aside className="w-[28%] bg-white p-6 border-r border-gray-200 overflow-y-auto shadow-md">
+      <aside className="w-[28%] bg-white p-6 border-r border-gray-200 overflow-y-auto shadow-md h-full"> {/* 'h-full' makes sidebar take full height of the parent (620px) */}
         <h2 className="text-2xl font-semibold text-gray-800 mb-5">Chats with Task Creators</h2>
 
         {loading && (
@@ -127,9 +129,8 @@ const PermissionedStaffChatPage = () => {
                 <li
                   key={task._id}
                   onClick={() => handleTaskSelect(task)}
-                  className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                    isSelected ? "bg-blue-50 border-blue-400" : "hover:bg-gray-50"
-                  }`}
+                  className={`p-4 rounded-xl border cursor-pointer transition-all ${isSelected ? "bg-blue-50 border-violet-700" : "hover:bg-gray-50"
+                    }`}
                 >
                   <div className="font-semibold text-gray-800">{task.title}</div>
                   <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
@@ -147,32 +148,19 @@ const PermissionedStaffChatPage = () => {
       </aside>
 
       {/* Chat Area */}
-      <main className="flex-1 bg-gradient-to-br from-gray-50 to-gray-200 p-8 flex items-center justify-center">
+      <main className="flex-1 bg-gradient-to-br from-gray-50 to-gray-200 p-8 flex items-center justify-center h-full"> {/* 'h-full' makes main take full height of the parent (620px) */}
         <div className="w-full h-full max-w-6xl bg-white/90 backdrop-blur-md rounded-3xl shadow-2xl border border-gray-200 p-6 flex flex-col">
           {selectedTask && receiver ? (
-            <>
-              <header className="flex items-center justify-between mb-6 border-b border-gray-200 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="bg-blue-100 text-blue-600 rounded-full p-2 shadow">
-                    <MessageSquareText className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-800">{selectedTask.title}</h2>
-                    <p className="text-sm text-gray-500">Chatting with: {receiver.name}</p>
-                  </div>
-                </div>
-              </header>
-              <div className="flex-1 overflow-hidden">
-                <ChatBox
-                  taskId={selectedTask._id}
-                  receiver={receiver}
-                  taskTitle={selectedTask.title}
-                  currentUser={currentUser}
-                />
-              </div>
-            </>
+            // Pass the necessary props to ChatBox
+            <ChatBox
+              taskId={selectedTask._id}
+              receiver={receiver}
+              taskTitle={selectedTask.title}
+              currentUser={currentUser}
+            />
           ) : (
-            <div className="flex flex-col items-center justify-center text-center text-gray-600 px-6 max-w-md mx-auto">
+            // "No Chat Selected" message block
+            <div className="flex flex-col items-center justify-center text-center text-gray-600 px-6 max-w-md mx-auto h-full"> {/* 'h-full' centers content vertically within the fixed height */}
               <div className="bg-yellow-100 text-yellow-600 rounded-full p-4 mb-4 shadow-lg animate-bounce">
                 <MessageSquareText className="w-10 h-10" />
               </div>

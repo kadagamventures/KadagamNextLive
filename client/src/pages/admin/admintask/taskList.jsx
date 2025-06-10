@@ -54,19 +54,19 @@ const TaskList = () => {
         <div className="flex items-center gap-4 mt-4 md:mt-0">
           <button
             onClick={handleAddTask}
-            className="px-4 py-2 hover:text-black text-gray-600 bg-white font-semibold rounded-lg shadow transition-all"
+            className="px-4 py-2 hover:text-black text-gray-600 bg-white font-semibold rounded-full shadow transition-all"
           >
-            + Add New Task
+            <span className="text-violet-600 text-2xl">+</span>  Add New Task
           </button>
           <div className="relative">
             <input
               type="text"
               placeholder="Search tasks..."
-              className="block w-full pl-3 pr-10 py-2 bg-white text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              className="block w-full pl-3 pr-10 py-2 bg-white text-sm md:text-base border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <FaSearch className="absolute right-3 top-2.5 text-gray-400" />
+            <FaSearch className="absolute right-3 top-2.5 text-violet-600" />
           </div>
         </div>
       </div>
@@ -137,7 +137,7 @@ const TaskList = () => {
                           onClick={() => handleEdit(task._id)}
                           className="flex items-center gap-1 px-2 py-1 bg-white text-gray-500 border border-gray-300 rounded-full shadow transition hover:bg-green-50 text-xs"
                         >
-                          <FaPencilAlt className="text-green-500" /> Edit
+                        Edit  <FaPencilAlt className="text-green-500" /> 
                         </button>
                         <button
                           onClick={() => handleDelete(task._id)}
@@ -151,7 +151,7 @@ const TaskList = () => {
                             "Deleting..."
                           ) : (
                             <>
-                              <FaTrash className="text-red-500" /> Delete
+                             Delete <FaTrash className="text-red-500" /> 
                             </>
                           )}
                         </button>
