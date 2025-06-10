@@ -71,7 +71,6 @@ const AdminLogin = () => {
         backgroundPosition: "center",
       }}
     >
-
       {/* Left branding pane */}
       <div className="hidden md:flex w-1/2 bg-opacity-50 items-center justify-center">
         <div className="text-white text-center p-8">
@@ -103,7 +102,6 @@ const AdminLogin = () => {
           )}
 
           <form onSubmit={handleLogin} className="space-y-4">
-
             <div className="relative">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 pointer-events-none">
                 <FiMail size={18} />
@@ -118,6 +116,7 @@ const AdminLogin = () => {
                 disabled={loading}
               />
             </div>
+
             <div className="relative">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 pointer-events-none">
                 <FiLock size={18} />
@@ -128,7 +127,9 @@ const AdminLogin = () => {
                 placeholder="Password"
                 value={credentials.password}
                 onChange={handleChange}
+
                 className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+
                 disabled={loading}
               />
               <button
