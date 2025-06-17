@@ -33,8 +33,8 @@ const upload = multer({
 
 router.use(
   verifyToken,
-  //ensureVerifiedTenant, 
-  //enforceActiveSubscription
+  ensureVerifiedTenant, 
+  enforceActiveSubscription
 );
 
 router.post(
