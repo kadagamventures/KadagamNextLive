@@ -3,7 +3,7 @@ const Razorpay       = require("razorpay");
 const crypto         = require("crypto");
 const Plan           = require("../models/Plan");
 const Company        = require("../models/Company");
-const InvoiceService = require("./InvoiceService");
+const InvoiceService = require("./invoiceService");
 
 class RazorpayService {
   constructor() {
