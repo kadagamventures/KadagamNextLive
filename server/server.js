@@ -8,44 +8,49 @@ const mongoose = require("mongoose");
 const compression = require("compression");
 const passport = require("passport");
 const session = require("express-session");
+const cookieParser = require("cookie-parser");       // ← add this
 
-require("./config/passport"); // Google OAuth strategy
+require("./config/passport");
 
+// Middlewares
+const { verifyToken } = require("./middlewares/authMiddleware");
+const enforceActiveSubscription = require("./middlewares/enforceActiveSubscription");
+const ensureVerifiedTenant = require("./middlewares/ensureVerifiedTenant");
 const { adminLimiter } = require("./middlewares/rateLimiterMiddleware");
+const { errorHandler, notFoundHandler } = require("./middlewares/errorMiddleware");
+
 const connectDB = require("./config/dbConfig");
 const { connectRedis, redisClient } = require("./config/redisConfig");
-const { errorHandler, notFoundHandler } = require("./middlewares/errorMiddleware");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ─── TRUST PROXY (FOR ELB/ALB) ────────────────────────────────────────────────
-app.set("trust proxy", 1);
-
-// ─── SESSION & PASSPORT ───────────────────────────────────────────────────────
+// ──────────────── SESSION SETUP ────────────────
 const isProd = process.env.NODE_ENV === "production";
+const SESSION_SECRET = process.env.SESSION_SECRET || (
+  isProd
+    ? (() => { throw new Error("SESSION_SECRET is required in production"); })()
+    : "dev_secret_change_me"
+);
 
-// Provide a fallback for dev, but throw in production if missing
-const SESSION_SECRET = process.env.SESSION_SECRET
-  || (isProd
-      ? (() => { throw new Error("SESSION_SECRET is required in production"); })()
-      : "dev_secret_change_me");
-
+app.set("trust proxy", 1);
 app.use(session({
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: isProd,      // HTTPS only in prod
-    sameSite: "lax",
-    maxAge: 1000 * 60 * 60, // 1 hour
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    maxAge: 1000 * 60 * 60,
   },
 }));
-
 app.use(passport.initialize());
 app.use(passport.session());
 
-// ─── ALLOWED ORIGINS & CORS ─────────────────────────────────────────────────
+// ──────────────── COOKIE PARSING ────────────────
+app.use(cookieParser());                             // ← add this
+
+// ──────────────── CORS SETUP ────────────────
 const CLIENT_URLS = [
   "https://www.kadagamnext.com",
   "https://kadagamnext.com",
@@ -54,40 +59,30 @@ const CLIENT_URLS = [
 ];
 
 const corsOptions = {
-  origin: (incomingOrigin, callback) => {
-    if (!incomingOrigin) return callback(null, true);
-    if (CLIENT_URLS.includes(incomingOrigin)) return callback(null, true);
+  origin: (origin, callback) => {
+    if (!origin || CLIENT_URLS.includes(origin)) return callback(null, true);
     return callback(new Error("CORS policy violation"), false);
   },
   credentials: true,
   methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"],
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "X-Requested-With",
-    "Accept",
-    "Origin",
-    "Cache-Control"
-  ]
+  allowedHeaders: ["Content-Type","Authorization","X-Requested-With","Accept","Origin"]
 };
 
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
-// ─── CORE MIDDLEWARE ─────────────────────────────────────────────────────────
+// ──────────────── CORE MIDDLEWARES ────────────────
 app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(helmet());
 app.use(morgan("combined"));
 
-// ─── HEALTH CHECK & ROOT ─────────────────────────────────────────────────────
-app.get("/health", (req, res) => res.status(200).json({ status: "UP" }));
-app.get("/", (req, res) =>
-  res.status(200).json({ message: "🟢 Welcome to KadagamNext API. Use /api" })
-);
+// ──────────────── HEALTH CHECK ────────────────
+app.get("/health", (req, res) => res.json({ status: "UP" }));
+app.get("/", (req, res) => res.json({ message: "🟢 Welcome to KadagamNext API. Use /api" }));
 
-// ─── DB & REDIS INIT ─────────────────────────────────────────────────────────
+// ──────────────── DB + REDIS INIT ────────────────
 (async () => {
   try {
     await connectDB();
@@ -96,6 +91,7 @@ app.get("/", (req, res) =>
     console.error("❌ MongoDB Error:", err);
     process.exit(1);
   }
+
   try {
     await connectRedis();
     console.log("🟢 Redis Connected");
@@ -104,8 +100,11 @@ app.get("/", (req, res) =>
   }
 })();
 
-// ─── ROUTES ───────────────────────────────────────────────────────────────────
+// ──────────────── ROUTES ────────────────
 const authRoutes             = require("./routes/authRoutes");
+const verificationRoutes     = require("./routes/verificationRoutes");
+const paymentRoutes          = require("./routes/paymentRoutes");
+const planRoutes             = require("./routes/planRoutes");
 const adminRoutes            = require("./routes/adminRoutes");
 const userRoutes             = require("./routes/userRoutes");
 const projectRoutes          = require("./routes/projectRoutes");
@@ -123,51 +122,57 @@ const roomChatRoutes         = require("./routes/roomChatRoutes");
 const companyRoutes          = require("./routes/companyRoutes");
 const superAdminRoutes       = require("./routes/superAdminRoutes");
 const deleteFileRoute        = require("./routes/deleteFile");
-const verificationRoutes     = require("./routes/verificationRoutes");
-const paymentRoutes          = require("./routes/paymentRoutes");
-const planRoutes             = require("./routes/planRoutes");
 const officeTimingRoutes     = require("./routes/officeAttendanceTiming");
+const paymentStatusRoutes    = require("./routes/paymentStatusRoutes");
 
-app.use("/api/auth",         authRoutes);
-app.use("/api/admin",        adminLimiter, adminRoutes);
-app.use("/api/staff",        adminLimiter, userRoutes);
-app.use("/api/projects",     projectRoutes);
-app.use("/api/tasks",        taskRoutes);
-app.use("/api/attendance",   attendanceRoutes);
-app.use("/api/leave",        leaveRoutes);
-app.use("/api/reports",      reportRoutes);
-app.use("/api/files",        fileRoutes);
-app.use("/api/notifications",notificationRoutes);
-app.use("/api/dashboard",    adminDashboardRoutes);
-app.use("/api/staff-permissions", staffPermissionsRoutes);
-app.use("/api/performance",  performanceRoutes);
-app.use("/api/chat",         chatRoutes);
-app.use("/api/room-chat",    roomChatRoutes);
-app.use("/api/company",      companyRoutes);
-app.use("/api/verify",       verificationRoutes);
-app.use("/api/payment",      paymentRoutes);
-app.use("/api/plan",         planRoutes);
-app.use("/api/super-admin",  superAdminRoutes);
-app.use("/api/delete-file",  deleteFileRoute);
-app.use("/api/office-timing",officeTimingRoutes);
+// Public
+app.use("/api/auth",    authRoutes);
+app.use("/api/verify",  verificationRoutes);
+app.use("/api/payment", paymentRoutes);
+app.use("/api/plan",    planRoutes);
 
-// ─── ERROR HANDLING ──────────────────────────────────────────────────────────
+// Authenticated + Verified Email
+app.use("/api/admin",  verifyToken, ensureVerifiedTenant, adminLimiter, adminRoutes);
+app.use("/api/staff",  verifyToken, ensureVerifiedTenant, adminLimiter, userRoutes);
+
+// Subscription required
+app.use("/api/projects",       verifyToken, ensureVerifiedTenant, enforceActiveSubscription, projectRoutes);
+app.use("/api/tasks",          verifyToken, ensureVerifiedTenant, enforceActiveSubscription, taskRoutes);
+app.use("/api/attendance",     verifyToken, ensureVerifiedTenant, enforceActiveSubscription, attendanceRoutes);
+app.use("/api/leave",          verifyToken, ensureVerifiedTenant, enforceActiveSubscription, leaveRoutes);
+app.use("/api/reports",        verifyToken, ensureVerifiedTenant, enforceActiveSubscription, reportRoutes);
+app.use("/api/files",          verifyToken, ensureVerifiedTenant, enforceActiveSubscription, fileRoutes);
+app.use("/api/notifications",  verifyToken, ensureVerifiedTenant, enforceActiveSubscription, notificationRoutes);
+app.use("/api/dashboard",      verifyToken, ensureVerifiedTenant, enforceActiveSubscription, adminDashboardRoutes);
+app.use("/api/staff-permissions", verifyToken, ensureVerifiedTenant, enforceActiveSubscription, staffPermissionsRoutes);
+app.use("/api/performance",    verifyToken, ensureVerifiedTenant, enforceActiveSubscription, performanceRoutes);
+app.use("/api/chat",           verifyToken, ensureVerifiedTenant, enforceActiveSubscription, chatRoutes);
+app.use("/api/room-chat",      verifyToken, ensureVerifiedTenant, enforceActiveSubscription, roomChatRoutes);
+app.use("/api/company",        verifyToken, ensureVerifiedTenant, enforceActiveSubscription, companyRoutes);
+app.use("/api/delete-file",    verifyToken, ensureVerifiedTenant, enforceActiveSubscription, deleteFileRoute);
+app.use("/api/office-timing",  verifyToken, ensureVerifiedTenant, enforceActiveSubscription, officeTimingRoutes);
+app.use("/api/payment-status", verifyToken, ensureVerifiedTenant, paymentStatusRoutes);
+
+// Super‑Admin
+app.use("/api/super-admin", superAdminRoutes);
+
+// Errors
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// ─── WEBSOCKET SETUP ─────────────────────────────────────────────────────────
+// ──────────────── SOCKET.IO ────────────────
 const server = http.createServer(app);
 const { initializeWebSocket } = require("./config/websocketConfig");
 const io = initializeWebSocket(server);
 app.set("io", io);
 
-// ─── START SERVER ────────────────────────────────────────────────────────────
+// ──────────────── LAUNCH ────────────────
 server.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
   console.log(`📡 WebSocket running at ws://localhost:${PORT}`);
 });
 
-// ─── GRACEFUL SHUTDOWN ────────────────────────────────────────────────────────
+// ──────────────── SHUTDOWN ────────────────
 const shutdownHandler = async (signal) => {
   console.log(`🔴 ${signal} received. Closing services...`);
   if (redisClient?.isOpen) {
@@ -182,5 +187,5 @@ const shutdownHandler = async (signal) => {
   });
 };
 
-process.on("SIGINT",  () => shutdownHandler("SIGINT"));
+process.on("SIGINT", () => shutdownHandler("SIGINT"));
 process.on("SIGTERM", () => shutdownHandler("SIGTERM"));

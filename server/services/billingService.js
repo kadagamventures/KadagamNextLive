@@ -42,22 +42,23 @@ class BillingService {
       throw new Error('Invalid plan unit');
     }
 
-    company.subscription.status            = 'active';
-    company.subscription.planId            = plan._id;
-    company.subscription.startDate         = now;
-    company.subscription.nextBillingDate   = next;
-    company.subscription.lastPaymentAmount = 0;
+    // Push a trial payment entry using the updated schema
     company.subscription.paymentHistory.push({
-      baseAmount:     0,
-      gstPercentage:  plan.gstPercentage,
-      gstAmount:      0,
-      totalAmount:    0,
-      date:           now,
-      method:         'trial',
-      transactionId:  null,
-      planId:         plan._id
+      planId:       plan._id,
+      planName:     plan.name,
+      planDuration: plan.durationDays,  // uses Plan.virtual('durationDays')
+      planPrice:    0,
+      gstAmount:    0,
+      totalAmount:  0,
+      invoiceKey:   '',                 // no invoice for trial
+      amount:       0,
+      date:         now,
+      method:       'trial',
+      transactionId:null,
+      status:       'success',
     });
 
+    // Let the pre-save hook recalculate startDate, nextBillingDate, status, lastPaymentAmount
     await company.save();
     return company.subscription;
   }
@@ -76,46 +77,32 @@ class BillingService {
 
     const now = paymentInfo.date ? new Date(paymentInfo.date) : new Date();
 
-    // Calculate next billing date
-    const next = new Date(now);
-    if (plan.duration.unit === 'days') {
-      next.setDate(next.getDate() + plan.duration.value);
-    } else if (plan.duration.unit === 'months') {
-      next.setMonth(next.getMonth() + plan.duration.value);
-    } else if (plan.duration.unit === 'years') {
-      next.setFullYear(next.getFullYear() + plan.duration.value);
-    } else {
-      throw new Error('Invalid plan unit');
-    }
+    // Build the new payment entry
+    const gstAmount   = Number(((plan.price * plan.gstPercentage) / 100).toFixed(2));
+    const totalAmount = Number((plan.price + gstAmount).toFixed(2));
 
-    // GST calculations
-    const baseAmount    = plan.price;                  // in paise
-    const gstPercentage = plan.gstPercentage;
-    const gstAmount     = Math.round((baseAmount * gstPercentage) / 100);
-    const totalAmount   = baseAmount + gstAmount;
-
-    company.subscription.status            = 'active';
-    company.subscription.planId            = plan._id;
-    company.subscription.startDate         = now;
-    company.subscription.nextBillingDate   = next;
-    company.subscription.lastPaymentAmount = totalAmount;
     company.subscription.paymentHistory.push({
-      baseAmount,
-      gstPercentage,
-      gstAmount,
-      totalAmount,
+      planId:        plan._id,
+      planName:      plan.name,
+      planDuration:  plan.durationDays,
+      planPrice:     plan.price,
+      gstAmount:     gstAmount,
+      totalAmount:   totalAmount,
+      invoiceKey:    '',                        // to be filled after invoice upload
+      amount:        totalAmount,
       date:          now,
       method:        paymentInfo.method,
       transactionId: paymentInfo.transactionId,
-      planId:        plan._id
+      status:        'success',
     });
 
+    // Pre-save hook will recalculate subscription summary
     await company.save();
     return company.subscription;
   }
 
   /**
-   * Fetch current subscription status and recent history
+   * Fetch current billing status & a short history
    */
   async fetchStatus(companyId) {
     const company = await Company.findById(companyId)
@@ -127,22 +114,24 @@ class BillingService {
 
     const { subscription } = company;
     const now = new Date();
-    const daysRemaining = Math.ceil(
-      (new Date(subscription.nextBillingDate) - now) / (1000 * 60 * 60 * 24)
-    );
+    const daysRemaining = subscription.nextBillingDate
+      ? Math.ceil((new Date(subscription.nextBillingDate) - now) / (1000 * 60 * 60 * 24))
+      : 0;
 
+    // Return the most recent 5 entries
     const history = (subscription.paymentHistory || [])
       .sort((a, b) => new Date(b.date) - new Date(a.date))
       .slice(0, 5)
       .map(entry => ({
-        baseAmount:     entry.baseAmount,
-        gstPercentage:  entry.gstPercentage,
-        gstAmount:      entry.gstAmount,
-        totalAmount:    entry.totalAmount,
-        date:           entry.date,
-        method:         entry.method,
-        transactionId:  entry.transactionId,
-        planId:         entry.planId
+        planName:      entry.planName,
+        planDuration:  entry.planDuration,
+        planPrice:     entry.planPrice,
+        gstAmount:     entry.gstAmount,
+        totalAmount:   entry.totalAmount,
+        date:          entry.date,
+        method:        entry.method,
+        transactionId: entry.transactionId,
+        invoiceKey:    entry.invoiceKey,
       }));
 
     return {

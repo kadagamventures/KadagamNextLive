@@ -1,16 +1,15 @@
-// 📂 src/utils/axiosInstance.js
 import axios from "axios";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-// Create Axios instance
+// ✅ Axios instance using cookies
 const tokenRefreshInterceptor = axios.create({
   baseURL: BASE_URL,
-  withCredentials: true,
+  withCredentials: true, // 🔥 Essential to send cookies
   timeout: 30000,
 });
 
-// --- Token Refresh Logic
+// --- Token Refresh State
 let isRefreshing = false;
 let refreshSubscribers = [];
 
@@ -19,32 +18,38 @@ const subscribeTokenRefresh = (callback) => {
 };
 
 const onTokenRefreshed = (token) => {
-  refreshSubscribers.forEach(callback => callback(token));
+  refreshSubscribers.forEach((callback) => callback(token));
   refreshSubscribers = [];
 };
 
 const retryFailedRequest = (error) => {
   return new Promise((resolve) => {
     subscribeTokenRefresh((token) => {
-      error.config.headers['Authorization'] = `Bearer ${token}`;
-      resolve(axios(error.config));
+      resolve(tokenRefreshInterceptor(error.config));
     });
   });
 };
 
-// --- Request Interceptor
+// --- Helper to read cookie value
+const getCookie = (name) => {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(";").shift();
+};
+
+// --- Request Interceptor: Add Authorization Header
 tokenRefreshInterceptor.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = getCookie("accessToken");
     if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// --- Response Interceptor
+// --- Response Interceptor: Auto-refresh token on 401
 tokenRefreshInterceptor.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -63,30 +68,32 @@ tokenRefreshInterceptor.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      const refreshResponse = await axios.get(`${BASE_URL}/auth/refresh-token`, { withCredentials: true });
+      // 🔄 Use POST /auth/refresh and path match backend
+      const refreshResponse = await axios.post(
+        `${BASE_URL}/auth/refresh`,
+        null,
+        { withCredentials: true }
+      );
+
       const { accessToken } = refreshResponse.data;
 
       if (!accessToken) {
-        throw new Error('No token received during refresh.');
+        throw new Error("No token received during refresh.");
       }
 
-      localStorage.setItem('token', accessToken);
-      tokenRefreshInterceptor.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-      originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
-
+      // Notify all subscribers and retry original request
       onTokenRefreshed(accessToken);
       isRefreshing = false;
 
+      // Update Authorization header for the retried request
+      originalRequest.headers.Authorization = `Bearer ${accessToken}`;
       return tokenRefreshInterceptor(originalRequest);
-
     } catch (refreshError) {
       console.error("🔴 Token refresh failed:", refreshError.message);
       isRefreshing = false;
       refreshSubscribers = [];
 
-      localStorage.removeItem('token');
-      window.dispatchEvent(new CustomEvent('auth:logout'));
-
+      window.dispatchEvent(new CustomEvent("auth:logout"));
       return Promise.reject(refreshError);
     }
   }

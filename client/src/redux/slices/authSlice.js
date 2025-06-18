@@ -1,8 +1,6 @@
-// 📂 src/redux/slices/authSlice.js
+// src/redux/slices/authSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { tokenRefreshInterceptor } from "../../utils/axiosInstance";
-
-// ✅ WebSocket: reconnect on login
 import { disconnectChatSocket, initializeChatSocket } from "../../websocket/chatSocket";
 
 // Safe LocalStorage retrieval
@@ -20,10 +18,13 @@ const safeGetItem = (key, isJSON = false) => {
 const initialState = {
   user: safeGetItem("user", true),
   role: safeGetItem("role"),
+  token: safeGetItem("token"),
   isAuthenticated: !!safeGetItem("user"),
   status: "idle",
   error: null,
   resetStatus: null,
+  subscriptionStatus: safeGetItem("subscriptionStatus"),
+  nextBillingDate: safeGetItem("nextBillingDate"),
 };
 
 // ─────────────────────────────────────────────
@@ -41,11 +42,20 @@ export const loginUser = createAsyncThunk(
         return thunkAPI.rejectWithValue("Invalid response from server.");
       }
 
+      // Persist to localStorage
       localStorage.setItem("user", JSON.stringify(data.user));
       localStorage.setItem("role", data.user.role);
       localStorage.setItem("token", data.accessToken);
+      localStorage.setItem("subscriptionStatus", data.subscriptionStatus);
+      localStorage.setItem("nextBillingDate", data.nextBillingDate ?? "");
 
-      return { user: data.user, role: data.user.role };
+      return {
+        user: data.user,
+        role: data.user.role,
+        token: data.accessToken,
+        subscriptionStatus: data.subscriptionStatus,
+        nextBillingDate: data.nextBillingDate,
+      };
     } catch (error) {
       return thunkAPI.rejectWithValue(error.response?.data?.message || "Login failed.");
     }
@@ -55,9 +65,12 @@ export const loginUser = createAsyncThunk(
 // Admin Logout
 export const logoutUser = createAsyncThunk("auth/logoutUser", async () => {
   await tokenRefreshInterceptor.post("/auth/admin/logout");
+  // Clear storage
   localStorage.removeItem("user");
   localStorage.removeItem("role");
   localStorage.removeItem("token");
+  localStorage.removeItem("subscriptionStatus");
+  localStorage.removeItem("nextBillingDate");
   return null;
 });
 
@@ -67,20 +80,17 @@ export const forgotPassword = createAsyncThunk(
   async ({ email, remember }, thunkAPI) => {
     try {
       const { data } = await tokenRefreshInterceptor.post("/auth/forgot-password", { email });
-      
       if (remember) {
         localStorage.setItem("rememberedEmail", email);
       } else {
         localStorage.removeItem("rememberedEmail");
       }
-
       return data.message;
     } catch (error) {
       return thunkAPI.rejectWithValue(error.response?.data?.message || "Failed to send reset link.");
     }
   }
 );
-
 
 // Reset Password
 export const resetPassword = createAsyncThunk(
@@ -105,45 +115,60 @@ const authSlice = createSlice({
     resetAuthState: (state) => {
       state.user = null;
       state.role = null;
+      state.token = null;
       state.isAuthenticated = false;
       state.status = "idle";
       state.error = null;
+      state.subscriptionStatus = null;
+      state.nextBillingDate = null;
       localStorage.removeItem("user");
       localStorage.removeItem("role");
       localStorage.removeItem("token");
-      disconnectChatSocket(); // ✅ also disconnect on manual reset
+      localStorage.removeItem("subscriptionStatus");
+      localStorage.removeItem("nextBillingDate");
+      disconnectChatSocket();
     },
   },
   extraReducers: (builder) => {
     builder
+      // Login
       .addCase(loginUser.pending, (state) => {
         state.status = "loading";
+        state.error = null;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
+        const { user, role, token, subscriptionStatus, nextBillingDate } = action.payload;
         state.status = "success";
-        state.user = action.payload.user;
-        state.role = action.payload.role;
+        state.user = user;
+        state.role = role;
+        state.token = token;
         state.isAuthenticated = true;
-
-        // ✅ Reconnect WebSocket on login
-        disconnectChatSocket();     // clear any stale socket
-        initializeChatSocket();     // use new token from localStorage
+        state.subscriptionStatus = subscriptionStatus;
+        state.nextBillingDate = nextBillingDate;
+        disconnectChatSocket();
+        initializeChatSocket();
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload;
       })
+
+      // Logout
       .addCase(logoutUser.fulfilled, (state) => {
         state.user = null;
         state.role = null;
+        state.token = null;
         state.isAuthenticated = false;
         state.status = "idle";
-
-        // ✅ Disconnect socket on logout
+        state.subscriptionStatus = null;
+        state.nextBillingDate = null;
         disconnectChatSocket();
       })
+
+      // Forgot Password
       .addCase(forgotPassword.pending, (state) => {
         state.resetStatus = "loading";
+        state.error = null;
       })
       .addCase(forgotPassword.fulfilled, (state) => {
         state.resetStatus = "success";
@@ -152,8 +177,11 @@ const authSlice = createSlice({
         state.resetStatus = "failed";
         state.error = action.payload;
       })
+
+      // Reset Password
       .addCase(resetPassword.pending, (state) => {
         state.resetStatus = "loading";
+        state.error = null;
       })
       .addCase(resetPassword.fulfilled, (state) => {
         state.resetStatus = "success";

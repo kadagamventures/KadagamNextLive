@@ -19,7 +19,7 @@ const SuperAdminSidebar = () => {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    // window.location.href = "/superadmin/login"; // Uncomment when needed
+    window.location.href = "/superadmin/login"; // Enable redirection after logout
   };
 
   return (
@@ -32,7 +32,7 @@ const SuperAdminSidebar = () => {
             alt="Kadagam Logo"
             className="w-10 h-10 md:w-12 md:h-12 mr-0 md:mr-2"
           />
-          <h3 className="hidden md:block font-extrabold text-red-600">
+          <h3 className="hidden md:block font-extrabold text-red-600 text-lg">
             Kadagam <span className="text-blue-600">Ventures</span>
           </h3>
         </div>

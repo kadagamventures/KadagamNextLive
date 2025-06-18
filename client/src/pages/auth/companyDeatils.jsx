@@ -1,6 +1,6 @@
 // src/pages/auth/CompanyDetailsPage.jsx
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   FiPhone,
@@ -16,7 +16,6 @@ export default function CompanyDetailsPage() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // We expect { companyId, adminPassword } to have been passed via `location.state`
   const { companyId, adminPassword } = location.state || {};
 
   const [gstin, setGstin] = useState("");
@@ -28,7 +27,12 @@ export default function CompanyDetailsPage() {
   const [serverError, setServerError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Make sure all fields (and required state) are present before enabling button
+  useEffect(() => {
+    if (!companyId || !adminPassword) {
+      navigate("/signup", { replace: true });
+    }
+  }, [companyId, adminPassword, navigate]);
+
   const isContinueEnabled =
     gstin.trim() &&
     pan.trim() &&
@@ -36,12 +40,6 @@ export default function CompanyDetailsPage() {
     companyType &&
     address.trim() &&
     agreedToTerms;
-
-  // If companyId or adminPassword is missing (meaning user jumped here incorrectly), redirect back:
-  if (!companyId || !adminPassword) {
-    navigate("/signup", { replace: true });
-    return null;
-  }
 
   const handleContinue = async (e) => {
     e.preventDefault();
@@ -59,7 +57,6 @@ export default function CompanyDetailsPage() {
         adminPassword,
       });
 
-      // After successful registration completion, navigate to verification page
       navigate("/verification", {
         state: {
           companyId: data.company._id || data.companyId,
@@ -102,7 +99,6 @@ export default function CompanyDetailsPage() {
         backgroundPosition: "center",
       }}
     >
-      {/* Left branding */}
       <div className="w-1/2 flex items-center justify-center">
         <h1 className="text-white text-6xl font-bold">
           <span className="text-red-500">Kadagam</span>{" "}
@@ -110,7 +106,6 @@ export default function CompanyDetailsPage() {
         </h1>
       </div>
 
-      {/* Right form */}
       <div className="w-1/2 relative flex items-center justify-center">
         <button
           type="button"

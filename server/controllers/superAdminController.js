@@ -1,30 +1,61 @@
+// server/controllers/superAdminController.js
+
 const superAdminService = require("../services/superAdminService");
 
+// shared cookie options
+const ONE_HOUR = 60 * 60 * 1000;
+const isProd = process.env.NODE_ENV === "production";
+const cookieOptions = {
+  httpOnly: true,
+  secure: isProd,
+  sameSite: isProd ? "None" : "Lax",
+  maxAge: ONE_HOUR,
+};
 
+/**
+ * 🔐 POST /api/super-admin/login
+ * Body: { email, password }
+ */
 const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ error: "Email and password are required." });
+      return res
+        .status(400)
+        .json({ error: "Email and password are required." });
     }
 
-    const { token, user } = await superAdminService.loginSuperAdmin({ email, password });
+    // service returns { token, user }
+    const { token, user } = await superAdminService.loginSuperAdmin({
+      email,
+      password,
+    });
+
+    // set accessToken cookie
+    res.cookie("accessToken", token, cookieOptions);
+
+    // return the same structure as your company‐admin login response
     return res.status(200).json({
       message: "Super Admin login successful",
-      token,
+      accessToken: token,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
       },
+      // if you ever add a subscription model for super‐admins, you can
+      // include subscriptionStatus/nextBillingDate here in the future
     });
   } catch (err) {
     return next(err);
   }
 };
 
-
+/**
+ * 🏢 GET /api/super-admin/companies
+ * Headers: { Authorization: Bearer <accessToken> }
+ */
 const getCompanies = async (req, res, next) => {
   try {
     const companies = await superAdminService.getAllCompanies();
@@ -34,7 +65,10 @@ const getCompanies = async (req, res, next) => {
   }
 };
 
-
+/**
+ * 🏢 GET /api/super-admin/companies/:id
+ * Headers: { Authorization: Bearer <accessToken> }
+ */
 const getCompanyDetails = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -45,16 +79,25 @@ const getCompanyDetails = async (req, res, next) => {
   }
 };
 
-
+/**
+ * 🔄 PUT /api/super-admin/companies/:id/subscription
+ * Body: { status }
+ * Headers: { Authorization: Bearer <accessToken> }
+ */
 const updateSubscription = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
     if (!status) {
-      return res.status(400).json({ error: "Subscription status is required." });
+      return res
+        .status(400)
+        .json({ error: "Subscription status is required." });
     }
 
-    const company = await superAdminService.updateCompanySubscriptionStatus(id, status);
+    const company = await superAdminService.updateCompanySubscriptionStatus(
+      id,
+      status
+    );
     return res.status(200).json({
       message: "Subscription status updated",
       company,
@@ -65,19 +108,26 @@ const updateSubscription = async (req, res, next) => {
 };
 
 /**
- * ✅ PUT /api/super-admin/companies/:id/trust
+ * ⚙️ PUT /api/super-admin/companies/:id/trust
+ * Body: { trustLevel, isVerified }
+ * Headers: { Authorization: Bearer <accessToken> }
  */
 const updateTrust = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { trustLevel, isVerified } = req.body;
     if (!trustLevel || typeof isVerified !== "boolean") {
-      return res
-        .status(400)
-        .json({ error: "Both trustLevel (string) and isVerified (boolean) are required." });
+      return res.status(400).json({
+        error:
+          "Both trustLevel (string) and isVerified (boolean) are required.",
+      });
     }
 
-    const company = await superAdminService.updateCompanyTrust(id, trustLevel, isVerified);
+    const company = await superAdminService.updateCompanyTrust(
+      id,
+      trustLevel,
+      isVerified
+    );
     return res.status(200).json({
       message: "Trust level & verification status updated",
       company,
@@ -89,6 +139,7 @@ const updateTrust = async (req, res, next) => {
 
 /**
  * ❌ DELETE /api/super-admin/companies/:id
+ * Headers: { Authorization: Bearer <accessToken> }
  */
 const deleteCompany = async (req, res, next) => {
   try {
@@ -104,7 +155,8 @@ const deleteCompany = async (req, res, next) => {
 };
 
 /**
- * 💰 GET /api/super-admin/revenue?year=YYYY&month=0-11
+ * 💰 GET /api/super-admin/revenue?year=YYYY[&month=0-11]
+ * Headers: { Authorization: Bearer <accessToken> }
  */
 const getRevenue = async (req, res, next) => {
   try {
@@ -116,13 +168,14 @@ const getRevenue = async (req, res, next) => {
     if (req.query.month != null) {
       month = parseInt(req.query.month, 10);
       if (isNaN(month) || month < 0 || month > 11) {
-        return res
-          .status(400)
-          .json({ error: "month must be an integer between 0 (Jan) and 11 (Dec)" });
+        return res.status(400).json({
+          error: "month must be an integer between 0 (Jan) and 11 (Dec)",
+        });
       }
     }
 
     const summary = await superAdminService.getRevenueSummary(year);
+
     const payload = {
       year: summary.year,
       totalRevenue: summary.totalRevenue,
@@ -130,10 +183,14 @@ const getRevenue = async (req, res, next) => {
       activeCompanies: summary.activeCompanies,
       inactiveCompanies: summary.inactiveCompanies,
       cancelledCompanies: summary.cancelledCompanies,
-      monthlyRevenue: month !== null ? summary.monthlyRevenue[month] : summary.monthlyRevenue,
+      monthlyRevenue:
+        month !== null ? summary.monthlyRevenue[month] : summary.monthlyRevenue,
     };
 
-    if (month !== null) payload.month = month;
+    if (month !== null) {
+      payload.month = month;
+    }
+
     return res.status(200).json(payload);
   } catch (err) {
     return next(err);
@@ -142,6 +199,7 @@ const getRevenue = async (req, res, next) => {
 
 /**
  * 📄 GET /api/super-admin/companies/:id/payments
+ * Headers: { Authorization: Bearer <accessToken> }
  */
 const getPaymentHistory = async (req, res, next) => {
   try {
@@ -155,7 +213,7 @@ const getPaymentHistory = async (req, res, next) => {
 
 /**
  * ⚙️ GET /api/super-admin/plans
- * Returns list of plans, including gstPercentage.
+ * Headers: { Authorization: Bearer <accessToken> }
  */
 const getPlanConfig = async (req, res, next) => {
   try {
@@ -168,18 +226,18 @@ const getPlanConfig = async (req, res, next) => {
 
 /**
  * ⚙️ PUT /api/super-admin/plans
- * Expects body: [{ _id, name, duration: { value, unit }, price, gstPercentage, isActive }, ...]
+ * Body: [ { _id, name, duration: { value, unit }, price, gstPercentage, isActive }, ... ]
+ * Headers: { Authorization: Bearer <accessToken> }
  */
 const updatePlanConfig = async (req, res, next) => {
   try {
     const configs = req.body;
-
-    // Basic validation
     if (!Array.isArray(configs) || configs.length === 0) {
-      return res.status(400).json({ error: "Must provide an array of plan configurations." });
+      return res
+        .status(400)
+        .json({ error: "Must provide an array of plan configurations." });
     }
 
-    // Accept plural duration units to match schema
     const validUnits = ["days", "months", "years"];
     for (const cfg of configs) {
       if (

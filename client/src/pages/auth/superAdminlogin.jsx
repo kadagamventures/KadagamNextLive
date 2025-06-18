@@ -35,6 +35,7 @@ const AdminLogin = () => {
         password,
       });
 
+      // ✅ Save token and user in localStorage
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
 
@@ -60,7 +61,7 @@ const AdminLogin = () => {
       }}
     >
       {/* Branding Pane */}
-      <div className="hidden md:flex w-1/2 bg-black bg-opacity-50 items-center justify-center">
+      <div className="hidden md:flex w-1/2 bg-opacity-50 items-center justify-center">
         <div className="text-white text-center p-8">
           <h1 className="text-5xl font-extrabold" style={{ fontSize: "69px" }}>
             Kadagam Next

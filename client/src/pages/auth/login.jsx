@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
+import { toast } from "react-toastify";
 import { loginUser } from "../../redux/slices/authSlice";
 import {
   initializeChatSocket,
@@ -12,10 +13,7 @@ import kadagamLogo from "../../assets/kadagamlogo.png";
 import { FiMail, FiLock } from "react-icons/fi";
 
 const AdminLogin = () => {
-  const [credentials, setCredentials] = useState({
-    loginId: "",
-    password: "",
-  });
+  const [credentials, setCredentials] = useState({ loginId: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -26,7 +24,7 @@ const AdminLogin = () => {
   const handleChange = (e) =>
     setCredentials((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
-  const togglePassword = () => setShowPassword((v) => !v);
+  const togglePassword = () => setShowPassword((prev) => !prev);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -42,21 +40,35 @@ const AdminLogin = () => {
 
     try {
       disconnectChatSocket();
-      const actionResult = await dispatch(loginUser(credentials));
+      const actionResult = await dispatch(loginUser({ loginId, password }));
       const result = actionResult.payload;
 
       if (loginUser.fulfilled.match(actionResult)) {
-        if (result.role === "admin") {
-          await initializeChatSocket({ /* callbacks omitted */ });
-          navigate("/admin/dashboard");
-        } else {
+        const { user, subscriptionStatus } = result;
+
+        if (user.role !== "admin") {
           setError("Access denied. Only admins can log in.");
+          setLoading(false);
+          return;
+        }
+
+        if (subscriptionStatus === "active") {
+          await initializeChatSocket();
+          navigate("/admin/dashboard");
+        } else if (subscriptionStatus === "pending") {
+          toast.warn("Your company subscription is pending. Please subscribe.");
+          navigate("/pricing", { state: { companyId: user.companyId } });
+        } else if (subscriptionStatus === "invalid") {
+          toast.error("Your company is not verified or has been deactivated.");
+        } else {
+          toast.warn("Company subscription is not active.");
+          navigate("/pricing", { state: { companyId: user.companyId } });
         }
       } else {
-        setError(result || "Invalid response from server.");
+        setError(result?.message || "Invalid login attempt.");
       }
-    } catch {
-      setError("Login failed. Please try again.");
+    } catch (err) {
+      setError(err.message || "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -71,12 +83,11 @@ const AdminLogin = () => {
         backgroundPosition: "center",
       }}
     >
-      {/* Left branding pane */}
       <div className="hidden md:flex w-1/2 bg-opacity-50 items-center justify-center">
         <div className="text-white text-center p-8">
           <h1
             className="text-5xl font-extrabold"
-            style={{ fontFamily: "inter", fontWeight: 700, fontSize: "69px" }}
+            style={{ fontFamily: "inter", fontSize: "69px" }}
           >
             Kadagam Next
           </h1>
@@ -84,7 +95,6 @@ const AdminLogin = () => {
         </div>
       </div>
 
-      {/* Right form pane */}
       <div className="flex w-full md:w-1/2 items-center justify-center p-6">
         <div className="bg-white rounded-4xl shadow-xl p-8 w-full max-w-md">
           <div className="flex justify-center mb-8">
@@ -127,9 +137,7 @@ const AdminLogin = () => {
                 placeholder="Password"
                 value={credentials.password}
                 onChange={handleChange}
-
                 className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-
                 disabled={loading}
               />
               <button
@@ -141,7 +149,6 @@ const AdminLogin = () => {
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
               </button>
             </div>
-
 
             <button
               type="submit"

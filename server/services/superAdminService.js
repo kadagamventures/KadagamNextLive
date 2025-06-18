@@ -9,6 +9,8 @@ require("dotenv").config();
 
 /**
  * 🔐 Super Admin Login
+ *    - Verifies email/password
+ *    - Signs a JWT with id, role, and companyId
  */
 const loginSuperAdmin = async ({ email, password }) => {
   const user = await User.findOne({
@@ -21,7 +23,13 @@ const loginSuperAdmin = async ({ email, password }) => {
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) throw new Error("Invalid password.");
 
-  const payload = { id: user._id, role: user.role };
+  // include companyId so middleware can pick it up
+  const payload = {
+    id: user._id,
+    role: user.role,
+    companyId: user.companyId,
+  };
+
   const token = jwt.sign(payload, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || "1h",
   });
@@ -34,11 +42,8 @@ const loginSuperAdmin = async ({ email, password }) => {
  *     Populates subscription.planId → only returns the Plan.name
  */
 const getAllCompanies = async () => {
-  const companies = await Company.find({ isDeleted: false })
-    .populate({
-      path: "subscription.planId",
-      select: "name",
-    })
+  return Company.find({ isDeleted: false })
+    .populate({ path: "subscription.planId", select: "name" })
     .select([
       "_id",
       "name",
@@ -58,8 +63,6 @@ const getAllCompanies = async () => {
     ])
     .sort({ createdAt: -1 })
     .lean();
-
-  return companies;
 };
 
 /**
@@ -94,7 +97,7 @@ const getCompanyById = async (companyId) => {
 const getPaymentHistory = async (companyId) => {
   const company = await getCompanyById(companyId);
   const history = company.subscription.paymentHistory || [];
-  // Ensure the returned history is sorted by date descending
+  // Sort descending by date
   history.sort((a, b) => new Date(b.date) - new Date(a.date));
   return history;
 };
@@ -138,11 +141,14 @@ const softDeleteCompany = async (companyId) => {
     .lean();
 };
 
+/**
+ * 🔍 Revenue Summary for a Year
+ */
 async function getRevenueSummary(year) {
   const start = new Date(`${year}-01-01T00:00:00.000Z`);
   const end = new Date(`${parseInt(year, 10) + 1}-01-01T00:00:00.000Z`);
 
-  // 1) Gather all payments in that year
+  // Gather all payment histories in that year
   const companies = await Company.find({
     isDeleted: false,
     "subscription.paymentHistory.date": { $gte: start, $lt: end },
@@ -150,17 +156,19 @@ async function getRevenueSummary(year) {
     .select("subscription.paymentHistory")
     .lean();
 
-  // 2) Bucket into Jan→Dec
+  // Bucket totals by month
   const monthlyRevenue = Array(12).fill(0);
   companies.forEach(({ subscription }) => {
     (subscription.paymentHistory || []).forEach((p) => {
       const d = new Date(p.date);
-      if (d >= start && d < end) monthlyRevenue[d.getMonth()] += p.amount;
+      if (d >= start && d < end) {
+        monthlyRevenue[d.getMonth()] += p.amount;
+      }
     });
   });
 
-  // 3) Totals & counts
-  const totalRevenue = monthlyRevenue.reduce((a, b) => a + b, 0);
+  // Totals & counts
+  const totalRevenue = monthlyRevenue.reduce((sum, val) => sum + val, 0);
   const [active, inactive, cancelled, total] = await Promise.all([
     Company.countDocuments({ isDeleted: false, "subscription.status": "active" }),
     Company.countDocuments({ isDeleted: false, "subscription.status": "expired" }),
@@ -181,7 +189,6 @@ async function getRevenueSummary(year) {
 
 /**
  * 📑 Fetch current plan configurations
- *    Includes gstPercentage for each plan.
  */
 const getPlanConfig = async () => {
   return Plan.find({})
@@ -200,8 +207,7 @@ const getPlanConfig = async () => {
 };
 
 /**
- * 🔄 Update plans in bulk
- *    Now supports gstPercentage on each plan.
+ * 🔄 Bulk update plans (supports gstPercentage)
  */
 const updatePlanConfig = async (configs) => {
   if (!Array.isArray(configs) || configs.length === 0) {
@@ -218,7 +224,7 @@ const updatePlanConfig = async (configs) => {
             name: cfg.name,
             duration: cfg.duration,
             price: cfg.price,
-            gstPercentage: cfg.gstPercentage ?? 18, // default 18% if not provided
+            gstPercentage: cfg.gstPercentage ?? 18,
             isActive: Boolean(cfg.isActive),
             isFreeTrial,
           },
@@ -229,7 +235,6 @@ const updatePlanConfig = async (configs) => {
 
   await Plan.bulkWrite(operations);
 
-  // Return the updated list
   return Plan.find({})
     .sort({ "duration.unit": 1, "duration.value": 1 })
     .select([

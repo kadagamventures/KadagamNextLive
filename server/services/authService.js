@@ -1,4 +1,4 @@
-// services/authService.js
+// server/services/authService.js
 
 const crypto     = require("crypto");
 const bcrypt     = require("bcryptjs");
@@ -21,7 +21,8 @@ class AuthService {
     if (!user.isActive) throw new Error("User inactive. Contact admin.");
     if (user.role !== "super_admin") {
       const comp = await Company.findById(user.companyId);
-      if (!comp || comp.isDeleted) throw new Error("Company unavailable or banned.");
+      if (!comp || comp.isDeleted)
+        throw new Error("Company unavailable or banned.");
     }
 
     // Clear any existing reset token
@@ -29,7 +30,6 @@ class AuthService {
     user.resetPasswordExpires = undefined;
     await user.save();
 
-    // Create new token & SHA256-hash
     const resetToken  = crypto.randomBytes(32).toString("hex");
     const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
 
@@ -42,32 +42,22 @@ class AuthService {
 
   /**
    * 2) Consume a reset-token + newPassword:
-   *    - Validates token & expiry
-   *    - Updates user.password
-   *    - Clears reset fields
    */
   async resetPassword(token, newPassword) {
-    if (!token || !newPassword) {
+    if (!token || !newPassword)
       throw new Error("Token and new password are required.");
-    }
 
-    // Hash incoming token
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
-    // Lookup user by hashed token + expiry
     const user = await User.findOne({
       resetPasswordToken:   hashedToken,
-      resetPasswordExpires: { $gt: Date.now() }
+      resetPasswordExpires: { $gt: Date.now() },
     });
-    if (!user) {
-      throw new Error("Invalid or expired token.");
-    }
+    if (!user) throw new Error("Invalid or expired token.");
 
-    // Hash & set new password
     const salt = await bcrypt.genSalt(12);
     user.password = await bcrypt.hash(newPassword, salt);
 
-    // Clear reset fields
     user.resetPasswordToken   = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
@@ -97,31 +87,75 @@ class AuthService {
         isDeleted: false,
       });
     }
-    if (!user) throw new Error("User not found");
-    if (!user.isActive) throw new Error("User account is inactive. Contact admin.");
 
-    if (user.role !== "super_admin") {
-      const comp = await Company.findById(user.companyId);
-      if (!comp || comp.isDeleted) throw new Error("Company not found or suspended.");
-      if (comp.subscription?.status !== "active") {
-        throw new Error("Company subscription expired. Contact support.");
-      }
-    }
+    if (!user) throw new Error("User not found.");
+    if (!user.isActive)
+      throw new Error("User account is inactive. Contact admin.");
 
+    // Determine subscription status
+    const subResult = await this._fetchSubscriptionStatus(user);
+
+    // Verify password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) throw new Error("Incorrect password");
 
+    // Generate a fresh access token
     const accessToken = tokenUtils.generateAccessToken(user);
+
+    // Omit sensitive fields
     const safeUser = user.toObject();
     delete safeUser.password;
     delete safeUser.resetPasswordToken;
     delete safeUser.resetPasswordExpires;
 
-    return { token: accessToken, user: safeUser };
+    return {
+      token:              accessToken,
+      user:               safeUser,
+      subscriptionStatus: subResult.status,
+      nextBillingDate:    subResult.nextBillingDate,
+    };
   }
 
   /**
-   * 4) Get User by ID (omit sensitive fields)
+   * 4) New! Refresh only subscription status for an already-authenticated user.
+   */
+  async refreshSubscription(userId) {
+    const user = await User.findById(userId);
+    if (!user) throw new Error("User not found.");
+
+    const subResult = await this._fetchSubscriptionStatus(user);
+    return {
+      subscriptionStatus: subResult.status,
+      nextBillingDate:    subResult.nextBillingDate,
+    };
+  }
+
+  /**
+   * Internal helper to fetch a user's subscription status & next billing date.
+   */
+  async _fetchSubscriptionStatus(user) {
+    let status         = "pending";
+    let nextBillingDate = null;
+
+    if (user.role === "super_admin") {
+      status = "active";  // super admins are always treated active
+    } else {
+      const company = await Company.findById(user.companyId);
+      if (!company || company.isDeleted) {
+        status = "inactive";
+      } else if (!company.isVerified) {
+        status = "unverified";
+      } else {
+        status         = company.subscription?.status || "pending";
+        nextBillingDate = company.subscription?.nextBillingDate || null;
+      }
+    }
+
+    return { status, nextBillingDate };
+  }
+
+  /**
+   * 5) Get User by ID (omit sensitive fields)
    */
   async getUserById(id) {
     const user = await User.findById(id)
@@ -131,7 +165,7 @@ class AuthService {
   }
 
   /**
-   * 5) Manual Hash Utility
+   * 6) Manual Hash Utility
    */
   async hashPassword(plainPassword) {
     const salt = await bcrypt.genSalt(12);

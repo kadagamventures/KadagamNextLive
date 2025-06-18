@@ -1,4 +1,4 @@
-
+// src/utils/loadRazorpay.js
 export function loadRazorpay(timeout = 10000) {
   return new Promise((resolve, reject) => {
     // If already loaded, resolve immediately
@@ -27,10 +27,10 @@ export function loadRazorpay(timeout = 10000) {
       reject(new Error("Failed to load Razorpay SDK."));
     };
 
-    // Timeout to guard against hanging
+    // Timeout guard
     const timer = setTimeout(() => {
-      script.onerror = null;
       script.onload = null;
+      script.onerror = null;
       if (!window.Razorpay) {
         reject(new Error("Razorpay SDK load timed out."));
       }

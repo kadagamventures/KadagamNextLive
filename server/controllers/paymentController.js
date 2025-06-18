@@ -1,223 +1,178 @@
-// server/controllers/paymentController.js
+require("dotenv").config();
+const crypto          = require("crypto");
+const planService     = require("../services/planService");
+const razorpayService = require("../services/razorpayService");
+const billingService  = require("../services/billingService");
 
-const planService       = require('../services/planService');
-const razorpayService   = require('../services/razorpayService');
-const billingService    = require('../services/billingService');
-const InvoiceService    = require('../services/invoiceService');
-const Company           = require('../models/Company');
-const crypto            = require('crypto');
-
-/**
- * PaymentController
- *
- * Routes:
- *  - POST   /api/payment/create-order     → createOrder
- *  - POST   /api/payment/capture          → capturePayment
- *  - POST   /api/payment/webhook          → handleWebhook
- *  - GET    /api/subscription/status      → fetchStatus
- */
 module.exports = {
   /**
-   * Create a Razorpay order or activate a free trial immediately.
-   *
-   * @body { planId: String }
+   * POST /api/payment/create-order
+   * Creates a Razorpay order or activates a free trial.
    */
-  async createOrder(req, res, next) {
-    try {
-      const { planId } = req.body;
-      if (!planId) {
-        return res.status(400).json({ error: 'planId is required' });
-      }
+  async createOrder(req, res) {
+    console.log("▶️ [createOrder] user:", req.user, "body:", req.body);
 
-      // 1️⃣ Look up the plan
+    const { planId } = req.body;
+    if (!planId) {
+      return res.status(400).json({ error: "planId is required" });
+    }
+
+    const companyId = req.user?.companyId;
+    if (!companyId) {
+      return res
+        .status(401)
+        .json({ error: "Unauthorized: missing companyId in token" });
+    }
+
+    try {
       const plan = await planService.findById(planId);
       if (!plan) {
-        return res.status(404).json({ error: 'Plan not found' });
+        return res.status(404).json({ error: "Plan not found" });
       }
 
-      // 2️⃣ Free trial?
       if (plan.isFreeTrial) {
-        const subscription = await billingService.activateTrial(
-          req.user.companyId,
-          planId
-        );
+        const subscription = await billingService.activateTrial(companyId, planId);
         return res.status(200).json({
           trialActivated: true,
-          subscription
+          subscription,
         });
       }
 
-      // 3️⃣ Otherwise, create a Razorpay order (amount & GST handled internally)
-      const currency = plan.currency || 'INR';
       const order = await razorpayService.createOrder(
-        req.user.companyId,
+        companyId,
         planId,
-        currency
+        "INR",
+        { companyId, planId }
       );
 
       return res.status(200).json({
         trialActivated: false,
-        order
+        order,
       });
     } catch (err) {
-      next(err);
+      console.error("❌ createOrder Error:", err);
+      return res
+        .status(500)
+        .json({ error: err.message || "Something went wrong" });
     }
   },
 
   /**
-   * Verify Razorpay signature, record the payment, generate & email invoice,
-   * and update subscription.
-   *
-   * @body {
-   *   razorpay_order_id: String,
-   *   razorpay_payment_id: String,
-   *   razorpay_signature: String,
-   *   planId: String
-   * }
+   * POST /api/payment/capture
+   * Captures a Razorpay payment, generates the invoice, emails it,
+   * and updates the subscription.
    */
-  async capturePayment(req, res, next) {
+  async capturePayment(req, res) {
+    // 1️⃣ Ensure auth first
+    const companyId = req.user?.companyId;
+    if (!companyId) {
+      console.error("❌ capturePayment: missing companyId in token");
+      return res
+        .status(401)
+        .json({ error: "Unauthorized: missing companyId in token" });
+    }
+
+    // 2️⃣ Debug log inbound body
+    console.log("▶️ [capturePayment] req.body:", req.body);
+
+    // 3️⃣ Support both razorpay_* and raw keys
+    const razorpay_order_id   = req.body.razorpay_order_id   || req.body.order_id;
+    const razorpay_payment_id = req.body.razorpay_payment_id || req.body.payment_id;
+    const razorpay_signature  = req.body.razorpay_signature;
+
+    // 4️⃣ Validate required parameters
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      console.error(
+        "❌ capturePayment missing params:",
+        { razorpay_order_id, razorpay_payment_id, razorpay_signature }
+      );
+      return res
+        .status(400)
+        .json({ error: "Missing required payment parameters" });
+    }
+
     try {
-      const {
+      // 5️⃣ Process payment success: record history, generate & email invoice
+      const { invoiceNumber, downloadUrl } = await razorpayService.handlePaymentSuccess({
         razorpay_order_id,
         razorpay_payment_id,
         razorpay_signature,
-        planId
-      } = req.body;
-
-      // 1️⃣ Parameter validation
-      if (
-        !razorpay_order_id ||
-        !razorpay_payment_id ||
-        !razorpay_signature ||
-        !planId
-      ) {
-        return res.status(400).json({ error: 'Missing required payment parameters' });
-      }
-
-      // 2️⃣ Signature verification
-      razorpayService.verifySignature({
-        razorpay_order_id,
-        razorpay_payment_id,
-        razorpay_signature
       });
 
-      // 3️⃣ Lookup plan to derive amount (and GST)
-      const plan = await planService.findById(planId);
-      if (!plan || plan.isFreeTrial) {
-        return res.status(400).json({ error: 'Invalid plan for payment capture' });
-      }
+      // 6️⃣ Fetch updated subscription status
+      const subscription = await billingService.fetchStatus(companyId);
 
-      // 4️⃣ Record payment & update subscription
-      const subscription = await billingService.recordPayment(
-        req.user.companyId,
-        planId,
-        {
-          method:        'razorpay',
-          transactionId: razorpay_payment_id,
-          date:          new Date()
-        }
-      );
-
-      // 5️⃣ Generate invoice record
-      const company = await Company.findById(req.user.companyId).lean();
-      const invoice = await InvoiceService.createInvoice({
-        companyId:     req.user.companyId,
-        planName:      plan.name,
-        amount:        subscription.lastPaymentAmount,
-        paymentMethod: 'razorpay',
-        transactionId: razorpay_payment_id,
-        periodStart:   subscription.startDate,
-        periodEnd:     subscription.nextBillingDate
-      });
-
-      // 6️⃣ Generate PDF and email to tenant
-      const pdfBuffer = await InvoiceService.generateInvoicePDF(invoice, company);
-      await InvoiceService.emailInvoice(invoice, company, pdfBuffer);
-
+      // 7️⃣ Respond to client
       return res.status(200).json({
-        success:      true,
+        success: true,
         subscription,
-        invoiceId:    invoice._id
+        invoiceNumber,
+        downloadUrl,
       });
     } catch (err) {
-      next(err);
+      console.error("❌ capturePayment Error:", err);
+      if (err.message.includes("Invalid Razorpay signature")) {
+        return res.status(401).json({ error: err.message });
+      }
+      return res
+        .status(500)
+        .json({ error: err.message || "Something went wrong" });
     }
   },
 
   /**
-   * Handle Razorpay webhooks for asynchronous payment events.
+   * POST /api/payment/webhook
+   * Handles Razorpay webhooks asynchronously.
    */
   async handleWebhook(req, res) {
     try {
       const secret    = process.env.RAZORPAY_WEBHOOK_SECRET;
-      const signature = req.headers['x-razorpay-signature'];
+      const signature = req.headers["x-razorpay-signature"];
       const payload   = JSON.stringify(req.body);
 
-      // 1️⃣ Verify webhook signature
       const expected = crypto
-        .createHmac('sha256', secret)
+        .createHmac("sha256", secret)
         .update(payload)
-        .digest('hex');
+        .digest("hex");
+
       if (expected !== signature) {
-        return res.status(400).send('Invalid signature');
+        return res.status(400).send("Invalid signature");
       }
 
-      // 2️⃣ Handle supported events
       const { event, payload: p } = req.body;
-      if (event === 'payment.captured' && p.payment && p.payment.entity) {
-        const payment   = p.payment.entity;
-        const companyId = payment.notes.companyId;
-        const planId    = payment.notes.planId;
-
-        if (companyId && planId) {
-          // Record payment & update subscription
-          const subscription = await billingService.recordPayment(
-            companyId,
-            planId,
-            {
-              method:        'razorpay',
-              transactionId: payment.id,
-              date:          new Date(payment.created_at * 1000)
-            }
-          );
-
-          // Generate and email invoice
-          const plan    = await planService.findById(planId);
-          const company = await Company.findById(companyId).lean();
-          const invoice = await InvoiceService.createInvoice({
-            companyId,
-            planName:      plan.name,
-            amount:        subscription.lastPaymentAmount,
-            paymentMethod: 'razorpay',
-            transactionId: payment.id,
-            periodStart:   subscription.startDate,
-            periodEnd:     subscription.nextBillingDate
-          });
-          const pdfBuffer = await InvoiceService.generateInvoicePDF(invoice, company);
-          await InvoiceService.emailInvoice(invoice, company, pdfBuffer);
-        }
+      if (event === "payment.captured" && p.payment?.entity) {
+        const payment = p.payment.entity;
+        await razorpayService.handlePaymentSuccess({
+          razorpay_order_id:   payment.order_id,
+          razorpay_payment_id: payment.id,
+          razorpay_signature:  signature,
+        });
       }
 
-      return res.status(200).send('OK');
+      return res.status(200).send("OK");
     } catch (err) {
-      console.error('Webhook handling error:', err);
-      return res.status(500).send('Server error');
+      console.error("❌ handleWebhook Error:", err);
+      return res.status(500).send("Server error");
     }
   },
 
   /**
-   * GET /api/subscription/status
+   * GET /api/payment/status
+   * Returns current subscription and recent payment history.
    */
-  async fetchStatus(req, res, next) {
-    try {
-      const companyId = req.user?.companyId;
-      if (!companyId) {
-        return res.status(400).json({ error: 'Missing companyId in token.' });
-      }
-      const statusInfo = await billingService.fetchStatus(companyId);
-      res.status(200).json(statusInfo);
-    } catch (err) {
-      next(err);
+  async fetchStatus(req, res) {
+    const companyId = req.user?.companyId;
+    if (!companyId) {
+      return res.status(400).json({ error: "Missing companyId in token." });
     }
-  }
+    try {
+      const statusInfo = await billingService.fetchStatus(companyId);
+      return res.status(200).json(statusInfo);
+    } catch (err) {
+      console.error("❌ fetchStatus Error:", err);
+      return res
+        .status(500)
+        .json({ error: err.message || "Something went wrong" });
+    }
+  },
 };

@@ -1,4 +1,4 @@
-// 📄 src/pages/auth/VerificationPage.jsx
+// src/pages/auth/VerificationPage.jsx
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -12,11 +12,13 @@ export default function VerificationPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Expect companyId and email from previous page
   const { companyId, email } = location.state || {};
 
   useEffect(() => {
     if (!companyId || !email) {
-      navigate('/signin', { replace: true });
+      // If accessed directly, send back to signup
+      navigate('/auth/signup', { replace: true });
     }
   }, [companyId, email, navigate]);
 
@@ -26,7 +28,8 @@ export default function VerificationPage() {
     nextOtp[index] = value;
     setOtp(nextOtp);
     if (value && index < 3) {
-      document.getElementById(`otp-${index + 1}`)?.focus();
+      const nextInput = document.getElementById(`otp-${index + 1}`);
+      nextInput?.focus();
     }
   };
 
@@ -41,14 +44,15 @@ export default function VerificationPage() {
     }
 
     try {
-      const res = await api.post('/verify/confirm', {
-        companyId,
-        code,
+      await api.post('/verify/confirm', { companyId, code });
+      // After successful verification, navigate to Admin Login
+      navigate('/admin/login', {
+        state: { companyId, prefillEmail: email },
       });
-      navigate('/pricing', { state: { companyId } });
     } catch (err) {
       setError(
-        err.response?.data?.error || 'Verification failed. Please try again.'
+        err.response?.data?.message ||
+          'Verification failed. Please try again.'
       );
     }
   };
@@ -122,7 +126,9 @@ export default function VerificationPage() {
             <p className="text-red-600 text-sm text-center">{error}</p>
           )}
           {resendMessage && (
-            <p className="text-green-600 text-sm text-center">{resendMessage}</p>
+            <p className="text-green-600 text-sm text-center">
+              {resendMessage}
+            </p>
           )}
 
           <button

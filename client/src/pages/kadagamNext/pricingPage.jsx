@@ -10,26 +10,33 @@ export default function PricingPage() {
   useEffect(() => {
     paymentService
       .getPlans()
-      .then(data => setPlans(data))
-      .catch(err => console.error("Failed to load plans:", err));
+      .then((data) => setPlans(data))
+      .catch((err) => {
+        console.error("Failed to load plans:", err);
+        alert("Unable to load pricing plans. Please try again later.");
+      });
   }, []);
 
   const handlePurchase = async (plan) => {
     try {
       if (plan.isFreeTrial && plan.used) return;
 
+      // 1️⃣ Create order or activate trial
       const resp = await paymentService.createOrder({ planId: plan._id });
+
+      // 2️⃣ Free trial → dashboard
       if (resp.trialActivated) {
-        navigate("/admin/login", { state: { purchased: true } });
+        navigate("/admin/dashboard");
         return;
       }
 
+      // 3️⃣ Paid plan → open Razorpay
       const { order } = resp;
       await loadRazorpay();
 
       const options = {
-        key: process.env.REACT_APP_RAZORPAY_KEY,
-        amount: order.amount.toString(),
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount: order.totalAmount.toString(),
         currency: order.currency,
         name: "KadagamNext",
         description: plan.isFreeTrial
@@ -37,25 +44,41 @@ export default function PricingPage() {
           : `${plan.duration.value} ${plan.duration.unit} Subscription`,
         order_id: order.orderId,
         handler: async (response) => {
+          // 🔎 DEBUG: see exactly what fields come back
+          console.log("🧾 Razorpay handler response:", response);
+
+          // 4️⃣ Allow both `razorpay_…` and raw keys
+          const razorpay_order_id   = response.razorpay_order_id   || response.order_id;
+          const razorpay_payment_id = response.razorpay_payment_id || response.payment_id;
+          const razorpay_signature  = response.razorpay_signature;
+
+          if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+            console.error("Missing one of the required Razorpay params");
+            alert("Payment confirmation failed. Please contact support.");
+            return;
+          }
+
+          // 5️⃣ Capture on backend
           await paymentService.capturePayment({
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature: response.razorpay_signature,
-            planId: plan._id
+            razorpay_order_id,
+            razorpay_payment_id,
+            razorpay_signature,
           });
-          navigate("/admin/login", { state: { purchased: true } });
+
+          // 6️⃣ Finally, go back to your login/dashboard
+          navigate("/admin/dashboard");
         },
         prefill: {
-          email: "",
-          contact: ""
+          email:   localStorage.getItem("userEmail") || "",
+          contact: localStorage.getItem("userPhone") || "",
         },
-        theme: { color: "#139DEB" }
+        theme: { color: "#139DEB" },
       };
 
       new window.Razorpay(options).open();
     } catch (err) {
       console.error("Payment error:", err);
-      alert("Payment failed. Please try again.");
+      alert(err.error || err.message || "Payment failed. Please try again.");
     }
   };
 
@@ -86,7 +109,9 @@ export default function PricingPage() {
               key={plan._id}
               className="relative bg-white text-gray-800 rounded-3xl shadow-xl p-8 transform transition-all hover:scale-105 border-2 border-gray-200"
             >
-              <div className={`absolute top-4 right-4 px-3 py-1 text-xs font-semibold text-white rounded-full ${badgeColor}`}>
+              <div
+                className={`absolute top-4 right-4 px-3 py-1 text-xs font-semibold text-white rounded-full ${badgeColor}`}
+              >
                 {plan.isFreeTrial
                   ? "Free Trial"
                   : `${plan.duration.value} ${
@@ -106,9 +131,7 @@ export default function PricingPage() {
               <div className="mb-6">
                 <div className="flex items-baseline">
                   <span className="text-4xl font-bold text-gray-900">
-                    {plan.isFreeTrial
-                      ? "Free"
-                      : `₹${plan.price.toFixed(2)}`}
+                    {plan.isFreeTrial ? "Free" : `₹${plan.price}`}
                   </span>
                   {!plan.isFreeTrial && (
                     <span className="ml-2 text-sm font-medium text-gray-600">

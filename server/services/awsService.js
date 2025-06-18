@@ -1,3 +1,5 @@
+// server/utils/s3.js
+
 const {
   S3Client,
   PutObjectCommand,
@@ -9,10 +11,6 @@ const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { v4: uuidv4 } = require("uuid");
 const mime = require("mime-types");
 require("dotenv").config();
-
-const File = require("../models/File");
-const Task = require("../models/Task");
-const Project = require("../models/Project");
 
 const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME;
 if (!BUCKET_NAME) throw new Error("❌ AWS_S3_BUCKET_NAME missing!");
@@ -32,9 +30,10 @@ const uploadToS3 = async (buffer, key, contentType, isPublic = false) => {
     Key: key,
     Body: buffer,
     ContentType: contentType,
-    ContentDisposition: contentType.includes("pdf") || contentType.includes("image")
-      ? "inline"
-      : `attachment; filename="${key.split("/").pop()}"`,
+    ContentDisposition:
+      contentType === "application/pdf" || contentType.startsWith("image/")
+        ? "inline"
+        : `attachment; filename="${key.split("/").pop()}"`,
   };
 
   await s3.send(new PutObjectCommand(params));
@@ -43,13 +42,21 @@ const uploadToS3 = async (buffer, key, contentType, isPublic = false) => {
   return { fileUrl, fileKey: key };
 };
 
-// Upload PDF buffer
+// Upload PDF buffer (generic)
 const uploadBufferToS3 = async (buffer, key, contentType = "application/pdf") => {
-  const { fileUrl } = await uploadToS3(buffer, key, contentType);
-  return {
-    fileUrl,
-    fileKey: key,
-  };
+  return await uploadToS3(buffer, key, contentType);
+};
+
+// ——— NEW: Invoice PDF upload ———
+// buffer: PDF file buffer
+// invoiceNumber: e.g. "INV-2025-000001"
+// companyId: company’s _id string
+const uploadInvoicePdf = async (buffer, invoiceNumber, companyId) => {
+  if (!buffer || !invoiceNumber || !companyId) {
+    throw new Error("buffer, invoiceNumber and companyId are required");
+  }
+  const key = `invoices/company_${companyId}/${invoiceNumber}.pdf`;
+  return await uploadToS3(buffer, key, "application/pdf");
 };
 
 // Delete from S3 + File DB
@@ -57,7 +64,9 @@ const deleteFile = async (fileKey) => {
   if (!fileKey) throw new Error("❌ File key is required");
 
   try {
-    await s3.send(new DeleteObjectCommand({ Bucket: BUCKET_NAME, Key: fileKey }));
+    await s3.send(
+      new DeleteObjectCommand({ Bucket: BUCKET_NAME, Key: fileKey })
+    );
     console.log(`✅ Deleted from S3: ${fileKey}`);
   } catch (err) {
     console.warn(`⚠️ S3 delete failed for ${fileKey}:`, err.message);
@@ -84,7 +93,11 @@ const getFileStream = async (key) => {
 };
 
 // Upload staff file (profilePic / resume)
-const uploadStaffFile = async (fileBuffer, contentType, { fileType, staffId, companyId }) => {
+const uploadStaffFile = async (
+  fileBuffer,
+  contentType,
+  { fileType, staffId, companyId }
+) => {
   const ext = mime.extension(contentType) || "bin";
   let fileKey;
 
@@ -100,27 +113,37 @@ const uploadStaffFile = async (fileBuffer, contentType, { fileType, staffId, com
 };
 
 // Upload daily update file attachment
-const uploadDailyCommentAttachment = async (fileBuffer, fileName, contentType, taskId, companyId) => {
+const uploadDailyCommentAttachment = async (
+  fileBuffer,
+  fileName,
+  contentType,
+  taskId,
+  companyId
+) => {
   const ext = mime.extension(contentType) || "bin";
-  const safeName = fileName?.includes(".") ? fileName : `daily-${Date.now()}.${ext}`;
+  const safeName = fileName?.includes(".")
+    ? fileName
+    : `daily-${Date.now()}.${ext}`;
   const fileKey = `daily-updates/company_${companyId}/task_${taskId}/${uuidv4()}-${safeName}`;
-  const { fileUrl } = await uploadToS3(fileBuffer, fileKey, contentType);
-
-  return {
-    fileUrl,
-    fileName: safeName,
-    fileType: contentType,
-  };
+  return await uploadToS3(fileBuffer, fileKey, contentType);
 };
 
 // Upload task review file attachment
-const uploadTaskReviewAttachment = async (fileBuffer, fileName, contentType, taskId, companyId) => {
-  if (!taskId || !companyId) throw new Error("❌ Task ID and companyId are required");
+const uploadTaskReviewAttachment = async (
+  fileBuffer,
+  fileName,
+  contentType,
+  taskId,
+  companyId
+) => {
+  if (!taskId || !companyId)
+    throw new Error("❌ Task ID and companyId are required");
 
   const ext = mime.extension(contentType) || "bin";
-  const safeName = fileName?.includes(".") ? fileName : `review-${Date.now()}.${ext}`;
+  const safeName = fileName?.includes(".")
+    ? fileName
+    : `review-${Date.now()}.${ext}`;
   const fileKey = `task-reviews/company_${companyId}/task_${taskId}/${uuidv4()}-${safeName}`;
-
   return await uploadToS3(fileBuffer, fileKey, contentType);
 };
 
@@ -132,7 +155,8 @@ const checkIfS3KeyExists = async (fileUrl) => {
     await s3.send(new HeadObjectCommand({ Bucket: BUCKET_NAME, Key: key }));
     return true;
   } catch (err) {
-    if (err.name === "NotFound" || err.$metadata?.httpStatusCode === 404) return false;
+    if (err.name === "NotFound" || err.$metadata?.httpStatusCode === 404)
+      return false;
     console.warn("⚠️ S3 HEAD check failed:", err.message || err);
     throw err;
   }
@@ -151,8 +175,11 @@ const uploadProjectTaskFile = async (
     throw new Error("❌ Invalid task ID");
 
   const ext = mime.extension(contentType) || "bin";
-  const safeName = fileName?.includes(".") ? fileName : `attachment-${Date.now()}.${ext}`;
-  const fileKey = `project-files/company_${companyId}/${projectId || "general"}/${uuidv4()}-${safeName}`;
+  const safeName = fileName?.includes(".")
+    ? fileName
+    : `attachment-${Date.now()}.${ext}`;
+  const fileKey = `project-files/company_${companyId}/${projectId ||
+    "general"}/${uuidv4()}-${safeName}`;
   const { fileUrl } = await uploadToS3(fileBuffer, fileKey, contentType);
 
   await File.create({
@@ -172,6 +199,7 @@ const uploadProjectTaskFile = async (
 module.exports = {
   uploadToS3,
   uploadBufferToS3,
+  uploadInvoicePdf,         // <— new helper
   deleteFile,
   getFileStream,
   generatePresignedUrl,

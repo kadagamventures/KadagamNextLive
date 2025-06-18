@@ -1,7 +1,7 @@
 // src/components/Dashboard.jsx
 
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import classNames from "classnames";
 import PropTypes from "prop-types";
 import { tokenRefreshInterceptor as axios } from "../../utils/axiosInstance";
@@ -11,8 +11,19 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedCompany, setSelectedCompany] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user"));
+
+    if (!user || user.role !== "super_admin") {
+      setError("Access denied. Super Admin only.");
+      setLoading(false);
+      // Optional: Redirect unauthorized users
+      // navigate("/not-authorized");
+      return;
+    }
+
     const fetchCompanies = async () => {
       setLoading(true);
       setError(null);
@@ -25,8 +36,9 @@ const Dashboard = () => {
         setLoading(false);
       }
     };
+
     fetchCompanies();
-  }, []);
+  }, [navigate]);
 
   const handleRowClick = (company) => {
     setSelectedCompany(company);

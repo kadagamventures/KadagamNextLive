@@ -1,5 +1,3 @@
-// server/services/planService.js
-
 const Plan = require("../models/Plan");
 
 module.exports = {
@@ -13,5 +11,14 @@ module.exports = {
     return Plan.find(filter)
       .sort({ "duration.unit": 1, "duration.value": 1 })
       .lean();
+  },
+
+  /**
+   * 📌 Find a plan by its ID
+   * @param {string} planId
+   * @returns {Promise<Object|null>}
+   */
+  async findById(planId) {
+    return Plan.findById(planId).lean();
   }
 };

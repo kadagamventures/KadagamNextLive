@@ -21,43 +21,61 @@ router.post("/login", superAdminController.login);
 
 // ─────────────────────────────
 // 🔐 Protected Super-Admin Routes
-// Prefix in your main app: app.use("/api/super-admin", superAdminRoutes)
+// (mounted under "/api/super-admin")
 // ─────────────────────────────
 
-// Company List & Details
-// GET    /api/super-admin/companies
-// GET    /api/super-admin/companies/:id
-router
-  .route("/companies")
-  .get(verifyToken, isSuperAdmin, superAdminController.getCompanies);
+// Company List
+// GET /api/super-admin/companies
+router.get(
+  "/companies",
+  verifyToken,
+  isSuperAdmin,
+  superAdminController.getCompanies
+);
 
+// Company Details & Soft‑Delete
+// GET    /api/super-admin/companies/:id
+// DELETE /api/super-admin/companies/:id
 router
   .route("/companies/:id")
   .get(verifyToken, isSuperAdmin, superAdminController.getCompanyDetails)
   .delete(verifyToken, isSuperAdmin, superAdminController.deleteCompany);
 
-// Subscription & Trust
-// PUT    /api/super-admin/companies/:id/status
-// PUT    /api/super-admin/companies/:id/trust
-router
-  .route("/companies/:id/status")
-  .put(verifyToken, isSuperAdmin, superAdminController.updateSubscription);
+// Subscription Status Update
+// PUT /api/super-admin/companies/:id/subscription
+router.put(
+  "/companies/:id/subscription",
+  verifyToken,
+  isSuperAdmin,
+  superAdminController.updateSubscription
+);
 
-router
-  .route("/companies/:id/trust")
-  .put(verifyToken, isSuperAdmin, superAdminController.updateTrust);
+// Trust Level & Verification
+// PUT /api/super-admin/companies/:id/trust
+router.put(
+  "/companies/:id/trust",
+  verifyToken,
+  isSuperAdmin,
+  superAdminController.updateTrust
+);
 
 // Payment History
 // GET /api/super-admin/companies/:id/payments
-router
-  .route("/companies/:id/payments")
-  .get(verifyToken, isSuperAdmin, superAdminController.getPaymentHistory);
+router.get(
+  "/companies/:id/payments",
+  verifyToken,
+  isSuperAdmin,
+  superAdminController.getPaymentHistory
+);
 
 // Revenue Dashboard
 // GET /api/super-admin/revenue?year=YYYY&month=0-11
-router
-  .route("/revenue")
-  .get(verifyToken, isSuperAdmin, superAdminController.getRevenue);
+router.get(
+  "/revenue",
+  verifyToken,
+  isSuperAdmin,
+  superAdminController.getRevenue
+);
 
 // Plan Management
 // GET  /api/super-admin/plans

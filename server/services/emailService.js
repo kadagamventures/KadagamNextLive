@@ -1,4 +1,7 @@
-const { SendEmailCommand } = require("@aws-sdk/client-ses");
+// server/services/emailService.js
+
+const { SendEmailCommand, SendRawEmailCommand } = require("@aws-sdk/client-ses");
+const MailComposer = require("nodemailer/lib/mail-composer");
 require("dotenv").config();
 const { ses } = require("../config/awsConfig");
 
@@ -37,7 +40,55 @@ class EmailService {
     }
   }
 
- 
+  /**
+   * Send an email with attachments (e.g., PDF invoice).
+   *
+   * @param {{ to: string, subject: string, text?: string, html?: string, attachments: Array<{filename: string, content: Buffer|string}> }} options
+   */
+  async sendEmailWithAttachment({ to, subject, text = "", html, attachments }) {
+    if (!to || !subject || (!text && !html) || !Array.isArray(attachments) || attachments.length === 0) {
+      throw new Error("Missing parameters for sendEmailWithAttachment.");
+    }
+
+    const sourceEmail = process.env.AWS_SES_SENDER_EMAIL;
+    if (!sourceEmail || !sourceEmail.includes("@")) {
+      console.warn("⚠️ Invalid AWS_SES_SENDER_EMAIL configured.");
+      return;
+    }
+
+    // Build raw MIME message
+    const mail = new MailComposer({
+      from: sourceEmail,
+      to,
+      subject,
+      text,
+      html,
+      attachments,
+    });
+
+    const messageBuffer = await new Promise((resolve, reject) => {
+      mail.compile().build((err, msg) => {
+        if (err) reject(err);
+        else resolve(msg);
+      });
+    });
+
+    const rawParams = {
+      RawMessage: { Data: messageBuffer },
+      Source: sourceEmail,
+      Destinations: [to],
+    };
+
+    try {
+      const command = new SendRawEmailCommand(rawParams);
+      const response = await ses.send(command);
+      console.log(`✅ Email with attachment sent to ${to} (MessageId: ${response.MessageId})`);
+    } catch (err) {
+      console.error(`❌ sendEmailWithAttachment failed: ${err.message}`, err);
+      throw new Error("Failed to send raw email via AWS SES");
+    }
+  }
+
   async sendVerificationCodeEmail(to, code, ttlMin = 10, companyName = "KadagamNext") {
     const subject = "Your KadagamNext Verification Code";
     const text = `
@@ -113,7 +164,6 @@ ${companyName} Team
     await this.sendEmail(to, subject, text, html, companyName);
   }
 
-  
   async sendLeaveStatusEmail(to, status, leaveDates, adminReason, companyName = "KadagamNext") {
     const statusText = status === "approved" ? "APPROVED ✅" : "REJECTED ❌";
     const subject = `Your Leave Request Has Been ${status.toUpperCase()}`;
@@ -141,9 +191,6 @@ ${companyName} Team
     await this.sendEmail(to, subject, text, html, companyName);
   }
 
-  /**
-   * Send a password-reset link.
-   */
   async sendPasswordResetEmail(to, resetToken, companyName = "KadagamNext") {
     if (!process.env.FRONTEND_URL) {
       throw new Error("FRONTEND_URL is not set in your .env");
@@ -168,7 +215,6 @@ If you did not request this, please ignore this email.
     await this.sendEmail(to, subject, text, html, companyName);
   }
 
-  
   async sendReviewNotificationMail(to, taskTitle, companyName = "KadagamNext") {
     const subject = "Task Under Review";
     const text = `
@@ -191,9 +237,6 @@ Thank you!
     await this.sendEmail(to, subject, text, html, companyName);
   }
 
-  /**
-   * Send a task–approval notification.
-   */
   async sendApprovalEmail(task, reason, companyName = "KadagamNext") {
     const subject = `Task Approved: ${task.title}`;
     const text = `
@@ -218,7 +261,6 @@ ${companyName} Team
     await this.sendEmail(task.assignedTo.email, subject, text, html, companyName);
   }
 
-  
   async sendRejectionEmail(task, reason, attachmentLink = null, companyName = "KadagamNext") {
     const subject = `Task Rejected: ${task.title}`;
     const textLines = [
