@@ -8,11 +8,10 @@ const mongoose = require("mongoose");
 const compression = require("compression");
 const passport = require("passport");
 const session = require("express-session");
-const cookieParser = require("cookie-parser");       // ← add this
+const cookieParser = require("cookie-parser");
 
 require("./config/passport");
 
-// Middlewares
 const { verifyToken } = require("./middlewares/authMiddleware");
 const enforceActiveSubscription = require("./middlewares/enforceActiveSubscription");
 const ensureVerifiedTenant = require("./middlewares/ensureVerifiedTenant");
@@ -41,14 +40,12 @@ app.use(session({
   cookie: {
     secure: isProd,
     sameSite: isProd ? "none" : "lax",
-    maxAge: 1000 * 60 * 60,
+    maxAge: 1000 * 60 * 60, // 1 hour
   },
 }));
 app.use(passport.initialize());
 app.use(passport.session());
-
-// ──────────────── COOKIE PARSING ────────────────
-app.use(cookieParser());                             // ← add this
+app.use(cookieParser());
 
 // ──────────────── CORS SETUP ────────────────
 const CLIENT_URLS = [
@@ -64,8 +61,8 @@ const corsOptions = {
     return callback(new Error("CORS policy violation"), false);
   },
   credentials: true,
-  methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"],
-  allowedHeaders: ["Content-Type","Authorization","X-Requested-With","Accept","Origin"]
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
 };
 
 app.use(cors(corsOptions));
@@ -156,7 +153,7 @@ app.use("/api/payment-status", verifyToken, ensureVerifiedTenant, paymentStatusR
 // Super‑Admin
 app.use("/api/super-admin", superAdminRoutes);
 
-// Errors
+// ──────────────── ERROR HANDLING ────────────────
 app.use(notFoundHandler);
 app.use(errorHandler);
 
