@@ -61,8 +61,6 @@ const paymentService = {
   /**
    * Fetch current subscription status
    * GET /api/payment-status/status
-   *
-   * @returns {Object} status
    */
   fetchStatus: async () => {
     const { data } = await axios.get("/payment-status/status");
@@ -105,8 +103,9 @@ const paymentService = {
    *   gstAmount: number,
    *   totalAmount: number,
    *   paymentDate: string,
+   *   invoiceNumber: string,
    *   downloadUrl: string | null
-   * }>}
+   * }>}`
    */
   fetchHistory: async (year) => {
     const url = year
@@ -117,28 +116,35 @@ const paymentService = {
   },
 
   /**
-   * Download a PDF invoice directly (triggers browser download)
-   * GET /api/payment-status/invoice/:invoiceId/pdf
+   * Get a fresh presigned URL for an invoice
+   * GET /api/invoices/:invoiceNumber/download
    *
-   * @param {string} invoiceId
+   * @param {string} invoiceNumber
+   * @returns {Promise<string>} downloadUrl
    */
-  downloadInvoice: async (invoiceId) => {
-    if (!invoiceId) {
-      throw new Error("invoiceId is required to download an invoice");
+  getInvoiceDownloadUrl: async (invoiceNumber) => {
+    if (!invoiceNumber) {
+      throw new Error("invoiceNumber is required to get download URL");
     }
-    const response = await axios.get(
-      `/payment-status/invoice/${invoiceId}/pdf`,
-      { responseType: "blob" }
+    const { data } = await axios.get(
+      `/invoices/${encodeURIComponent(invoiceNumber)}/download`
     );
-    const blob = new Blob([response.data], { type: "application/pdf" });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `${invoiceId}.pdf`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
+    return data.downloadUrl;
+  },
+
+  /**
+   * Download (open) a PDF invoice directly
+   * — uses getInvoiceDownloadUrl under the hood
+   *
+   * @param {string} invoiceNumber
+   */
+  downloadInvoice: async (invoiceNumber) => {
+    if (!invoiceNumber) {
+      throw new Error("invoiceNumber is required to download an invoice");
+    }
+    const url = await paymentService.getInvoiceDownloadUrl(invoiceNumber);
+    // Open in a new tab so the browser handles PDF display/download
+    window.open(url, "_blank", "noopener");
   },
 };
 

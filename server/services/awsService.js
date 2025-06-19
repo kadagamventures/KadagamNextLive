@@ -1,4 +1,4 @@
-// server/utils/s3.js
+// services/awsService.js
 
 const {
   S3Client,
@@ -25,15 +25,20 @@ const s3 = new S3Client({
 
 // Core S3 Upload
 const uploadToS3 = async (buffer, key, contentType, isPublic = false) => {
+  // For PDFs (and images if you want inline), force attachment
+  const isPdf = contentType === "application/pdf";
+  const disposition = isPdf
+    ? `attachment; filename="${key.split("/").pop()}"`
+    : isPublic
+    ? "public-read"
+    : `attachment; filename="${key.split("/").pop()}"`;
+
   const params = {
     Bucket: BUCKET_NAME,
     Key: key,
     Body: buffer,
     ContentType: contentType,
-    ContentDisposition:
-      contentType === "application/pdf" || contentType.startsWith("image/")
-        ? "inline"
-        : `attachment; filename="${key.split("/").pop()}"`,
+    ContentDisposition: disposition,
   };
 
   await s3.send(new PutObjectCommand(params));
@@ -47,15 +52,13 @@ const uploadBufferToS3 = async (buffer, key, contentType = "application/pdf") =>
   return await uploadToS3(buffer, key, contentType);
 };
 
-// ——— NEW: Invoice PDF upload ———
-// buffer: PDF file buffer
-// invoiceNumber: e.g. "INV-2025-000001"
-// companyId: company’s _id string
+// ——— Invoice PDF upload ———
 const uploadInvoicePdf = async (buffer, invoiceNumber, companyId) => {
   if (!buffer || !invoiceNumber || !companyId) {
     throw new Error("buffer, invoiceNumber and companyId are required");
   }
   const key = `invoices/company_${companyId}/${invoiceNumber}.pdf`;
+  // PDFs now always get “attachment” disposition
   return await uploadToS3(buffer, key, "application/pdf");
 };
 
@@ -78,7 +81,7 @@ const deleteFile = async (fileKey) => {
   });
 };
 
-// Generate presigned download URL
+// Generate presigned download URL (expires in 1 hour)
 const generatePresignedUrl = async (key) => {
   const command = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key });
   return await getSignedUrl(s3, command, { expiresIn: 3600 });
@@ -93,11 +96,7 @@ const getFileStream = async (key) => {
 };
 
 // Upload staff file (profilePic / resume)
-const uploadStaffFile = async (
-  fileBuffer,
-  contentType,
-  { fileType, staffId, companyId }
-) => {
+const uploadStaffFile = async (fileBuffer, contentType, { fileType, staffId, companyId }) => {
   const ext = mime.extension(contentType) || "bin";
   let fileKey;
 
@@ -113,36 +112,19 @@ const uploadStaffFile = async (
 };
 
 // Upload daily update file attachment
-const uploadDailyCommentAttachment = async (
-  fileBuffer,
-  fileName,
-  contentType,
-  taskId,
-  companyId
-) => {
+const uploadDailyCommentAttachment = async (fileBuffer, fileName, contentType, taskId, companyId) => {
   const ext = mime.extension(contentType) || "bin";
-  const safeName = fileName?.includes(".")
-    ? fileName
-    : `daily-${Date.now()}.${ext}`;
+  const safeName = fileName?.includes(".") ? fileName : `daily-${Date.now()}.${ext}`;
   const fileKey = `daily-updates/company_${companyId}/task_${taskId}/${uuidv4()}-${safeName}`;
   return await uploadToS3(fileBuffer, fileKey, contentType);
 };
 
 // Upload task review file attachment
-const uploadTaskReviewAttachment = async (
-  fileBuffer,
-  fileName,
-  contentType,
-  taskId,
-  companyId
-) => {
-  if (!taskId || !companyId)
-    throw new Error("❌ Task ID and companyId are required");
+const uploadTaskReviewAttachment = async (fileBuffer, fileName, contentType, taskId, companyId) => {
+  if (!taskId || !companyId) throw new Error("❌ Task ID and companyId are required");
 
   const ext = mime.extension(contentType) || "bin";
-  const safeName = fileName?.includes(".")
-    ? fileName
-    : `review-${Date.now()}.${ext}`;
+  const safeName = fileName?.includes(".") ? fileName : `review-${Date.now()}.${ext}`;
   const fileKey = `task-reviews/company_${companyId}/task_${taskId}/${uuidv4()}-${safeName}`;
   return await uploadToS3(fileBuffer, fileKey, contentType);
 };
@@ -155,42 +137,31 @@ const checkIfS3KeyExists = async (fileUrl) => {
     await s3.send(new HeadObjectCommand({ Bucket: BUCKET_NAME, Key: key }));
     return true;
   } catch (err) {
-    if (err.name === "NotFound" || err.$metadata?.httpStatusCode === 404)
-      return false;
+    if (err.name === "NotFound" || err.$metadata?.httpStatusCode === 404) return false;
     console.warn("⚠️ S3 HEAD check failed:", err.message || err);
     throw err;
   }
 };
 
 // Upload project/task file & log in DB
-const uploadProjectTaskFile = async (
-  fileBuffer,
-  fileName,
-  contentType,
-  { projectId, taskId, uploadedBy, companyId }
-) => {
-  if (projectId && !(await Project.findOne({ _id: projectId, companyId })))
-    throw new Error("❌ Invalid project ID");
-  if (taskId && !(await Task.findOne({ _id: taskId, companyId })))
-    throw new Error("❌ Invalid task ID");
+const uploadProjectTaskFile = async (fileBuffer, fileName, contentType, { projectId, taskId, uploadedBy, companyId }) => {
+  if (projectId && !(await Project.findOne({ _id: projectId, companyId }))) throw new Error("❌ Invalid project ID");
+  if (taskId    && !(await Task.findOne({ _id: taskId,    companyId }))) throw new Error("❌ Invalid task ID");
 
   const ext = mime.extension(contentType) || "bin";
-  const safeName = fileName?.includes(".")
-    ? fileName
-    : `attachment-${Date.now()}.${ext}`;
-  const fileKey = `project-files/company_${companyId}/${projectId ||
-    "general"}/${uuidv4()}-${safeName}`;
+  const safeName = fileName?.includes(".") ? fileName : `attachment-${Date.now()}.${ext}`;
+  const fileKey = `project-files/company_${companyId}/${projectId || "general"}/${uuidv4()}-${safeName}`;
   const { fileUrl } = await uploadToS3(fileBuffer, fileKey, contentType);
 
   await File.create({
-    fileName: safeName,
-    fileType: contentType,
-    fileSize: fileBuffer.length,
-    fileURL: fileUrl,
+    fileName:   safeName,
+    fileType:   contentType,
+    fileSize:   fileBuffer.length,
+    fileURL:    fileUrl,
     uploadedBy,
     companyId,
-    project: projectId || null,
-    task: taskId || null,
+    project:    projectId || null,
+    task:       taskId    || null,
   });
 
   return fileUrl;
@@ -199,7 +170,7 @@ const uploadProjectTaskFile = async (
 module.exports = {
   uploadToS3,
   uploadBufferToS3,
-  uploadInvoicePdf,         // <— new helper
+  uploadInvoicePdf,
   deleteFile,
   getFileStream,
   generatePresignedUrl,

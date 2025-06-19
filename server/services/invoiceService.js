@@ -1,59 +1,61 @@
-// server/services/invoiceService.js
+// services/invoiceService.js
 
 require("dotenv").config();
-const Invoice = require("../models/Invoice");
-const Company = require("../models/Company");
+const fs = require("fs");
+const path = require("path");
 const PDFDocument = require("pdfkit");
 const { PassThrough } = require("stream");
+const Invoice = require("../models/Invoice");
+const Company = require("../models/Company");
 const EmailService = require("./emailService");
-const { uploadInvoicePdf, generatePresignedUrl } = require("../services/awsService");
+const { uploadInvoicePdf } = require("../services/awsService");
 
 class InvoiceService {
+  /**
+   * Generate the next sequential invoice number
+   * Format: INV-0001, INV-0002, etc.
+   */
   static async generateInvoiceNumber() {
-    const lastInvoice = await Invoice.findOne().sort({ createdAt: -1 }).lean();
-    let lastNumber = 0;
-
-    if (lastInvoice?.invoiceNumber) {
-      const match = lastInvoice.invoiceNumber.match(/INV-(\d+)/);
-      if (match) lastNumber = parseInt(match[1], 10);
+    const last = await Invoice.findOne().sort({ createdAt: -1 }).lean();
+    let num = 0;
+    if (last?.invoiceNumber) {
+      const m = last.invoiceNumber.match(/INV-(\d+)/);
+      if (m) num = parseInt(m[1], 10);
     }
-
-    return `INV-${String(lastNumber + 1).padStart(4, "0")}`;
+    return `INV-${String(num + 1).padStart(4, "0")}`;
   }
 
-  static async createInvoiceRecord({
-    companyId,
-    planId,
-    planName,
-    baseAmount,
-    gstPercentage,
-    paymentMethod,
-    transactionId,
-    periodStart,
-    periodEnd,
-  }) {
-    const gstAmount = +(baseAmount * gstPercentage / 100).toFixed(2);
+  /**
+   * Create a new Invoice mongoose document (not yet saved)
+   */
+  static async createInvoiceRecord(data) {
+    const { baseAmount, gstPercentage } = data;
+    const gstAmount   = +(baseAmount * gstPercentage / 100).toFixed(2);
     const totalAmount = +(baseAmount + gstAmount).toFixed(2);
     const invoiceNumber = await this.generateInvoiceNumber();
 
     return new Invoice({
-      companyId,
-      planId,
-      planName,
-      baseAmount,
-      gstPercentage,
+      ...data,
       gstAmount,
       totalAmount,
-      paymentMethod,
-      transactionId,
-      status: "paid",
-      periodStart,
-      periodEnd,
       invoiceNumber,
       invoiceDate: new Date(),
+      status: "paid",
     });
   }
 
+  /** Helper to format dates in the invoice PDF */
+  static formatDate(d) {
+    return d.toLocaleDateString("en-GB", {
+      day:   "2-digit",
+      month: "short",
+      year:  "numeric",
+    });
+  }
+
+  /**
+   * Render the PDF for an invoice and return its Buffer
+   */
   static async generateInvoicePDF(invoice, company) {
     const BILLER_NAME    = process.env.BILLER_NAME    || "KadagamNext Pvt. Ltd.";
     const BILLER_ADDRESS = process.env.BILLER_ADDRESS || "123 Corporate Ave, City, State, PIN";
@@ -64,155 +66,183 @@ class InvoiceService {
     const stream = new PassThrough();
     doc.pipe(stream);
 
-    if (BILLER_LOGO) {
-      try {
-        doc.image(BILLER_LOGO, 50, 45, { width: 120 });
-      } catch (_) {}
+    // Register fonts if available
+    const regPath  = path.join(__dirname, "../assets/fonts/Roboto-Regular.ttf");
+    const boldPath = path.join(__dirname, "../assets/fonts/Roboto-Bold.ttf");
+    let fontReg  = "Helvetica", fontBold = "Helvetica-Bold";
+    if (fs.existsSync(regPath) && fs.existsSync(boldPath)) {
+      doc.registerFont("R", regPath);
+      doc.registerFont("B", boldPath);
+      fontReg  = "R";
+      fontBold = "B";
     }
 
-    doc.fontSize(24).text("INVOICE", { align: "right" });
+    // Layout setup
+    const leftX      = 50;
+    const rightX     = doc.page.width - 200;
+    const logoSize   = 50;
+    const titleSize  = 24;
+    const topY       = 50;
+    const infoGap    = 10;
+    const lineHeight = 14;
 
-    doc.fontSize(10)
-       .text(BILLER_NAME, 50, 80)
-       .text(BILLER_ADDRESS, 50, 95)
-       .text(`GSTIN: ${BILLER_GSTIN}`, 50, 110)
-       .moveDown();
+    // 1) Logo + Invoice title
+    if (BILLER_LOGO) {
+      try { doc.image(BILLER_LOGO, leftX, topY, { width: logoSize }); }
+      catch {}
+    }
+    doc.font(fontBold).fontSize(titleSize)
+       .text("INVOICE", rightX, topY + (logoSize - titleSize) / 2, { align: "right" });
 
-    doc.text("Bill To:", 50, 150)
-       .font("Helvetica-Bold").text(company.name, 50, 165)
-       .font("Helvetica").text(company.address || "", 50, 180)
-       .text(`GSTIN: ${company.gstin || "-"}`, 50, 195)
-       .moveDown();
+    // 2) Metadata block on right
+    let metaY = topY + logoSize + infoGap;
+    doc.font(fontBold).fontSize(10);
+    const metaWidth = doc.page.width - rightX - 50;
+    const metaGap   = 8;
+    [
+      ["Invoice No:",    invoice.invoiceNumber],
+      ["Date:",          this.formatDate(invoice.invoiceDate)],
+      ["Billing Period:", `${this.formatDate(invoice.periodStart)} – ${this.formatDate(invoice.periodEnd)}`],
+      ["Plan:",          invoice.planName],
+      ["Transaction ID:", invoice.transactionId],
+    ].forEach(([lbl, val]) => {
+      const line = `${lbl} ${val}`;
+      doc.text(line, rightX, metaY, { width: metaWidth });
+      metaY += doc.heightOfString(line, { width: metaWidth }) + metaGap;
+    });
+    const metaBottom = metaY;
 
-    const metaX = 350;
-    let metaY = 80;
-    doc.font("Helvetica-Bold").fontSize(10)
-       .text("Invoice No:", metaX, metaY)
-       .font("Helvetica").text(invoice.invoiceNumber, metaX + 80, metaY)
-       .font("Helvetica-Bold").text("Date:", metaX, metaY += 15)
-       .font("Helvetica").text(invoice.invoiceDate.toLocaleDateString(), metaX + 80, metaY)
-       .font("Helvetica-Bold").text("Billing Period:", metaX, metaY += 15)
-       .font("Helvetica").text(
-         `${invoice.periodStart.toLocaleDateString()} – ${invoice.periodEnd.toLocaleDateString()}`,
-         metaX + 80, metaY, { width: 180 }
-       )
-       .font("Helvetica-Bold").text("Plan:", metaX, metaY += 25)
-       .font("Helvetica").text(invoice.planName, metaX + 80, metaY)
-       .font("Helvetica-Bold").text("Transaction ID:", metaX, metaY += 15)
-       .font("Helvetica").text(invoice.transactionId, metaX + 80, metaY)
-       .moveDown();
+    // 3) Biller info + “Bill To” on left
+    let billerY = topY + logoSize + infoGap;
+    doc.font(fontBold).fontSize(10).text(BILLER_NAME, leftX, billerY);
+    billerY += lineHeight;
+    doc.font(fontReg).text(BILLER_ADDRESS, leftX, billerY, { width: 230 });
+    billerY = doc.y + infoGap;
+    doc.text(`GSTIN: ${BILLER_GSTIN}`, leftX, billerY);
+    billerY += lineHeight;
+    doc.font(fontBold).text("Bill To:", leftX, billerY);
+    doc.text(company.name || "-", leftX + 60, billerY);
+    billerY = doc.y + infoGap;
+    if (company.address) {
+      doc.font(fontReg).text(company.address, leftX + 60, billerY, { width: 180 });
+      billerY = doc.y + infoGap;
+    }
+    doc.text(`GSTIN: ${company.gstin || "-"}`, leftX + 60, billerY);
+    const billerBottom = billerY + lineHeight;
 
-    const tableTop = 260;
-    doc.font("Helvetica-Bold")
-       .text("Description", 50, tableTop)
-       .text("Qty", 300, tableTop, { width: 50, align: "right" })
-       .text("Unit Price (₹)", 350, tableTop, { width: 80, align: "right" })
-       .text("Amount (₹)", 440, tableTop, { width: 80, align: "right" })
-       .moveTo(50, tableTop + 15).lineTo(530, tableTop + 15).stroke();
+    // 4) Table
+    const tableY = Math.max(metaBottom, billerBottom) + 30;
+    doc.y = tableY;
+    const [descX, qtyX, unitX, amtX] = [leftX, leftX + 230, leftX + 330, leftX + 430];
 
-    const rowY = tableTop + 30;
-    doc.font("Helvetica")
-       .text(invoice.planName, 50, rowY)
-       .text("1", 300, rowY, { width: 50, align: "right" })
-       .text(invoice.baseAmount.toFixed(2), 350, rowY, { width: 80, align: "right" })
-       .text(invoice.baseAmount.toFixed(2), 440, rowY, { width: 80, align: "right" });
+    // Header
+    doc.font(fontBold).fontSize(10)
+       .text("Description", descX, doc.y)
+       .text("Qty", qtyX, { width: 40, align: "right" })
+       .text("Unit Price (₹)", unitX, { width: 80, align: "right" })
+       .text("Amount (₹)", amtX, { width: 80, align: "right" });
+    doc.moveTo(leftX, doc.y + 12)
+       .lineTo(doc.page.width - leftX, doc.y + 12)
+       .stroke();
 
-    const cgstY   = rowY + 20;
-    const halfPct = (invoice.gstPercentage / 2).toFixed(2);
-    const halfAmt = (invoice.gstAmount / 2).toFixed(2);
-    doc.text(`CGST @ ${halfPct}%`, 50, cgstY)
-       .text("–", 300, cgstY, { width: 50, align: "right" })
-       .text(halfAmt, 440, cgstY, { width: 80, align: "right" })
-       .text(`SGST @ ${halfPct}%`, 50, cgstY + 15)
-       .text("–", 300, cgstY + 15, { width: 50, align: "right" })
-       .text(halfAmt, 440, cgstY + 15, { width: 80, align: "right" });
+    // Rows
+    const rowY = doc.y + 20;
+    const halfP = (invoice.gstPercentage / 2).toFixed(2);
+    const halfA = (invoice.gstAmount / 2).toFixed(2);
+    doc.font(fontReg)
+       .text(invoice.planName, descX, rowY)
+       .text("1", qtyX, rowY, { width: 40, align: "right" })
+       .text(`₹${invoice.baseAmount.toFixed(2)}`, unitX, rowY, { width: 80, align: "right" })
+       .text(`₹${invoice.baseAmount.toFixed(2)}`, amtX, rowY,  { width: 80, align: "right" });
+    doc.text(`CGST @ ${halfP}%`, descX, rowY + lineHeight)
+       .text(`₹${halfA}`, amtX, rowY + lineHeight, { width: 80, align: "right" });
+    doc.text(`SGST @ ${halfP}%`, descX, rowY + 2 * lineHeight)
+       .text(`₹${halfA}`, amtX, rowY + 2 * lineHeight, { width: 80, align: "right" });
 
-    const summaryY = cgstY + 50;
-    doc.moveTo(350, summaryY - 5).lineTo(530, summaryY - 5).stroke()
-       .font("Helvetica-Bold")
-       .text("Subtotal", 350, summaryY, { width: 80, align: "right" })
-       .text(invoice.baseAmount.toFixed(2), 440, summaryY, { width: 80, align: "right" })
-       .text("Total GST", 350, summaryY + 15, { width: 80, align: "right" })
-       .text(invoice.gstAmount.toFixed(2), 440, summaryY + 15, { width: 80, align: "right" })
-       .text("Total Amount", 350, summaryY + 35, { width: 80, align: "right" })
-       .text(invoice.totalAmount.toFixed(2), 440, summaryY + 35, { width: 80, align: "right" });
+    // Summary
+    const sumY = rowY + 2 * lineHeight + 40;
+    doc.moveTo(leftX, sumY - 5)
+       .lineTo(doc.page.width - leftX, sumY - 5)
+       .stroke();
+    doc.font(fontBold)
+       .text("Subtotal", unitX, sumY,             { width: 80, align: "right" })
+       .text(`₹${invoice.baseAmount.toFixed(2)}`, amtX, sumY,             { width: 80, align: "right" })
+       .text("Total GST", unitX, sumY + lineHeight, { width: 80, align: "right" })
+       .text(`₹${invoice.gstAmount.toFixed(2)}`, amtX, sumY + lineHeight, { width: 80, align: "right" })
+       .text("Total Amount", unitX, sumY + 2 * lineHeight, { width: 80, align: "right" })
+       .text(`₹${invoice.totalAmount.toFixed(2)}`, amtX, sumY + 2 * lineHeight, { width: 80, align: "right" });
 
-    doc.fontSize(9)
-       .text("Thank you for your business!", 50, summaryY + 80)
-       .text("This is a computer‑generated invoice and does not require a signature.", 50, summaryY + 95);
+    // Terms & Conditions
+    doc.moveDown(2).font(fontBold).fontSize(11).text("Terms & Conditions", leftX);
+    doc.moveDown(0.5).font(fontReg).fontSize(9);
+    [
+      "1. Payment is due immediately upon receipt of this invoice.",
+      "2. Subscriptions automatically renew at term end. To prevent renewal, submit cancellation in writing at least 7 days before expiry.",
+      "3. No refunds or credits for unused service periods. All cancellations must be submitted in writing at least 7 days before next billing.",
+      "4. Services may be suspended if payment fails or is overdue by more than 7 days, until full payment is received.",
+      "5. Accounts with failed or overdue payments for more than 30 days will have all customer data permanently deleted, unless an extension is agreed in writing.",
+      "6. Basic email support is included. Premium support options require a separate agreement.",
+      "7. Use of services must comply with our Terms of Service. Prohibited activities—such as fraud, spamming, or illicit content—may result in immediate suspension without refund.",
+      "8. Any payment method declines or chargebacks will void the current billing cycle and may incur reinstatement fees upon resolution.",
+      "9. These terms are governed by the laws of Karnataka, India, with exclusive jurisdiction in the courts of Bengaluru."
+    ].forEach(line => {
+      doc.text(line, leftX, doc.y, { width: doc.page.width - 2 * leftX });
+      doc.moveDown(0.5);
+    });
+
+    // Footer
+    doc.moveDown(2)
+       .font(fontBold).fontSize(9).text("Thank you for your business!", leftX)
+       .font(fontReg).fontSize(8)
+       .text("This is a computer‑generated invoice and does not require a signature.", leftX);
 
     doc.end();
 
-    const buffers = [];
     return new Promise((resolve, reject) => {
+      const buffers = [];
       stream.on("data", buffers.push.bind(buffers));
       stream.on("end", () => resolve(Buffer.concat(buffers)));
       stream.on("error", reject);
     });
   }
 
-  static async processInvoice({
-    companyId,
-    planId,
-    planName,
-    baseAmount,
-    gstPercentage,
-    paymentMethod,
-    transactionId,
-    periodStart,
-    periodEnd,
-  }) {
-    const invoice = await this.createInvoiceRecord({
-      companyId,
-      planId,
-      planName,
-      baseAmount,
-      gstPercentage,
-      paymentMethod,
-      transactionId,
-      periodStart,
-      periodEnd,
-    });
+  /**
+   * Top‑level: create the DB record, build PDF, upload to S3, email it.
+   * Returns just { invoiceNumber, pdfKey }.
+   */
+  static async processInvoice(args) {
+    const invoice = await this.createInvoiceRecord(args);
+    const company = await Company.findOne({ _id: args.companyId, isDeleted: false }).lean();
+    if (!company) throw new Error("Company not found");
 
-    const company = await Company.findOne({ _id: companyId, isDeleted: false }).lean();
-    if (!company) {
-      console.error("[InvoiceService] Company not found for invoice generation. companyId:", companyId);
-      throw new Error("Company not found for invoice generation");
-    }
+    const pdfBuf = await this.generateInvoicePDF(invoice, company);
+    const { fileKey: pdfKey } = await uploadInvoicePdf(
+      pdfBuf,
+      invoice.invoiceNumber,
+      args.companyId
+    );
 
-    const pdfBuffer = await this.generateInvoicePDF(invoice, company);
-
-    const { fileKey: pdfKey } = await uploadInvoicePdf(pdfBuffer, invoice.invoiceNumber, companyId);
     invoice.pdfKey = pdfKey;
-
-    const downloadUrl = await generatePresignedUrl(pdfKey);
-    invoice.downloadUrl = downloadUrl; // ✅ FIXED: persist in DB
-
     await invoice.save();
 
-    await this.emailInvoice(invoice, company, pdfBuffer);
+    // Email with attachment
+    await this.emailInvoice(invoice, company, pdfBuf);
 
     return {
       invoiceNumber: invoice.invoiceNumber,
-      downloadUrl,
       pdfKey,
     };
   }
 
-  static async emailInvoice(invoice, company, pdfBuffer) {
-    const subject = `Invoice ${invoice.invoiceNumber} from KadagamNext`;
-    const text = `Hello ${company.name},\n\nPlease find attached your invoice ${invoice.invoiceNumber}.\n\nThank you,\nKadagamNext Team`;
-
+  /**
+   * Send the invoice PDF as an email attachment
+   */
+  static async emailInvoice(invoice, company, pdfBuf) {
     return EmailService.sendEmailWithAttachment({
-      to: company.email,
-      subject,
-      text,
-      attachments: [
-        {
-          filename: `${invoice.invoiceNumber}.pdf`,
-          content: pdfBuffer,
-        },
-      ],
+      to:       company.email,
+      subject:  `Invoice ${invoice.invoiceNumber} from KadagamNext`,
+      text:     `Hello ${company.name},\n\nAttached is your invoice ${invoice.invoiceNumber}.\n\nThank you,\nKadagamNext Team`,
+      attachments: [{ filename: `${invoice.invoiceNumber}.pdf`, content: pdfBuf }],
     });
   }
 }

@@ -5,6 +5,7 @@ const invoiceService       = require("../services/invoiceService");
 const Company              = require("../models/Company");
 const Plan                 = require("../models/Plan");
 const Invoice              = require("../models/Invoice");
+const { generatePresignedUrl } = require("../services/awsService");
 
 module.exports = {
   /**
@@ -36,7 +37,7 @@ module.exports = {
         });
       }
 
-      // Step 1: Extend the subscription
+      // 1) Extend the subscription record
       const { startDate, nextBillingDate, latestEntry } =
         await paymentStatusService.extendSubscription(companyId, planId, {
           transactionId,
@@ -44,15 +45,16 @@ module.exports = {
           date: new Date(),
         });
 
-      // Step 2: Fetch the plan details
+      // 2) Fetch plan details
       const plan = await Plan.findById(planId).lean();
       if (!plan) {
         console.error("[paymentStatusController] Plan not found:", planId);
         return res.status(404).json({ message: "Plan not found" });
       }
 
-      // Step 3: Generate the invoice
-      const { invoiceNumber, downloadUrl } = await invoiceService.processInvoice({
+      // 3) Generate invoice PDF and upload
+      //    processInvoice now returns { invoiceNumber, pdfKey }
+      const { invoiceNumber, pdfKey } = await invoiceService.processInvoice({
         companyId,
         planId,
         planName:      plan.name,
@@ -64,7 +66,10 @@ module.exports = {
         periodEnd:     nextBillingDate,
       });
 
-      // Step 4: Patch invoice number back to payment history
+      // 4) Generate a fresh presigned URL for download
+      const downloadUrl = await generatePresignedUrl(pdfKey);
+
+      // 5) Patch invoiceNumber back into paymentHistory
       const company = await Company.findOne({ _id: companyId, isDeleted: false });
       if (company) {
         const entry = company.subscription.paymentHistory.find(e =>
@@ -80,7 +85,7 @@ module.exports = {
       }
 
       return res.json({
-        success: true,
+        success:       true,
         invoiceNumber,
         downloadUrl,
       });
@@ -119,17 +124,16 @@ module.exports = {
         return res.status(404).json({ message: "Invoice not found" });
       }
 
-      // Get associated company
+      // Lookup company
       const company = await Company.findOne({ _id: inv.companyId, isDeleted: false }).lean();
       if (!company) {
         console.error("[paymentStatusController] Company not found for invoice PDF:", inv.companyId);
         return res.status(404).json({ message: "Company not found" });
       }
 
-      // Generate PDF buffer
+      // Generate PDF buffer on the fly
       const buffer = await invoiceService.generateInvoicePDF(inv, company);
 
-      // Return PDF as download
       return res
         .status(200)
         .set({

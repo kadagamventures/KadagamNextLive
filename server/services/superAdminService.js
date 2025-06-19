@@ -1,5 +1,3 @@
-// server/services/superAdminService.js
-
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Company = require("../models/Company");
@@ -176,6 +174,11 @@ async function getRevenueSummary(year) {
     Company.countDocuments({ isDeleted: false }),
   ]);
 
+  // Compute percentages
+  const activePct    = total > 0 ? Math.round((active    / total) * 100) : 0;
+  const inactivePct  = total > 0 ? Math.round((inactive  / total) * 100) : 0;
+  const cancelledPct = total > 0 ? Math.round((cancelled / total) * 100) : 0;
+
   return {
     year: String(year),
     totalRevenue,
@@ -184,6 +187,11 @@ async function getRevenueSummary(year) {
     activeCompanies: active,
     inactiveCompanies: inactive,
     cancelledCompanies: cancelled,
+    statusPercentages: {
+      active:    activePct,
+      inactive:  inactivePct,
+      cancelled: cancelledPct,
+    },
   };
 }
 

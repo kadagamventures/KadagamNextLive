@@ -1,5 +1,3 @@
-// server/controllers/superAdminController.js
-
 const superAdminService = require("../services/superAdminService");
 
 // shared cookie options
@@ -34,7 +32,6 @@ const login = async (req, res, next) => {
     // set accessToken cookie
     res.cookie("accessToken", token, cookieOptions);
 
-    // return the same structure as your company‐admin login response
     return res.status(200).json({
       message: "Super Admin login successful",
       accessToken: token,
@@ -44,8 +41,6 @@ const login = async (req, res, next) => {
         email: user.email,
         role: user.role,
       },
-      // if you ever add a subscription model for super‐admins, you can
-      // include subscriptionStatus/nextBillingDate here in the future
     });
   } catch (err) {
     return next(err);
@@ -54,7 +49,6 @@ const login = async (req, res, next) => {
 
 /**
  * 🏢 GET /api/super-admin/companies
- * Headers: { Authorization: Bearer <accessToken> }
  */
 const getCompanies = async (req, res, next) => {
   try {
@@ -67,7 +61,6 @@ const getCompanies = async (req, res, next) => {
 
 /**
  * 🏢 GET /api/super-admin/companies/:id
- * Headers: { Authorization: Bearer <accessToken> }
  */
 const getCompanyDetails = async (req, res, next) => {
   try {
@@ -82,7 +75,6 @@ const getCompanyDetails = async (req, res, next) => {
 /**
  * 🔄 PUT /api/super-admin/companies/:id/subscription
  * Body: { status }
- * Headers: { Authorization: Bearer <accessToken> }
  */
 const updateSubscription = async (req, res, next) => {
   try {
@@ -110,7 +102,6 @@ const updateSubscription = async (req, res, next) => {
 /**
  * ⚙️ PUT /api/super-admin/companies/:id/trust
  * Body: { trustLevel, isVerified }
- * Headers: { Authorization: Bearer <accessToken> }
  */
 const updateTrust = async (req, res, next) => {
   try {
@@ -139,14 +130,13 @@ const updateTrust = async (req, res, next) => {
 
 /**
  * ❌ DELETE /api/super-admin/companies/:id
- * Headers: { Authorization: Bearer <accessToken> }
  */
 const deleteCompany = async (req, res, next) => {
   try {
     const { id } = req.params;
     const company = await superAdminService.softDeleteCompany(id);
     return res.status(200).json({
-      message: "Company soft-deleted",
+      message: "Company soft‑deleted",
       company,
     });
   } catch (err) {
@@ -156,7 +146,6 @@ const deleteCompany = async (req, res, next) => {
 
 /**
  * 💰 GET /api/super-admin/revenue?year=YYYY[&month=0-11]
- * Headers: { Authorization: Bearer <accessToken> }
  */
 const getRevenue = async (req, res, next) => {
   try {
@@ -174,17 +163,23 @@ const getRevenue = async (req, res, next) => {
       }
     }
 
+    // fetch the enriched summary
     const summary = await superAdminService.getRevenueSummary(year);
 
+    // build response payload
     const payload = {
-      year: summary.year,
-      totalRevenue: summary.totalRevenue,
-      totalCompanies: summary.totalCompanies,
-      activeCompanies: summary.activeCompanies,
-      inactiveCompanies: summary.inactiveCompanies,
+      year:               summary.year,
+      totalRevenue:       summary.totalRevenue,
+      totalCompanies:     summary.totalCompanies,
+      activeCompanies:    summary.activeCompanies,
+      inactiveCompanies:  summary.inactiveCompanies,
       cancelledCompanies: summary.cancelledCompanies,
+      // <-- NEW: bubble out the status percentages
+      statusPercentages:  summary.statusPercentages,
       monthlyRevenue:
-        month !== null ? summary.monthlyRevenue[month] : summary.monthlyRevenue,
+        month !== null
+          ? summary.monthlyRevenue[month]
+          : summary.monthlyRevenue,
     };
 
     if (month !== null) {
@@ -199,7 +194,6 @@ const getRevenue = async (req, res, next) => {
 
 /**
  * 📄 GET /api/super-admin/companies/:id/payments
- * Headers: { Authorization: Bearer <accessToken> }
  */
 const getPaymentHistory = async (req, res, next) => {
   try {
@@ -213,7 +207,6 @@ const getPaymentHistory = async (req, res, next) => {
 
 /**
  * ⚙️ GET /api/super-admin/plans
- * Headers: { Authorization: Bearer <accessToken> }
  */
 const getPlanConfig = async (req, res, next) => {
   try {
@@ -227,7 +220,6 @@ const getPlanConfig = async (req, res, next) => {
 /**
  * ⚙️ PUT /api/super-admin/plans
  * Body: [ { _id, name, duration: { value, unit }, price, gstPercentage, isActive }, ... ]
- * Headers: { Authorization: Bearer <accessToken> }
  */
 const updatePlanConfig = async (req, res, next) => {
   try {

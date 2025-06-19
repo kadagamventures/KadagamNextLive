@@ -22,22 +22,18 @@ const PaymentHistory = () => {
     minimumFractionDigits: 2,
   });
 
+  // Fetch history when year changes
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const data = await paymentService.fetchHistory(selectedYear);
-        setHistory(data);
-      } catch (err) {
-        setError("Failed to load payment history.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    setLoading(true);
+    setError("");
+    paymentService
+      .fetchHistory(selectedYear)
+      .then((data) => setHistory(data))
+      .catch(() => setError("Failed to load payment history."))
+      .finally(() => setLoading(false));
   }, [selectedYear]);
 
+  // Close year dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (yearRef.current && !yearRef.current.contains(e.target)) {
@@ -57,7 +53,6 @@ const PaymentHistory = () => {
   if (loading) {
     return <div className="p-12 text-center text-gray-600">Loading…</div>;
   }
-
   if (error) {
     return <div className="p-12 text-center text-red-500">{error}</div>;
   }
@@ -85,7 +80,9 @@ const PaymentHistory = () => {
                     setYearOpen(false);
                   }}
                   className={`px-4 py-2 cursor-pointer hover:bg-gray-100 ${
-                    String(year) === selectedYear ? "bg-gray-100 font-semibold" : ""
+                    String(year) === selectedYear
+                      ? "bg-gray-100 font-semibold"
+                      : ""
                   }`}
                 >
                   {year}
@@ -125,16 +122,16 @@ const PaymentHistory = () => {
                   <span>{rupeeFormatter.format(entry.gstAmount)}</span>
                   <span>{entry.planName || "-"}</span>
                   <span>{formatDate(entry.paymentDate)}</span>
-                  {entry.downloadUrl ? (
-                    <a
-                      href={entry.downloadUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                  {entry.invoiceNumber ? (
+                    <button
+                      onClick={() =>
+                        paymentService.downloadInvoice(entry.invoiceNumber)
+                      }
                       className="flex items-center justify-center bg-green-50 text-green-600 px-3 py-1 rounded-full hover:bg-green-100 transition"
                     >
                       <FaDownload className="mr-1" />
                       Invoice
-                    </a>
+                    </button>
                   ) : (
                     <span className="text-gray-400 text-center">—</span>
                   )}

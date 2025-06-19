@@ -8,7 +8,7 @@ const { generatePresignedUrl } = require("../services/awsService");
 /**
  * POST /api/invoices/create
  * Full end‑to‑end: record invoice, generate PDF, upload to S3, email it,
- * and return a download URL.
+ * and return invoiceNumber + pdfKey.
  *
  * Expects JSON body:
  * {
@@ -17,7 +17,10 @@ const { generatePresignedUrl } = require("../services/awsService");
  *   transactionId: String,
  *   paymentMethod: String,
  *   periodStart:   Date|string,
- *   periodEnd:     Date|string
+ *   periodEnd:     Date|string,
+ *   planName?:     String,  // optional override
+ *   baseAmount?:   Number,  // optional override
+ *   gstPercentage?: Number   // optional override
  * }
  */
 async function createAndSendInvoice(req, res, next) {
@@ -60,9 +63,9 @@ async function createAndSendInvoice(req, res, next) {
     const params = {
       companyId,
       planId,
-      planName:      overrideName ?? plan.name,
-      baseAmount:    overrideBase ?? plan.price,
-      gstPercentage: overrideGst ?? plan.gstPercentage,
+      planName:      overrideName    ?? plan.name,
+      baseAmount:    overrideBase    ?? plan.price,
+      gstPercentage: overrideGst     ?? plan.gstPercentage,
       paymentMethod,
       transactionId,
       periodStart:   new Date(periodStart),
@@ -70,12 +73,13 @@ async function createAndSendInvoice(req, res, next) {
     };
 
     // 4. Process invoice (record, PDF, upload, email)
-    const { invoiceNumber, downloadUrl } = await InvoiceService.processInvoice(params);
+    //    Returns { invoiceNumber, pdfKey }
+    const { invoiceNumber, pdfKey } = await InvoiceService.processInvoice(params);
 
     return res.status(201).json({
-      message:        "Invoice created, uploaded, emailed, and ready to download.",
+      message:       "Invoice created, uploaded, and emailed successfully.",
       invoiceNumber,
-      downloadUrl,
+      pdfKey,
     });
   } catch (err) {
     console.error("❌ createAndSendInvoice Error:", err);
@@ -109,7 +113,7 @@ async function getInvoiceDownloadUrl(req, res, next) {
         .json({ error: "Invoice PDF is not yet uploaded." });
     }
 
-    // 3. Generate and return a presigned download URL
+    // 3. Generate and return a presigned download URL (fresh each call)
     const downloadUrl = await generatePresignedUrl(invoice.pdfKey);
     return res.json({ invoiceNumber, downloadUrl });
   } catch (err) {

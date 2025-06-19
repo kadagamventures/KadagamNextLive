@@ -122,15 +122,19 @@ const deleteFileRoute        = require("./routes/deleteFile");
 const officeTimingRoutes     = require("./routes/officeAttendanceTiming");
 const paymentStatusRoutes    = require("./routes/paymentStatusRoutes");
 
+// **Use the real invoiceRoutes instead of invoiceTestRoutes**
+const invoiceRoutes          = require("./routes/invoiceRoutes");
+
 // Public
-app.use("/api/auth",    authRoutes);
-app.use("/api/verify",  verificationRoutes);
-app.use("/api/payment", paymentRoutes);
-app.use("/api/plan",    planRoutes);
+app.use("/api/auth",           authRoutes);
+app.use("/api/verify",         verificationRoutes);
+app.use("/api/payment",        paymentRoutes);
+app.use("/api/plan",           planRoutes);
+app.use("/api/invoices",       invoiceRoutes);
 
 // Authenticated + Verified Email
-app.use("/api/admin",  verifyToken, ensureVerifiedTenant, adminLimiter, adminRoutes);
-app.use("/api/staff",  verifyToken, ensureVerifiedTenant, adminLimiter, userRoutes);
+app.use("/api/admin",          verifyToken, ensureVerifiedTenant, adminLimiter, adminRoutes);
+app.use("/api/staff",          verifyToken, ensureVerifiedTenant, adminLimiter, userRoutes);
 
 // Subscription required
 app.use("/api/projects",       verifyToken, ensureVerifiedTenant, enforceActiveSubscription, projectRoutes);
@@ -151,7 +155,7 @@ app.use("/api/office-timing",  verifyToken, ensureVerifiedTenant, enforceActiveS
 app.use("/api/payment-status", verifyToken, ensureVerifiedTenant, paymentStatusRoutes);
 
 // Super‑Admin
-app.use("/api/super-admin", superAdminRoutes);
+app.use("/api/super-admin",    superAdminRoutes);
 
 // ──────────────── ERROR HANDLING ────────────────
 app.use(notFoundHandler);
