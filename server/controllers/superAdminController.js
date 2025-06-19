@@ -1,6 +1,8 @@
 const superAdminService = require("../services/superAdminService");
 
-// shared cookie options
+// ─────────────────────────────────────────────
+// 🍪 Shared cookie options
+// ─────────────────────────────────────────────
 const ONE_HOUR = 60 * 60 * 1000;
 const isProd = process.env.NODE_ENV === "production";
 const cookieOptions = {
@@ -10,26 +12,17 @@ const cookieOptions = {
   maxAge: ONE_HOUR,
 };
 
-/**
- * 🔐 POST /api/super-admin/login
- * Body: { email, password }
- */
+// ─────────────────────────────────────────────
+// 🔐 POST /api/super-admin/login
+// ─────────────────────────────────────────────
 const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      return res
-        .status(400)
-        .json({ error: "Email and password are required." });
+      return res.status(400).json({ error: "Email and password are required." });
     }
 
-    // service returns { token, user }
-    const { token, user } = await superAdminService.loginSuperAdmin({
-      email,
-      password,
-    });
-
-    // set accessToken cookie
+    const { token, user } = await superAdminService.loginSuperAdmin({ email, password });
     res.cookie("accessToken", token, cookieOptions);
 
     return res.status(200).json({
@@ -43,51 +36,46 @@ const login = async (req, res, next) => {
       },
     });
   } catch (err) {
-    return next(err);
+    next(err);
   }
 };
 
-/**
- * 🏢 GET /api/super-admin/companies
- */
+// ─────────────────────────────────────────────
+// 🏢 GET /api/super-admin/companies
+// ─────────────────────────────────────────────
 const getCompanies = async (req, res, next) => {
   try {
     const companies = await superAdminService.getAllCompanies();
     return res.status(200).json(companies);
   } catch (err) {
-    return next(err);
+    next(err);
   }
 };
 
-/**
- * 🏢 GET /api/super-admin/companies/:id
- */
+// ─────────────────────────────────────────────
+// 🏢 GET /api/super-admin/companies/:id
+// ─────────────────────────────────────────────
 const getCompanyDetails = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const company = await superAdminService.getCompanyById(id);
+    const company = await superAdminService.getCompanyById(req.params.id);
     return res.status(200).json(company);
   } catch (err) {
-    return next(err);
+    next(err);
   }
 };
 
-/**
- * 🔄 PUT /api/super-admin/companies/:id/subscription
- * Body: { status }
- */
+// ─────────────────────────────────────────────
+// 🔄 PUT /api/super-admin/companies/:id/subscription
+// ─────────────────────────────────────────────
 const updateSubscription = async (req, res, next) => {
   try {
-    const { id } = req.params;
     const { status } = req.body;
     if (!status) {
-      return res
-        .status(400)
-        .json({ error: "Subscription status is required." });
+      return res.status(400).json({ error: "Subscription status is required." });
     }
 
     const company = await superAdminService.updateCompanySubscriptionStatus(
-      id,
+      req.params.id,
       status
     );
     return res.status(200).json({
@@ -95,27 +83,24 @@ const updateSubscription = async (req, res, next) => {
       company,
     });
   } catch (err) {
-    return next(err);
+    next(err);
   }
 };
 
-/**
- * ⚙️ PUT /api/super-admin/companies/:id/trust
- * Body: { trustLevel, isVerified }
- */
+// ─────────────────────────────────────────────
+// ⚙️ PUT /api/super-admin/companies/:id/trust
+// ─────────────────────────────────────────────
 const updateTrust = async (req, res, next) => {
   try {
-    const { id } = req.params;
     const { trustLevel, isVerified } = req.body;
     if (!trustLevel || typeof isVerified !== "boolean") {
       return res.status(400).json({
-        error:
-          "Both trustLevel (string) and isVerified (boolean) are required.",
+        error: "Both trustLevel (string) and isVerified (boolean) are required.",
       });
     }
 
     const company = await superAdminService.updateCompanyTrust(
-      id,
+      req.params.id,
       trustLevel,
       isVerified
     );
@@ -124,110 +109,93 @@ const updateTrust = async (req, res, next) => {
       company,
     });
   } catch (err) {
-    return next(err);
+    next(err);
   }
 };
 
-/**
- * ❌ DELETE /api/super-admin/companies/:id
- */
+// ─────────────────────────────────────────────
+// ❌ DELETE /api/super-admin/companies/:id
+// ─────────────────────────────────────────────
 const deleteCompany = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const company = await superAdminService.softDeleteCompany(id);
+    const company = await superAdminService.softDeleteCompany(req.params.id);
     return res.status(200).json({
       message: "Company soft‑deleted",
       company,
     });
   } catch (err) {
-    return next(err);
+    next(err);
   }
 };
 
-/**
- * 💰 GET /api/super-admin/revenue?year=YYYY[&month=0-11]
- */
+// ─────────────────────────────────────────────
+// 💰 GET /api/super-admin/revenue?year=YYYY
+// ─────────────────────────────────────────────
 const getRevenue = async (req, res, next) => {
   try {
-    const year = req.query.year
-      ? parseInt(req.query.year, 10)
-      : new Date().getFullYear();
-
-    let month = null;
-    if (req.query.month != null) {
-      month = parseInt(req.query.month, 10);
-      if (isNaN(month) || month < 0 || month > 11) {
-        return res.status(400).json({
-          error: "month must be an integer between 0 (Jan) and 11 (Dec)",
-        });
-      }
-    }
-
-    // fetch the enriched summary
+    const year = req.query.year ? parseInt(req.query.year, 10) : new Date().getFullYear();
     const summary = await superAdminService.getRevenueSummary(year);
-
-    // build response payload
-    const payload = {
-      year:               summary.year,
-      totalRevenue:       summary.totalRevenue,
-      totalCompanies:     summary.totalCompanies,
-      activeCompanies:    summary.activeCompanies,
-      inactiveCompanies:  summary.inactiveCompanies,
-      cancelledCompanies: summary.cancelledCompanies,
-      // <-- NEW: bubble out the status percentages
-      statusPercentages:  summary.statusPercentages,
-      monthlyRevenue:
-        month !== null
-          ? summary.monthlyRevenue[month]
-          : summary.monthlyRevenue,
-    };
-
-    if (month !== null) {
-      payload.month = month;
-    }
-
-    return res.status(200).json(payload);
+    return res.status(200).json(summary);
   } catch (err) {
-    return next(err);
+    next(err);
   }
 };
 
-/**
- * 📄 GET /api/super-admin/companies/:id/payments
- */
+// ─────────────────────────────────────────────
+// 📄 GET /api/super-admin/companies/:id/payments?year=YYYY
+// ─────────────────────────────────────────────
 const getPaymentHistory = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const history = await superAdminService.getPaymentHistory(id);
+    const history = await superAdminService.getPaymentHistory(
+      req.params.id,
+      req.query.year
+    );
     return res.status(200).json(history);
   } catch (err) {
-    return next(err);
+    next(err);
   }
 };
 
-/**
- * ⚙️ GET /api/super-admin/plans
- */
+// ─────────────────────────────────────────────
+// 📥 GET /api/super-admin/companies/:id/payments/:invoiceId/pdf
+// ─────────────────────────────────────────────
+const downloadInvoicePDF = async (req, res, next) => {
+  try {
+    const buffer = await superAdminService.downloadInvoicePDF(req.params.invoiceId);
+    res
+      .status(200)
+      .set({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${req.params.invoiceId}.pdf"`,
+      })
+      .send(buffer);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────────
+// ⚙️ GET /api/super-admin/plans
+// ─────────────────────────────────────────────
 const getPlanConfig = async (req, res, next) => {
   try {
     const plans = await superAdminService.getPlanConfig();
     return res.status(200).json(plans);
   } catch (err) {
-    return next(err);
+    next(err);
   }
 };
 
-/**
- * ⚙️ PUT /api/super-admin/plans
- * Body: [ { _id, name, duration: { value, unit }, price, gstPercentage, isActive }, ... ]
- */
+// ─────────────────────────────────────────────
+// ⚙️ PUT /api/super-admin/plans
+// ─────────────────────────────────────────────
 const updatePlanConfig = async (req, res, next) => {
   try {
     const configs = req.body;
     if (!Array.isArray(configs) || configs.length === 0) {
-      return res
-        .status(400)
-        .json({ error: "Must provide an array of plan configurations." });
+      return res.status(400).json({
+        error: "Must provide an array of plan configurations.",
+      });
     }
 
     const validUnits = ["days", "months", "years"];
@@ -242,7 +210,9 @@ const updatePlanConfig = async (req, res, next) => {
       ) {
         return res.status(400).json({
           error:
-            "Each plan config must include _id (string), name (string), duration.value (number), duration.unit ('days'|'months'|'years'), price (number), and gstPercentage (number).",
+            "Each plan config must include _id (string), name (string), " +
+            "duration.value (number), duration.unit ('days'|'months'|'years'), " +
+            "price (number), and gstPercentage (number).",
         });
       }
     }
@@ -250,10 +220,13 @@ const updatePlanConfig = async (req, res, next) => {
     const updated = await superAdminService.updatePlanConfig(configs);
     return res.status(200).json(updated);
   } catch (err) {
-    return next(err);
+    next(err);
   }
 };
 
+// ─────────────────────────────────────────────
+// EXPORT ALL CONTROLLERS
+// ─────────────────────────────────────────────
 module.exports = {
   login,
   getCompanies,
@@ -263,6 +236,7 @@ module.exports = {
   deleteCompany,
   getRevenue,
   getPaymentHistory,
+  downloadInvoicePDF,
   getPlanConfig,
   updatePlanConfig,
 };

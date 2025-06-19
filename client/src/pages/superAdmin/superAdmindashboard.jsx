@@ -1,5 +1,3 @@
-// src/components/Dashboard.jsx
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import classNames from "classnames";
@@ -15,44 +13,27 @@ const Dashboard = () => {
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
-
     if (!user || user.role !== "super_admin") {
       setError("Access denied. Super Admin only.");
       setLoading(false);
-      // Optional: Redirect unauthorized users
-      // navigate("/not-authorized");
       return;
     }
 
-    const fetchCompanies = async () => {
-      setLoading(true);
-      setError(null);
+    (async () => {
       try {
-        const response = await axios.get("/super-admin/companies");
-        setCompanies(response.data);
+        const { data } = await axios.get("/super-admin/companies");
+        setCompanies(data);
       } catch (err) {
-        setError(err.response?.data?.message || err.message || "Failed to fetch companies.");
+        setError(err.response?.data?.message || err.message);
       } finally {
         setLoading(false);
       }
-    };
-
-    fetchCompanies();
+    })();
   }, [navigate]);
 
-  const handleRowClick = (company) => {
-    setSelectedCompany(company);
-  };
-
-  const closeModal = () => {
-    setSelectedCompany(null);
-  };
-
-  const formatDate = (isoString) => {
-    if (!isoString) return "—";
-    const date = new Date(isoString);
-    return date.toLocaleDateString("en-GB");
-  };
+  const handleRowClick = (company) => setSelectedCompany(company);
+  const closeModal = () => setSelectedCompany(null);
+  const fmtDate = (d) => (d ? new Date(d).toLocaleDateString("en-GB") : "—");
 
   return (
     <div className="min-h-screen bg-[#f6f6fa] p-8 pl-64 relative">
@@ -62,7 +43,7 @@ const Dashboard = () => {
           <input
             type="text"
             placeholder="Search Companies..."
-            className="pl-4 pr-10 py-2 rounded-full text-sm bg-white shadow-md focus:outline-none"
+            className="pl-4 pr-10 py-2 rounded-full text-sm bg-white shadow-md"
           />
           <span className="absolute right-3 top-2 text-purple-500">
             <svg
@@ -83,12 +64,10 @@ const Dashboard = () => {
       </div>
 
       <div className="bg-white rounded-2xl shadow-md p-6">
-        {/* Header Row */}
         <div className="grid grid-cols-12 font-semibold text-gray-700 text-sm mb-4 px-2">
           <div className="col-span-2">Company ID</div>
-          <div className="col-span-3">Company Name</div>
+          <div className="col-span-4">Company Name</div>
           <div className="col-span-4">Email</div>
-          <div className="col-span-1">Plan</div>
           <div className="col-span-1">Status</div>
           <div className="col-span-1">Payment</div>
         </div>
@@ -101,8 +80,8 @@ const Dashboard = () => {
           <div className="text-center py-10 text-gray-500">No companies found.</div>
         ) : (
           companies.map((company) => {
-            const planName = company.subscription?.planId?.name || "—";
             const status = company.subscription?.status || "Unknown";
+
             return (
               <div
                 key={company._id}
@@ -110,9 +89,8 @@ const Dashboard = () => {
                 onClick={() => handleRowClick(company)}
               >
                 <div className="col-span-2">{company._id}</div>
-                <div className="col-span-3">{company.name}</div>
+                <div className="col-span-4">{company.name}</div>
                 <div className="col-span-4">{company.email}</div>
-                <div className="col-span-1">{planName}</div>
                 <div
                   className={classNames("col-span-1 font-medium", {
                     "text-green-500": status.toLowerCase() === "active",
@@ -136,29 +114,31 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Modal Popup */}
       {selectedCompany && (
-        <div className="fixed inset-0 flex items-center justify-center backdrop-blur-xs bg-opacity-30 z-50">
-          <div className="bg-white rounded-2xl shadow-lg p-6 w-[320px]">
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-25 z-50">
+          <div className="bg-white rounded-2xl shadow-lg p-6 w-80">
             <h2 className="text-xl font-semibold text-center mb-4">Company Details</h2>
             <div className="space-y-2 text-sm text-gray-600">
               <DetailRow label="Company ID" value={selectedCompany._id} />
-              <DetailRow label="Company Name" value={selectedCompany.name} />
+              <DetailRow label="Name" value={selectedCompany.name} />
               <DetailRow label="Email" value={selectedCompany.email} />
               <DetailRow
-                label="Current Plan"
-                value={selectedCompany.subscription?.planId?.name || "—"}
-              />
-              <DetailRow
                 label="Renewal Date"
-                value={formatDate(selectedCompany.subscription?.nextBillingDate)}
+                value={fmtDate(selectedCompany.subscription?.nextBillingDate)}
               />
               <DetailRow
-                label="Payment Status"
-                value={selectedCompany.subscription?.status || "—"}
+                label="Status"
+                value={
+                  selectedCompany.subscription?.status
+                    ? selectedCompany.subscription.status.charAt(0).toUpperCase() +
+                      selectedCompany.subscription.status.slice(1)
+                    : "Unknown"
+                }
                 valueClass={classNames("font-medium", {
-                  "text-green-500": selectedCompany.subscription?.status === "active",
-                  "text-red-500": selectedCompany.subscription?.status !== "active",
+                  "text-green-500":
+                    selectedCompany.subscription?.status?.toLowerCase() === "active",
+                  "text-red-500":
+                    selectedCompany.subscription?.status?.toLowerCase() !== "active",
                 })}
               />
             </div>
@@ -175,7 +155,6 @@ const Dashboard = () => {
   );
 };
 
-// Subcomponent for reusable detail rows
 const DetailRow = ({ label, value, valueClass }) => (
   <div className="flex justify-between">
     <span className="font-medium text-gray-700">{label}</span>
