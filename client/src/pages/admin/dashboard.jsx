@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import {
   FaProjectDiagram,
@@ -40,18 +39,18 @@ const Dashboard = () => {
       setTaskChartData([
         {
           name: "Ongoing Task",
-          value: ch.pieData.find(d => d.name === "Ongoing")?.value || 0,
+          value: ch.pieData.find((d) => d.name === "Ongoing")?.value || 0,
         },
         {
           name: "Pending",
           value:
-            ch.pieData.find(d => d.name === "To Do")?.value ||
-            ch.pieData.find(d => d.name === "Pending")?.value ||
+            ch.pieData.find((d) => d.name === "To Do")?.value ||
+            ch.pieData.find((d) => d.name === "Pending")?.value ||
             0,
         },
         {
           name: "Completed Task",
-          value: ch.pieData.find(d => d.name === "Completed")?.value || 0,
+          value: ch.pieData.find((d) => d.name === "Completed")?.value || 0,
         },
       ]);
     } catch {
@@ -66,32 +65,32 @@ const Dashboard = () => {
   }, []);
 
   return (
-    <div className="bg-gray-100 p-6 pl-64 min-h-screen">
+    <div className="bg-gray-100 min-h-screen p-4 md:p-6 lg:px-12 lg:pl-64">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 ml-12">
+          <h1 className="text-3xl font-bold text-gray-800">
             Welcome, Kadagam Ventures
           </h1>
-          <h2 className="text-xl font-bold text-gray-800 mt-4 ml-12">
+          <h2 className="text-xl font-medium text-gray-600">
             Analytics Overview
           </h2>
         </div>
-        <NotificationBell />
+        <div className="self-start mt-1">
+          <NotificationBell />
+        </div>
       </div>
 
       {error && (
-        <div className="text-center text-red-500 font-medium mb-6">
-          {error}
-        </div>
+        <div className="text-center text-red-500 font-medium mb-6">{error}</div>
       )}
 
       {loading ? (
         <p className="text-center text-gray-600">Loading...</p>
       ) : (
         <>
-          {/* Top 5 cards */}
-          <div className="flex space-x-8  mb-8 ml-13">
+          {/* Overview Cards */}
+          <div className="flex flex-wrap justify-center gap-6 mb-8">
             {[FaProjectDiagram, FaUsers, FaTasks, FaSpinner, FaCheckCircle].map(
               (Icon, i) => (
                 <OverviewCard
@@ -125,12 +124,12 @@ const Dashboard = () => {
             )}
           </div>
 
-          {/* Bottom charts row */}
-          <div className="flex space-x-8 ml-12">
-            <div className="w-[416px] h-[430px]">
+          {/* Charts */}
+          <div className="flex flex-col lg:flex-row gap-6 justify-center">
+            <div className="w-full lg:w-[416px] h-[430px]">
               <TaskDistributionDonut data={taskChartData} />
             </div>
-            <div className="w-[642px] h-[430px]">
+            <div className="w-full lg:w-[620px] h-[430px]">
               <OverviewDonut data={overviewData} />
             </div>
           </div>
@@ -142,8 +141,7 @@ const Dashboard = () => {
 
 export default Dashboard;
 
-
-// OverviewCard
+// OverviewCard Component
 const OverviewCard = ({
   className = "",
   icon,
@@ -163,14 +161,16 @@ const OverviewCard = ({
   </div>
 );
 
-
-// TaskDistributionDonut (unchanged)
+// TaskDistributionDonut Component
 const TaskDistributionDonut = ({ data }) => {
   const COLORS = ["#FF9800", "#F44336", "#4CAF50"];
   const total = data.reduce((sum, d) => sum + (d.value || 0), 0);
-
-  const size = 180, cx = 90, cy = 90, radius = 70, strokeWidth = 20;
-  const toRad = deg => ((deg - 90) * Math.PI) / 180;
+  const size = 180,
+    cx = 90,
+    cy = 90,
+    radius = 70,
+    strokeWidth = 20;
+  const toRad = (deg) => ((deg - 90) * Math.PI) / 180;
   const polarToCartesian = (cx, cy, r, deg) => ({
     x: cx + r * Math.cos(toRad(deg)),
     y: cy + r * Math.sin(toRad(deg)),
@@ -179,22 +179,21 @@ const TaskDistributionDonut = ({ data }) => {
     const s = polarToCartesian(cx, cy, r, end);
     const e = polarToCartesian(cx, cy, r, start);
     const laf = end - start <= 180 ? "0" : "1";
-    return `M${s.x.toFixed(3)} ${s.y.toFixed(3)} A${r.toFixed(3)} ${r.toFixed(3)} 0 ${laf} 0 ${e.x.toFixed(3)} ${e.y.toFixed(3)}`;
+    return `M${s.x} ${s.y} A${r} ${r} 0 ${laf} 0 ${e.x} ${e.y}`;
   };
 
   let angleAcc = 0;
   const slices = data.map((d, i) => {
-    const val = d.value || 0;
-    const ang = total ? (val / total) * 360 : 0;
+    const ang = total ? (d.value / total) * 360 : 0;
     const path = describeArc(cx, cy, radius, angleAcc, angleAcc + ang);
     const mid = polarToCartesian(cx, cy, radius, angleAcc + ang / 2);
     angleAcc += ang;
-    return { path, color: COLORS[i], label: val, x: mid.x, y: mid.y, name: d.name };
+    return { path, color: COLORS[i], label: d.value, x: mid.x, y: mid.y, name: d.name };
   });
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 h-full flex-3 flex-col">
-      <h3 className="text-3xl font-semibold mb-6 ">Task Distribution</h3>
+    <div className="bg-white rounded-xl shadow-lg p-6 h-full flex flex-col">
+      <h3 className="text-3xl font-semibold mb-6">Task Distribution</h3>
       <div className="flex-1 flex items-center justify-center">
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
           {slices.map((s, i) => (
@@ -236,16 +235,17 @@ const TaskDistributionDonut = ({ data }) => {
   );
 };
 
-
-// OverviewDonut (increased size)
+// OverviewDonut Component
 const OverviewDonut = ({ data }) => {
   const COLORS = ["#29B6F6", "#AB47BC", "#FF4081", "#FF9800", "#4CAF50"];
   const labels = ["Total Project", "Total Staff", "Total Tasks", "Ongoing Task", "Completed Task"];
   const total = data.reduce((sum, d) => sum + (d.value || 0), 0);
-
-  // Increased dimensions
-  const size = 240, cx = 120, cy = 120, radius = 100, strokeWidth = 24;
-  const toRad = deg => ((deg - 90) * Math.PI) / 180;
+  const size = 240,
+    cx = 120,
+    cy = 120,
+    radius = 100,
+    strokeWidth = 24;
+  const toRad = (deg) => ((deg - 90) * Math.PI) / 180;
   const polarToCartesian = (cx, cy, r, deg) => ({
     x: cx + r * Math.cos(toRad(deg)),
     y: cy + r * Math.sin(toRad(deg)),
@@ -254,24 +254,29 @@ const OverviewDonut = ({ data }) => {
     const s = polarToCartesian(cx, cy, r, end);
     const e = polarToCartesian(cx, cy, r, start);
     const laf = end - start <= 180 ? "0" : "1";
-    return `M${s.x.toFixed(3)} ${s.y.toFixed(3)} A${r.toFixed(3)} ${r.toFixed(3)} 0 ${laf} 0 ${e.x.toFixed(3)} ${e.y.toFixed(3)}`;
+    return `M${s.x} ${s.y} A${r} ${r} 0 ${laf} 0 ${e.x} ${e.y}`;
   };
 
-  let acc = 0;
+  let angleAcc = 0;
   const slices = data.map((d, i) => {
-    const val = d.value || 0;
-    const ang = total ? (val / total) * 360 : 0;
-    const path = describeArc(cx, cy, radius, acc, acc + ang);
-    const mid = polarToCartesian(cx, cy, radius, acc + ang / 2);
-    acc += ang;
-    return { path, color: COLORS[i], label: val, x: mid.x, y: mid.y, name: labels[i] };
+    const ang = total ? (d.value / total) * 360 : 0;
+    const path = describeArc(cx, cy, radius, angleAcc, angleAcc + ang);
+    const mid = polarToCartesian(cx, cy, radius, angleAcc + ang / 2);
+    angleAcc += ang;
+    return {
+      path,
+      color: COLORS[i],
+      label: d.value,
+      x: mid.x,
+      y: mid.y,
+      name: labels[i],
+    };
   });
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-12 h-full flex flex-col">
       <h3 className="text-3xl font-semibold mb-4">Dashboard Overview</h3>
       <div className="flex-1 flex">
-        {/* Left: labels */}
         <ul className="flex-1 flex flex-col justify-center space-y-3">
           {slices.map((s, i) => (
             <li key={i} className="flex items-center text-lg">
@@ -280,7 +285,6 @@ const OverviewDonut = ({ data }) => {
             </li>
           ))}
         </ul>
-        {/* Right: larger donut chart */}
         <div className="flex-1 flex items-center justify-center">
           <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
             {slices.map((s, i) => (
