@@ -1,8 +1,8 @@
 const Attendance       = require("../../models/Attendance");
 const User             = require("../../models/User");
 const ReportArchive    = require("../../models/ReportArchive");
-const { generateAttendanceReportPDF } = require("../../services/pdfService");
-const { uploadReportFile, generatePresignedUrl } = require("../../services/awsService");
+const {  generateAttendancePDF } = require("../../services/pdfService");
+const { uploadBufferToS3, generatePresignedUrl } = require("../../services/awsService");
 const redisClient      = require("../../config/redisConfig").redisClient;
 
 const REPORT_EXPIRATION_DAYS = 365;
@@ -127,10 +127,10 @@ const generateMonthlyAttendanceReport = async (month, year, companyId) => {
       },
     ]);
 
-    const pdfBuffer = await generateAttendanceReportPDF({ month, year, records });
+    const pdfBuffer = await generateAttendancePDF({ month, year, records });
     const fileKey   = `reports/${cid}/attendance_report_${year}_${month}.pdf`;
 
-    await uploadReportFile(pdfBuffer, fileKey, "application/pdf");
+    await uploadBufferToS3(pdfBuffer, fileKey, "application/pdf");
     const fileUrl = await generatePresignedUrl(fileKey);
     await ReportArchive.create({
       reportType:  "Attendance",
@@ -205,10 +205,10 @@ const generateYearlyAttendanceSummary = async (year, companyId) => {
       },
     ]);
 
-    const pdfBuffer = await generateAttendanceReportPDF({ year, summary: records });
+    const pdfBuffer = await generateAttendancePDF({ year, summary: records });
     const fileKey   = `reports/${cid}/attendance_yearly_report_${year}.pdf`;
 
-    await uploadReportFile(pdfBuffer, fileKey, "application/pdf");
+    await uploadBufferToS3(pdfBuffer, fileKey, "application/pdf");
     const fileUrl = await generatePresignedUrl(fileKey);
     await ReportArchive.create({
       reportType:  "Attendance",
