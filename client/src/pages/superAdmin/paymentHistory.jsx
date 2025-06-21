@@ -2,120 +2,121 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import classNames from "classnames";
-import { tokenRefreshInterceptor as axios } from "../../utils/axiosInstance";
+import superAdminPaymentService from "../../services/superAdminPaymentService";
 
 const PaymentHistory = () => {
   const { companyId } = useParams();
+  const currentYear = new Date().getFullYear();
+
   const [payments, setPayments] = useState([]);
-  const [filteredPayments, setFilteredPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedYear, setSelectedYear] = useState(currentYear);
 
   useEffect(() => {
     const fetchPayments = async () => {
       setLoading(true);
       setError(null);
-
       try {
-        const response = await axios.get(
-          `/super-admin/companies/${companyId}/payments`
+        const data = await superAdminPaymentService.fetchCompanyHistory(
+          companyId,
+          selectedYear.toString()
         );
-        // response.data is expected to be an array of { date, plan, amount, status }
-        const formatted = response.data.map((p) => ({
-          date: new Date(p.date).toLocaleDateString("en-GB"), // "DD/MM/YYYY"
-          plan: p.plan,
-          price: `₹ ${p.amount}`,
-          status: p.status,
-          rawDate: new Date(p.date),
+        const formatted = data.map((p) => ({
+          planName:      p.planName,
+          baseAmount:    p.baseAmount,
+          gstAmount:     p.gstAmount,
+          totalAmount:   p.totalAmount,
+          paymentDate:   new Date(p.paymentDate),
+          invoiceNumber: p.invoiceNumber,
+          downloadUrl:   p.downloadUrl,
         }));
-        // Sort descending by rawDate
-        formatted.sort((a, b) => b.rawDate - a.rawDate);
+        formatted.sort((a, b) => b.paymentDate - a.paymentDate);
         setPayments(formatted);
       } catch (err) {
-        setError(
-          err.response?.data?.message ||
-            err.message ||
-            "Failed to fetch payment history."
-        );
+        setError(err.message || "Failed to load payment history");
       } finally {
         setLoading(false);
       }
     };
 
     fetchPayments();
-  }, [companyId]);
+  }, [companyId, selectedYear]);
 
-  // Filter payments by selectedYear
-  useEffect(() => {
-    const filtered = payments.filter(
-      (p) => p.rawDate.getFullYear() === parseInt(selectedYear, 10)
-    );
-    setFilteredPayments(filtered);
-  }, [payments, selectedYear]);
-
-  const handleYearChange = (e) => {
-    setSelectedYear(e.target.value);
+  const handleDownload = (invoiceNumber, downloadUrl) => {
+    if (downloadUrl) {
+      // use presigned URL if available
+      window.open(downloadUrl, "_blank", "noopener");
+    } else {
+      // fallback to proxy endpoint
+      superAdminPaymentService.downloadCompanyInvoice(companyId, invoiceNumber);
+    }
   };
 
   return (
     <div className="min-h-screen bg-[#f6f6fa] flex flex-col items-center mt-5 pl-64 p-10">
       <div className="w-full bg-white rounded-2xl shadow p-6">
+        {/* Header + Year selector */}
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-semibold text-center w-full">
-            Payment History
-          </h1>
-          <div className="absolute right-10 top-5">
-            <select
-              className="text-sm bg-white border border-gray-300 rounded px-2 py-1"
-              value={selectedYear}
-              onChange={handleYearChange}
-            >
-              {[selectedYear, selectedYear - 1, selectedYear - 2].map(
-                (year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                )
-              )}
-            </select>
-          </div>
+          <h1 className="text-2xl font-semibold">Payment History</h1>
+          <select
+            className="text-sm bg-white border border-gray-300 rounded px-2 py-1"
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(Number(e.target.value))}
+          >
+            {[currentYear, currentYear - 1, currentYear - 2].map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
         </div>
 
-        <div className="grid grid-cols-4 font-semibold text-gray-600 text-sm border-b border-gray-200 pb-2 mb-4">
-          <div>Last Payment Date</div>
-          <div>Plan Package</div>
-          <div>Price</div>
-          <div>Status</div>
+        {/* Table headings */}
+        <div className="grid grid-cols-6 gap-4 font-semibold text-gray-600 text-sm border-b border-gray-200 pb-2 mb-4">
+          <div>Date</div>
+          <div>Plan</div>
+          <div className="text-right">Base ₹</div>
+          <div className="text-right">GST ₹</div>
+          <div className="text-right">Total ₹</div>
+          <div>Invoice</div>
         </div>
 
+        {/* Table body */}
         {loading ? (
           <div className="text-center py-10 text-gray-500">
-            Loading payments...
+            Loading payments…
           </div>
         ) : error ? (
           <div className="text-center py-10 text-red-500">{error}</div>
-        ) : filteredPayments.length === 0 ? (
+        ) : payments.length === 0 ? (
           <div className="text-center py-10 text-gray-500">
             No payments found for {selectedYear}.
           </div>
         ) : (
-          filteredPayments.map((item, idx) => (
+          payments.map((p) => (
             <div
-              key={idx}
-              className="grid grid-cols-4 text-sm text-gray-700 py-2 border-b border-gray-100"
+              key={p.invoiceNumber}
+              className="grid grid-cols-6 gap-4 text-sm text-gray-700 py-2 border-b border-gray-100"
             >
-              <div>{item.date}</div>
-              <div>{item.plan}</div>
-              <div>{item.price}</div>
-              <div
-                className={classNames({
-                  "text-green-500": item.status === "Active",
-                  "text-red-500": item.status !== "Active",
-                })}
-              >
-                {item.status}
+              <div>{p.paymentDate.toLocaleDateString("en-GB")}</div>
+              <div>{p.planName}</div>
+              <div className="text-right">₹ {p.baseAmount.toFixed(2)}</div>
+              <div className="text-right">₹ {p.gstAmount.toFixed(2)}</div>
+              <div className="text-right font-medium">
+                ₹ {p.totalAmount.toFixed(2)}
+              </div>
+              <div>
+                {p.invoiceNumber ? (
+                  <button
+                    onClick={() => handleDownload(p.invoiceNumber, p.downloadUrl)}
+                    className="inline-block px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200"
+                  >
+                    Download
+                  </button>
+                ) : (
+                  <span className="text-gray-400">—</span>
+                )}
               </div>
             </div>
           ))

@@ -4,12 +4,17 @@ const mongoose = require("mongoose");
  * ✅ Global Error Handler Middleware for Multi-Tenant SaaS
  */
 const errorHandler = (err, req, res, next) => {
-    console.error("❌ Error:", err.message);
+    console.error("❌ Error:", err?.message || err);
 
-    // Extract tenant context (if available)
-    const companyId = req.user?.companyId || req.headers['x-company-id'] || null;
+    // 🏢 Extract tenant context safely
+    let companyId = null;
+    try {
+        companyId = req?.user?.companyId || req?.headers?.['x-company-id'] || null;
+    } catch (_) {
+        companyId = null;
+    }
 
-    // Handle Mongoose Validation Errors
+    // 🧪 Mongoose Validation Error
     if (err instanceof mongoose.Error.ValidationError) {
         return res.status(400).json({
             success: false,
@@ -19,7 +24,7 @@ const errorHandler = (err, req, res, next) => {
         });
     }
 
-    // Handle Mongoose Cast Errors (e.g., invalid ObjectId)
+    // 🆔 Mongoose Cast Error (invalid ObjectId etc.)
     if (err instanceof mongoose.Error.CastError) {
         return res.status(400).json({
             success: false,
@@ -28,7 +33,7 @@ const errorHandler = (err, req, res, next) => {
         });
     }
 
-    // JWT Errors
+    // 🔒 JWT Errors
     if (err.name === "JsonWebTokenError") {
         return res.status(401).json({
             success: false,
@@ -45,18 +50,18 @@ const errorHandler = (err, req, res, next) => {
         });
     }
 
-    // MongoDB Duplicate Key
+    // 📛 Duplicate key error from MongoDB
     if (err.code === 11000) {
-        const field = Object.keys(err.keyValue || {})[0];
+        const field = Object.keys(err.keyValue || {})[0] || "field";
         return res.status(409).json({
             success: false,
             tenant: companyId,
-            message: `Duplicate field: ${field} already exists.`,
+            message: `Duplicate value: '${field}' already exists.`,
         });
     }
 
-    // Missing required field
-    if (err.message?.includes("required")) {
+    // ⚠️ Required Field Missing
+    if (err.message?.toLowerCase().includes("required")) {
         return res.status(400).json({
             success: false,
             tenant: companyId,
@@ -64,7 +69,7 @@ const errorHandler = (err, req, res, next) => {
         });
     }
 
-    // 403 Forbidden
+    // 🔐 Forbidden Access
     if (err.status === 403) {
         return res.status(403).json({
             success: false,
@@ -73,7 +78,7 @@ const errorHandler = (err, req, res, next) => {
         });
     }
 
-    // 404 Not Found
+    // 🚫 Not Found
     if (err.status === 404) {
         return res.status(404).json({
             success: false,
@@ -82,7 +87,7 @@ const errorHandler = (err, req, res, next) => {
         });
     }
 
-    // 429 Too Many Requests
+    // 🔁 Too Many Requests
     if (err.status === 429) {
         return res.status(429).json({
             success: false,
@@ -91,7 +96,7 @@ const errorHandler = (err, req, res, next) => {
         });
     }
 
-    // Fallback: 500 Internal Server Error
+    // 🧯 Fallback Internal Error
     return res.status(err.status || 500).json({
         success: false,
         tenant: companyId,
@@ -103,7 +108,7 @@ const errorHandler = (err, req, res, next) => {
  * ✅ 404 Not Found Handler
  */
 const notFoundHandler = (req, res, next) => {
-    const companyId = req.user?.companyId || req.headers['x-company-id'] || null;
+    const companyId = req?.user?.companyId || req?.headers?.['x-company-id'] || null;
     res.status(404).json({
         success: false,
         tenant: companyId,

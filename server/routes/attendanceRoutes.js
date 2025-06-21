@@ -11,7 +11,7 @@ const {
   getAttendanceByStaff,
   getAttendanceByDate,
   declareLeaveForPastDate,
-  getActiveAttendance
+  getActiveAttendance,
 } = attendanceController;
 
 const { verifyToken } = require("../middlewares/authMiddleware");
@@ -31,10 +31,10 @@ router.post("/check-in", generalLimiter, startWork);
 // Staff Clock-Out (Check-Out)
 router.post("/check-out", generalLimiter, endWork);
 
-// View Own Attendance Records
+// View Own Attendance Records (paginated via query ?page=&limit=)
 router.get("/my-attendance", generalLimiter, getOwnAttendance);
 
-// Fetch Active Session Info (For Resuming Timer)
+// Fetch Active Session Info (For Resuming Timer, includes scheduledEndTime)
 router.get("/active-session", generalLimiter, getActiveAttendance);
 
 // ===============================
@@ -56,10 +56,11 @@ router.get(
   adminLimiter,
   async (req, res, next) => {
     const { staffId } = req.params;
+    // Validate MongoDB ObjectId format
     if (!/^[0-9a-fA-F]{24}$/.test(staffId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid staff ID format."
+        message: "Invalid staff ID format.",
       });
     }
     return getAttendanceByStaff(req, res, next);
@@ -73,10 +74,11 @@ router.get(
   adminLimiter,
   async (req, res, next) => {
     const { date } = req.params;
+    // Expect YYYY-MM-DD; Date.parse handles ISO dates
     if (isNaN(Date.parse(date))) {
       return res.status(400).json({
         success: false,
-        message: "Invalid date format. Use YYYY-MM-DD."
+        message: "Invalid date format. Use YYYY-MM-DD.",
       });
     }
     return getAttendanceByDate(req, res, next);

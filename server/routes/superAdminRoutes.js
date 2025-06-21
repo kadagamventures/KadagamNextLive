@@ -13,18 +13,18 @@ const isSuperAdmin = (req, res, next) => {
   next();
 };
 
-// ─────────────────────────────
-// 🔐 Super-Admin Login (no token required)
+// ────────────────────────────────────
+// 🔐 Super‑Admin Login (no token required)
 // POST /api/super-admin/login
-// ─────────────────────────────
+// ────────────────────────────────────
 router.post("/login", superAdminController.login);
 
-// ─────────────────────────────
-// 🔐 Protected Super-Admin Routes
-// (mounted under "/api/super-admin")
-// ─────────────────────────────
+// ────────────────────────────────────
+// 🔐 Protected Super‑Admin Routes
+// Mounted under "/api/super-admin"
+// ────────────────────────────────────
 
-// Company List
+// 🏢 Company List
 // GET /api/super-admin/companies
 router.get(
   "/companies",
@@ -33,7 +33,7 @@ router.get(
   superAdminController.getCompanies
 );
 
-// Company Details & Soft‑Delete
+// 🏢 Company Details & Soft‑Delete
 // GET    /api/super-admin/companies/:id
 // DELETE /api/super-admin/companies/:id
 router
@@ -41,7 +41,7 @@ router
   .get(verifyToken, isSuperAdmin, superAdminController.getCompanyDetails)
   .delete(verifyToken, isSuperAdmin, superAdminController.deleteCompany);
 
-// Subscription Status Update
+// 🔄 Subscription Status Update
 // PUT /api/super-admin/companies/:id/subscription
 router.put(
   "/companies/:id/subscription",
@@ -50,7 +50,7 @@ router.put(
   superAdminController.updateSubscription
 );
 
-// Trust Level & Verification
+// ⚙️ Trust Level & Verification
 // PUT /api/super-admin/companies/:id/trust
 router.put(
   "/companies/:id/trust",
@@ -59,8 +59,8 @@ router.put(
   superAdminController.updateTrust
 );
 
-// Payment History
-// GET /api/super-admin/companies/:id/payments
+// 💳 Payment History (with optional year filter)
+// GET /api/super-admin/companies/:id/payments?year=YYYY
 router.get(
   "/companies/:id/payments",
   verifyToken,
@@ -68,8 +68,17 @@ router.get(
   superAdminController.getPaymentHistory
 );
 
-// Revenue Dashboard
-// GET /api/super-admin/revenue?year=YYYY&month=0-11
+// 📥 Download Invoice PDF
+// GET /api/super-admin/companies/:id/payments/:invoiceId/pdf
+router.get(
+  "/companies/:id/payments/:invoiceId/pdf",
+  verifyToken,
+  isSuperAdmin,
+  superAdminController.downloadInvoicePDF
+);
+
+// 📊 Revenue Dashboard
+// GET /api/super-admin/revenue?year=YYYY
 router.get(
   "/revenue",
   verifyToken,
@@ -77,7 +86,7 @@ router.get(
   superAdminController.getRevenue
 );
 
-// Plan Management
+// ⚙️ Plan Management
 // GET  /api/super-admin/plans
 // PUT  /api/super-admin/plans
 router

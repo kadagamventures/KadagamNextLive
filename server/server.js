@@ -131,6 +131,7 @@ app.use("/api/verify",         verificationRoutes);
 app.use("/api/payment",        paymentRoutes);
 app.use("/api/plan",           planRoutes);
 app.use("/api/invoices",       invoiceRoutes);
+app.use("/api/company",        verifyToken, companyRoutes);
 
 // Authenticated + Verified Email
 app.use("/api/admin",          verifyToken, ensureVerifiedTenant, adminLimiter, adminRoutes);

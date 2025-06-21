@@ -7,6 +7,8 @@ const ReportArchive     = require("../../models/ReportArchive");
  */
 const generateTaskReport = asyncHandler(async (req, res) => {
   const { reportType, month, year } = req.query;
+  console.log("▶️ req.user", req.user);
+
   const companyId = req.user.companyId?.toString();
 
   if (!companyId) {
