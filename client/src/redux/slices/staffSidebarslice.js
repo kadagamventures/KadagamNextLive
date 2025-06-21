@@ -12,13 +12,10 @@ export const fetchPermissions = createAsyncThunk(
   "staffSidebar/fetchPermissions",
   async (_, thunkAPI) => {
     try {
-      const { data } = await tokenRefreshInterceptor.get(
-        "/staff-permissions/permission"
-      );
-      const permissions = data?.permissions;
-      if (!Array.isArray(permissions)) {
-        throw new Error("Invalid permissions format.");
-      }
+      const response = await tokenRefreshInterceptor.get("/staff-permissions/permission");
+      const resp = response.data.data || response.data;
+      const permissions = resp.permissions;
+      if (!Array.isArray(permissions)) throw new Error("Invalid permissions format.");
       return permissions;
     } catch (error) {
       const status = error.response?.status;
@@ -27,54 +24,42 @@ export const fetchPermissions = createAsyncThunk(
           ? "Unauthorized - Please login again."
           : status === 403
           ? "Forbidden - No access."
-          : error.response?.data?.message || "Failed to fetch permissions.";
+          : error.response?.data?.message || error.message;
       return thunkAPI.rejectWithValue(message);
     }
   }
 );
 
-// 2. Fetch Active Attendance Session (used on sidebar load/resume)
+// 2. Fetch Active Attendance Session
 export const fetchActiveSession = createAsyncThunk(
   "staffSidebar/fetchActiveSession",
   async (_, thunkAPI) => {
     try {
-      const { data } = await tokenRefreshInterceptor.get(
-        "/attendance/active-session"
-      );
-
-      const isWorking = data?.isWorking ?? false;
-      const checkInTime = data?.checkInTime;
-      const scheduledEndTime = data?.scheduledEndTime; // if returned by backend
+      const response = await tokenRefreshInterceptor.get("/attendance/active-session");
+      const resp = response.data.data || response.data;
+      const isWorking = resp.isWorking ?? false;
+      const checkInTime = resp.checkInTime ?? null;
+      const scheduledEndTime = resp.scheduledEndTime ?? null;
       const elapsed = checkInTime
         ? Math.floor((Date.now() - new Date(checkInTime)) / 1000)
         : 0;
-
-      return {
-        isWorking,
-        checkInTime,
-        timer: elapsed,
-        scheduledEndTime: scheduledEndTime || null,
-      };
+      return { isWorking, checkInTime, timer: elapsed, scheduledEndTime };
     } catch (error) {
-      return thunkAPI.rejectWithValue(
-        error.response?.data?.message || error.message
-      );
+      return thunkAPI.rejectWithValue(error.response?.data?.message || error.message);
     }
   }
 );
 
-// 3. Start Work (Check-In)
+// 3. Start Work (Check‑In)
 export const startWorkSession = createAsyncThunk(
   "staffSidebar/startWorkSession",
   async (_, thunkAPI) => {
     try {
-      const { data } = await tokenRefreshInterceptor.post(
-        "/attendance/check-in"
-      );
-      const resp = data.data || {};
+      const response = await tokenRefreshInterceptor.post("/attendance/check-in");
+      const resp = response.data.data || response.data;
       return {
         isWorking: resp.isWorking ?? true,
-        checkInTime: resp.checkInTime,
+        checkInTime: resp.checkInTime ?? null,
         scheduledEndTime: resp.scheduledEndTime ?? null,
       };
     } catch (error) {
@@ -88,18 +73,14 @@ export const startWorkSession = createAsyncThunk(
   }
 );
 
-// 4. End Work (Check-Out)
+// 4. End Work (Check‑Out)
 export const endWorkSession = createAsyncThunk(
   "staffSidebar/endWorkSession",
   async (_, thunkAPI) => {
     try {
-      const { data } = await tokenRefreshInterceptor.post(
-        "/attendance/check-out"
-      );
-      const resp = data.data || {};
-      return {
-        isWorking: resp.isWorking ?? false,
-      };
+      const response = await tokenRefreshInterceptor.post("/attendance/check-out");
+      const resp = response.data.data || response.data;
+      return { isWorking: resp.isWorking ?? false };
     } catch (error) {
       const status = error.response?.status;
       const message =
@@ -111,35 +92,30 @@ export const endWorkSession = createAsyncThunk(
   }
 );
 
-// 5. Fetch Office Timing (sidebar footer)
+// 5. Fetch Office Timing (Staff View)
 export const fetchOfficeTiming = createAsyncThunk(
   "staffSidebar/fetchOfficeTiming",
   async (_, thunkAPI) => {
     try {
-      const { data } = await tokenRefreshInterceptor.get("/office-time");
-      return data;
+      const response = await tokenRefreshInterceptor.get("/office-timing");
+      const resp = response.data.data || response.data;
+      return resp;
     } catch (error) {
-      return thunkAPI.rejectWithValue(
-        error.response?.data?.message || error.message
-      );
+      return thunkAPI.rejectWithValue(error.response?.data?.message || error.message);
     }
   }
 );
 
-// 6. Admin update office time
+// 6. Admin: Update Office Timing
 export const updateOfficeTiming = createAsyncThunk(
   "staffSidebar/updateOfficeTiming",
   async (payload, thunkAPI) => {
     try {
-      const { data } = await tokenRefreshInterceptor.post(
-        "/admin/office-time",
-        payload
-      );
-      return data;
+      const response = await tokenRefreshInterceptor.post("/office-timing/admin", payload);
+      const resp = response.data.data || response.data;
+      return resp;
     } catch (error) {
-      return thunkAPI.rejectWithValue(
-        error.response?.data?.message || error.message
-      );
+      return thunkAPI.rejectWithValue(error.response?.data?.message || error.message);
     }
   }
 );
@@ -156,10 +132,8 @@ const initialState = {
   scheduledEndTime: null,
   profileImage: null,
   officeTiming: {
-    startHour: null,
-    startMinute: null,
-    endHour: null,
-    endMinute: null,
+    startTime: null,
+    endTime: null,
     graceMinutes: 0,
     fullDayHours: 8,
   },
@@ -189,9 +163,7 @@ const staffSidebarSlice = createSlice({
       state.intervalId = action.payload;
     },
     clearIntervalId(state) {
-      if (state.intervalId) {
-        clearInterval(state.intervalId);
-      }
+      if (state.intervalId) clearInterval(state.intervalId);
       state.intervalId = null;
     },
     resetSidebarState() {
@@ -199,8 +171,8 @@ const staffSidebarSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    // Permissions
     builder
+      // Permissions
       .addCase(fetchPermissions.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -213,10 +185,9 @@ const staffSidebarSlice = createSlice({
         state.permissions = [];
         state.error = payload;
         state.isLoading = false;
-      });
+      })
 
-    // Active Session
-    builder
+      // Active Session
       .addCase(fetchActiveSession.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -226,21 +197,16 @@ const staffSidebarSlice = createSlice({
         state.timer = payload.timer;
         state.scheduledEndTime = payload.scheduledEndTime;
         state.isLoading = false;
-        localStorage.setItem("isWorking", payload.isWorking.toString());
-        localStorage.setItem("workTimer", payload.timer.toString());
-        if (payload.scheduledEndTime) {
-          localStorage.setItem("scheduledEndTime", payload.scheduledEndTime);
-        }
       })
       .addCase(fetchActiveSession.rejected, (state, { payload }) => {
         state.isWorking = false;
         state.timer = 0;
+        state.scheduledEndTime = null;
         state.error = payload;
         state.isLoading = false;
-      });
+      })
 
-    // Start Work (Check-In)
-    builder
+      // Start Work
       .addCase(startWorkSession.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -250,20 +216,14 @@ const staffSidebarSlice = createSlice({
         state.timer = 0;
         state.scheduledEndTime = payload.scheduledEndTime;
         state.isLoading = false;
-        localStorage.setItem("isWorking", payload.isWorking.toString());
-        localStorage.setItem("workTimer", "0");
-        if (payload.scheduledEndTime) {
-          localStorage.setItem("scheduledEndTime", payload.scheduledEndTime);
-        }
       })
       .addCase(startWorkSession.rejected, (state, { payload }) => {
         state.isWorking = false;
         state.error = payload;
         state.isLoading = false;
-      });
+      })
 
-    // End Work (Check-Out)
-    builder
+      // End Work
       .addCase(endWorkSession.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -273,51 +233,42 @@ const staffSidebarSlice = createSlice({
         state.timer = 0;
         state.scheduledEndTime = null;
         state.isLoading = false;
-        localStorage.setItem("isWorking", payload.isWorking.toString());
-        localStorage.removeItem("scheduledEndTime");
-        localStorage.setItem("workTimer", "0");
       })
       .addCase(endWorkSession.rejected, (state, { payload }) => {
         state.error = payload;
         state.isLoading = false;
-      });
+      })
 
-    // Office Timing
-    builder
+      // Fetch Office Timing
       .addCase(fetchOfficeTiming.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
       .addCase(fetchOfficeTiming.fulfilled, (state, { payload }) => {
         state.officeTiming = {
-          startHour: payload.startHour,
-          startMinute: payload.startMinute,
-          endHour: payload.endHour,
-          endMinute: payload.endMinute,
-          graceMinutes: payload.graceMinutes ?? state.officeTiming.graceMinutes,
-          fullDayHours: payload.fullDayHours ?? state.officeTiming.fullDayHours,
+          startTime: payload.startTime,
+          endTime: payload.endTime,
+          graceMinutes: payload.graceMinutes ?? 0,
+          fullDayHours: payload.fullDayHours ?? 8,
         };
         state.isLoading = false;
       })
       .addCase(fetchOfficeTiming.rejected, (state, { payload }) => {
         state.error = payload;
         state.isLoading = false;
-      });
+      })
 
-    // Update Office Timing
-    builder
+      // Update Office Timing
       .addCase(updateOfficeTiming.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
       .addCase(updateOfficeTiming.fulfilled, (state, { payload }) => {
         state.officeTiming = {
-          startHour: payload.startHour,
-          startMinute: payload.startMinute,
-          endHour: payload.endHour,
-          endMinute: payload.endMinute,
-          graceMinutes: payload.graceMinutes ?? state.officeTiming.graceMinutes,
-          fullDayHours: payload.fullDayHours ?? state.officeTiming.fullDayHours,
+          startTime: payload.startTime,
+          endTime: payload.endTime,
+          graceMinutes: payload.graceMinutes ?? 0,
+          fullDayHours: payload.fullDayHours ?? 8,
         };
         state.isLoading = false;
       })

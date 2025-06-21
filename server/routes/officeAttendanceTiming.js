@@ -1,19 +1,28 @@
 // backend/routes/officeTimingRoutes.js
 const express = require('express');
-const { verifyToken, requireAdmin } = require('../middlewares/authMiddleware');
-const { getOfficeTiming, upsertOfficeTiming } = require('../controllers/officeTimingController');
-
 const router = express.Router();
+const {
+  getOfficeTiming,
+  upsertOfficeTiming,
+} = require('../controllers/officeTimingController');
+const {
+  verifyToken,
+  requireAdmin,
+} = require('../middlewares/authMiddleware');
 
-// Any authenticated user: read office hours
-// GET  /api/office-timing
+// ===============================
+// 📍 OFFICE TIMING ROUTES
+// ===============================
+
+// ✅ Any authenticated user: Get current office timings
+// GET /api/office-timing
 router.get(
   '/',
   verifyToken,
   getOfficeTiming
 );
 
-// Admin-only: set or update office hours
+// ✅ Admin only: Upsert (set/update) office timing for the company
 // POST /api/office-timing/admin
 router.post(
   '/admin',
