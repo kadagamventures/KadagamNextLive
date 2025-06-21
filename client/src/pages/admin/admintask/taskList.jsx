@@ -9,6 +9,8 @@ const TaskList = () => {
   const dispatch = useDispatch();
   const [searchTerm, setSearchTerm] = useState("");
   const [deletingId, setDeletingId] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedId, setSelectedId] = useState(null);
 
   const { items: tasks = [], status, error } = useSelector((state) => state.tasks);
 
@@ -27,22 +29,24 @@ const TaskList = () => {
     [navigate]
   );
 
-  const handleDelete = useCallback(
-    async (id) => {
-      if (window.confirm("Are you sure you want to delete this task?")) {
-        setDeletingId(id);
-        try {
-          await dispatch(deleteTask(id)).unwrap();
-          alert("✅ Task deleted successfully!");
-        } catch {
-          alert("❌ Failed to delete task. Please try again.");
-        } finally {
-          setDeletingId(null);
-        }
-      }
-    },
-    [dispatch]
-  );
+  const confirmDelete = useCallback((id) => {
+    setSelectedId(id);
+    setShowModal(true);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!selectedId) return;
+    setDeletingId(selectedId);
+    try {
+      await dispatch(deleteTask(selectedId)).unwrap();
+      setShowModal(false);
+    } catch {
+      alert("❌ Failed to delete task. Please try again."); // optional fallback
+    } finally {
+      setDeletingId(null);
+      setSelectedId(null);
+    }
+  }, [dispatch, selectedId]);
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) =>
@@ -57,7 +61,37 @@ const TaskList = () => {
   }, [tasks, searchTerm]);
 
   return (
-    <div className="min-h-screen p-6 md:p-8">
+    <div className="min-h-screen p-6 md:p-8 relative">
+      {/* Delete Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-xs">
+          <div className="bg-white rounded-lg p-6 w-[90%] max-w-md shadow-lg text-center">
+            <h3 className="text-lg font-semibold mb-3">Confirm Delete</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete this task?
+            </p>
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded"
+                disabled={deletingId === selectedId}
+              >
+                {deletingId === selectedId ? "Deleting..." : "Yes, Delete"}
+              </button>
+              <button
+                onClick={() => {
+                  setShowModal(false);
+                  setSelectedId(null);
+                }}
+                className="px-4 py-2 text-sm font-medium bg-gray-200 hover:bg-gray-300 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top Header */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-8">
         <h2 className="text-2xl md:text-3xl font-bold text-gray-800">
@@ -136,9 +170,7 @@ const TaskList = () => {
                     </td>
                     <td className="px-3 py-2 text-sm text-gray-600 whitespace-nowrap text-center">
                       {task.assignedDate && !isNaN(new Date(task.assignedDate))
-                        ? new Date(task.assignedDate).toLocaleDateString(
-                          "en-CA"
-                        )
+                        ? new Date(task.assignedDate).toLocaleDateString("en-CA")
                         : "N/A"}
                     </td>
                     <td className="px-3 py-2 text-sm text-gray-600 whitespace-nowrap text-center">
@@ -146,12 +178,13 @@ const TaskList = () => {
                     </td>
                     <td className="px-3 py-2 text-sm whitespace-nowrap text-center">
                       <span
-                        className={`font-semibold ${task.priority === "High"
+                        className={`font-semibold ${
+                          task.priority === "High"
                             ? "text-red-500"
                             : task.priority === "Medium"
-                              ? "text-yellow-500"
-                              : "text-green-500"
-                          }`}
+                            ? "text-yellow-500"
+                            : "text-green-500"
+                        }`}
                       >
                         {task.priority}
                       </span>
@@ -165,12 +198,13 @@ const TaskList = () => {
                           Edit <FaPencilAlt className="text-green-500" />
                         </button>
                         <button
-                          onClick={() => handleDelete(task._id)}
+                          onClick={() => confirmDelete(task._id)}
                           disabled={deletingId === task._id}
-                          className={`flex items-center gap-1 px-2 py-1 bg-white text-gray-500 border border-gray-300 rounded-full shadow transition text-xs ${deletingId === task._id
+                          className={`flex items-center gap-1 px-2 py-1 bg-white text-gray-500 border border-gray-300 rounded-full shadow transition text-xs ${
+                            deletingId === task._id
                               ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                               : "hover:bg-red-50"
-                            }`}
+                          }`}
                         >
                           {deletingId === task._id ? (
                             "Deleting..."

@@ -10,19 +10,18 @@ const StaffList = () => {
 
   const { items: staff, status, error } = useSelector((state) => state.staff);
   const { role } = useSelector((state) => state.auth.user) || {};
-
-  // Only admins can delete staff.
   const canDeleteStaff = role === "admin";
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredStaff, setFilteredStaff] = useState([]);
 
-  // Fetch staff data when component mounts
+  const [showModal, setShowModal] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
+
   useEffect(() => {
     dispatch(fetchStaffs());
   }, [dispatch]);
 
-  // Handle search filtering
   useEffect(() => {
     setFilteredStaff(
       staff.filter((member) => {
@@ -43,35 +42,56 @@ const StaffList = () => {
     );
   }, [searchQuery, staff]);
 
-  const handleDelete = async (id) => {
-    if (!canDeleteStaff) {
-      alert("You do not have permission to delete staff.");
-      return;
-    }
-    if (window.confirm("Are you sure you want to delete this staff member?")) {
-      try {
-        const result = await dispatch(deleteStaff(id));
-        if (result.meta.requestStatus === "fulfilled") {
-          alert("Staff member deleted successfully.");
-          dispatch(fetchStaffs());
-        } else {
-          alert("Failed to delete staff. Please try again.");
-        }
-      } catch {
-        alert("Failed to delete staff. Please try again.");
+  const confirmDelete = async () => {
+    if (!canDeleteStaff || !deleteId) return;
+    try {
+      const result = await dispatch(deleteStaff(deleteId));
+      if (result.meta.requestStatus === "fulfilled") {
+        alert("Staff member deleted successfully.");
+        dispatch(fetchStaffs());
+      } else {
+        alert(result.payload?.message || "Failed to delete staff.");
       }
+    } catch {
+      alert("Failed to delete staff. Please try again.");
     }
+    setShowModal(false);
+    setDeleteId(null);
   };
 
   return (
-    <div className="pl-0 md:pl-64 min-h-screen p-6 md:p-8">
-      {/* Page Header */}
+    <div className="ml-0 md:ml-64 min-h-screen p-6 md:p-8 relative">
+      {/* Delete Confirmation Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-xl p-6 w-[90%] max-w-md shadow-xl text-center">
+            <h2 className="text-lg font-semibold mb-4">Confirm Delete</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete this staff member?
+            </p>
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700"
+              >
+                Yes, Delete
+              </button>
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 text-sm font-medium bg-gray-200 rounded hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
           Staff Members
         </h1>
-
-        {/* Top Right Actions: Search + Add Staff */}
         <div className="flex items-center gap-3 mt-4 md:mt-0">
           {role === "admin" && (
             <Link
@@ -94,7 +114,7 @@ const StaffList = () => {
         </div>
       </div>
 
-      {/* Table Container */}
+      {/* Staff Table */}
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
         {status === "loading" ? (
           <div className="p-8 text-center text-gray-500 animate-pulse">
@@ -151,7 +171,10 @@ const StaffList = () => {
                           )}
                           {canDeleteStaff && (
                             <button
-                              onClick={() => handleDelete(member._id)}
+                              onClick={() => {
+                                setDeleteId(member._id);
+                                setShowModal(true);
+                              }}
                               className="px-3 py-2 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md text-xs font-medium flex items-center gap-1 transition-all hover:bg-red-50"
                             >
                               <FaTrash className="w-6 h-5 text-red-500" />
