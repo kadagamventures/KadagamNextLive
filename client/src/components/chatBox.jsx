@@ -165,7 +165,7 @@ const ChatBox = ({ taskId, receiver, taskTitle, currentUser: passedUser }) => {
 
   const handleEdit = async (messageId, newText) => {
     try {
-      const res = await dispatch(editChatMessage({ messageId, newText })).unwrap();
+      await dispatch(editChatMessage({ messageId, newText })).unwrap();
       setEditMsgId(null);
       setEditText("");
     } catch (err) {
@@ -188,14 +188,14 @@ const ChatBox = ({ taskId, receiver, taskTitle, currentUser: passedUser }) => {
       ? "Today"
       : dayjs(timestamp).isSame(dayjs().subtract(1, "day"), "day")
       ? "Yesterday"
-      : dayjs(timestamp).format("DD MMM YYYY"); // Fixed a typo in the original `YYYY` for consistency
+      : dayjs(timestamp).format("DD MMM YYYY"); // Corrected to DD MMM YYYY for clarity and consistency
 
   const formatTime = (timestamp) => dayjs(timestamp).format("hh:mm A");
 
   let lastDate = "";
 
   return (
-    <div className="chat-box flex flex-col bg-white rounded-xl shadow-lg border overflow-hidden">
+    <div className="chat-box flex flex-col bg-white rounded-xl shadow-lg border overflow-hidden h-[500px]"> {/* Added a fixed height, e.g., h-[500px] */}
       <div className="p-4 bg-violet-700 text-white flex items-center gap-3 sticky top-0 z-10">
         <UserCircle2 className="w-8 h-8" />
         <div className="flex-1">
@@ -204,7 +204,8 @@ const ChatBox = ({ taskId, receiver, taskTitle, currentUser: passedUser }) => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-3 bg-gray-50 space-y-3">
+      {/* The message area should fill the remaining space, and scroll if content overflows */}
+      <div className="flex-1 overflow-y-auto px-4 py-3 bg-gray-50 space-y-3 min-h-[calc(500px - 100px - 56px)]"> {/* Adjusted min-h to compensate for header and input field. Calculate this based on your fixed height and header/footer heights */}
         {messages
           .filter((m) => m.taskId === taskId)
           .map((msg, idx) => {

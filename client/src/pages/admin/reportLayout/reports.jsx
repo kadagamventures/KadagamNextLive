@@ -33,7 +33,6 @@ ChartJS.register(
   Legend
 );
 
-
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 28, gapDegrees = 2 }) => {
@@ -67,9 +66,6 @@ const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 
     }
 
     const path = describeArc(cx, cy, radius, angleAcc + gapDegrees / 2, angleAcc + ang + gapDegrees / 2); // Start after half gap, end before half gap
-
-    // For label positioning (not directly used for on-segment labels here)
-    // const mid = polarToCartesian(cx, cy, radius, angleAcc + ang / 2);
 
     angleAcc += (total ? (val / total) * 360 : 0); // Accumulate full angle for next segment's start
     return { path, color: colors[i % colors.length], label: val, name: d.name };
@@ -106,7 +102,6 @@ CustomDoughnutChart.propTypes = {
   gapDegrees: PropTypes.number,
 };
 // --- END CustomDoughnutChart Component ---
-// --- END CustomDoughnutChart Component ---
 
 
 const Reports = () => {
@@ -120,7 +115,6 @@ const Reports = () => {
   });
 
   useEffect(() => {
-    // Reverted to original API call to fetch live data
     (async () => {
       try {
         const token = localStorage.getItem("token");
@@ -140,10 +134,9 @@ const Reports = () => {
         }
       } catch (err) {
         console.error("Failed to fetch overview data:", err);
-        // Optionally, set error state or show a message to the user
       }
     })();
-  }, []); // Empty dependency array means this runs once on mount
+  }, []);
 
   const cards = [
     {
@@ -184,16 +177,12 @@ const Reports = () => {
     },
   ];
 
-  // Data for the CustomDoughnutChart will now use live overviewData
-  // Ensure the data format matches what CustomDoughnutChart expects: [{name: 'label', value: number}]
-  // The order here also dictates the order in the legend.
   const customDoughnutChartData = [
     { name: "Total Project", value: overviewData.totalProjects },
     { name: "Total Task", value: overviewData.totalTasks },
     { name: "Total Staff", value: overviewData.totalStaff },
   ];
 
-  // Colors matching your image: Light Blue, Pink, Purple
   const customDoughnutColors = ["#41B6FF", "#FF4C80", "#752BdF"];
 
   const barData = {
@@ -213,17 +202,15 @@ const Reports = () => {
       x: { grid: { display: false }, ticks: { color: "#6B7280" } },
       y: {
         grid: { color: "#E5E7EB" },
-        ticks: { color: "#6B7280", beginAtZero: true, stepSize: 1 }, // Ensure y-axis starts at 0 and has integer steps
-        max: Math.max(overviewData.ongoingTasks, overviewData.completedTasks, 5) * 1.2, // Dynamic max, ensure at least 5 to prevent cramped chart with small numbers
+        ticks: { color: "#6B7280", beginAtZero: true, stepSize: 1 },
+        max: Math.max(overviewData.ongoingTasks, overviewData.completedTasks, 5) * 1.2,
       },
     },
-    maintainAspectRatio: false,
+    maintainAspectRatio: false, // Important for responsive charts with defined height
   };
 
   // Calculate the percentage for the center text (Higher Rate)
   const totalRelevantData = overviewData.totalProjects + overviewData.totalStaff + overviewData.totalTasks;
-  // Based on the image, "Higher Rate" seems to be for Total Staff (69%)
-  // Adjust calculation if "Higher Rate" is for a different metric.
   const higherRateValue = overviewData.totalStaff;
   const centerPercentage = totalRelevantData
     ? Math.round((higherRateValue / totalRelevantData) * 100) + "%"
@@ -257,27 +244,28 @@ const Reports = () => {
         ))}
       </div>
 
-      {/* Charts */}
+      {/* Charts - Made Responsive */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left Doughnut (now using CustomDoughnutChart) */}
         <motion.div
-          className="bg-white p-6 shadow-md relative flex" // Use flex to align chart and legend
+          className="bg-white p-6 shadow-md flex flex-col justify-between" // Changed to flex-col and justify-between
           style={{
-            width: '435px', // Explicit width
-            height: '276px', // Explicit height
-            borderRadius: '16.46px', // Explicit border-radius
+            borderRadius: '16.46px',
+            // Removed fixed width and height for responsiveness
           }}
           whileHover={{ scale: 1.02 }}
         >
-          <div className="flex-1"> {/* This div contains the title and chart */}
-            <h3 className="text-lg font-medium text-gray-700 mb-4">
+          {/* Main content area (title + chart) */}
+          <div className="flex-1 flex flex-col items-center justify-center"> {/* Use flex-1 to take available space, center items */}
+            <h3 className="text-lg font-medium text-gray-700 mb-4 text-center">
               Project, Staff, Task
             </h3>
-            <div className="relative flex items-center justify-center" style={{ height: 'calc(100% - 2rem)' }}> {/* Adjusted height for chart container */}
+            {/* Chart container with aspect ratio */}
+            <div className="relative flex items-center justify-center w-full max-w-[200px] aspect-square"> {/* Added max-w for chart size */}
               <CustomDoughnutChart
                 data={customDoughnutChartData}
                 colors={customDoughnutColors}
-                chartSize={200} // Adjust chartSize to fit within the new explicit height
+                chartSize={200} // This is the SVG viewBox size, it will scale to its container
                 strokeThickness={28}
                 gapDegrees={2}
               />
@@ -299,13 +287,13 @@ const Reports = () => {
             </div>
           </div>
 
-          {/* Right side Legend */}
-          <div className="flex-shrink-0 flex flex-col justify-center pl-8 pr-4"> {/* Added padding for spacing */}
-            <ul className="space-y-2">
+          {/* Legend at the bottom, now as a separate flex item */}
+          <div className="mt-6"> {/* Added top margin to separate from chart */}
+            <ul className="space-y-2 flex flex-wrap justify-center"> {/* Use flex-wrap and justify-center for legend items */}
               {customDoughnutChartData.map((item, i) => (
-                <li key={item.name} className="flex items-center text-gray-600">
+                <li key={item.name} className="flex items-center text-gray-600 px-2 py-1"> {/* Added px-2 py-1 for spacing between inline items */}
                   <span
-                    className="w-4 h-4 rounded-sm mr-2" // Rounded-sm for square-ish shape
+                    className="w-4 h-4 rounded-sm mr-2"
                     style={{ backgroundColor: customDoughnutColors[i % customDoughnutColors.length] }}
                   ></span>
                   {item.name} - {item.value}
@@ -315,18 +303,18 @@ const Reports = () => {
           </div>
         </motion.div>
 
-        {/* Right Bar */}
+        {/* Right Bar Chart - Responsive */}
         <motion.div
-          className="bg-white  p-6 shadow-md"
+          className="bg-white p-6 shadow-md"
           style={{
-            width: '429px', // Explicit width
-            height: '277px', // Explicit height
-            borderRadius: '14.3px', // Explicit border-radius
+            borderRadius: '14.3px',
+            // Removed fixed width and height for responsiveness
           }}
           whileHover={{ scale: 1.02 }}
         >
           <h3 className="text-lg font-medium text-gray-700 mb-4">Task</h3>
-          <div className="relative" style={{ height: 'calc(100% - 2rem)' }}> {/* Adjusted height for chart container */}
+          {/* Chart.js requires a container with defined dimensions for responsiveness */}
+          <div className="relative h-[250px] w-full">
             <Bar data={barData} options={barOptions} />
           </div>
         </motion.div>

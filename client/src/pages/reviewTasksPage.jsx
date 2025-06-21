@@ -115,7 +115,7 @@ const ReviewTasksPage = () => {
   };
 
   return (
-    <div className="pl-0 md:pl-64 min-h-screen bg-gray-100 p-8">
+    <div className="min-h-screen p-6 md:p-8">
       <div className="flex justify-between items-center mb-8">
         <h2 className="text-3xl font-bold text-gray-800">Review Tasks</h2>
       </div>

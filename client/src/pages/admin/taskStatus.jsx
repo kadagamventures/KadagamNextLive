@@ -8,31 +8,26 @@ import { FaDownload, FaSearch } from "react-icons/fa";
 const DetailedDescriptionPopup = ({ update, onClose }) => {
   const popupRef = useRef(null);
 
-  // Close on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (popupRef.current && !popupRef.current.contains(event.target)) {
         onClose();
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex justify-center items-center rounded-lg p-4">
-      <div
-        ref={popupRef}
-        className="bg-white rounded-xl p-6 shadow-2xl w-full max-w-md"
-      >
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex justify-center items-center p-4">
+      <div ref={popupRef} className="bg-white rounded-xl p-6 shadow-2xl w-full max-w-md">
         <h2 className="text-lg font-semibold mb-4">Daily Update Details</h2>
-        <div className="mb-4">
-          <p className="mb-2">
+        <div className="mb-4 space-y-2">
+          <p>
             <span className="font-semibold">Staff Name:</span>{" "}
             {update?.staffName || "N/A"}
           </p>
-          <p className="mb-2">
+          <p>
             <span className="font-semibold">Task Name:</span>{" "}
             {update?.taskTitle || "N/A"}
           </p>
@@ -43,12 +38,14 @@ const DetailedDescriptionPopup = ({ update, onClose }) => {
             </p>
           </div>
           {update?.fileUrl && (
-            <div className="mt-4">
+            <div>
               <p className="font-semibold">Attachment:</p>
               <p className="text-sm text-gray-600">
                 {update.fileName || update.fileUrl.split("/").pop()}
               </p>
-              <p className="text-sm text-gray-600">{update.fileType || "Unknown Type"}</p>
+              <p className="text-sm text-gray-600">
+                {update.fileType || "Unknown Type"}
+              </p>
             </div>
           )}
         </div>
@@ -67,12 +64,12 @@ const DetailedDescriptionPopup = ({ update, onClose }) => {
               .replace(",", " ")
             : "N/A"}
         </p>
-        <div className="flex justify-end gap-4 mt-4">
+        <div className="flex justify-end mt-4">
           <button
             onClick={onClose}
             className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
           >
-            Cancel
+            Close
           </button>
         </div>
       </div>
@@ -106,193 +103,182 @@ const DailyStatusDashboard = () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await axiosInstance.get("/tasks/daily-comments");
-        const tasks = response.data;
-
-        const flattenedUpdates = [];
-        tasks.forEach((task) => {
-          if (task.dailyUpdates?.length > 0) {
-            task.dailyUpdates.forEach((update) => {
-              flattenedUpdates.push({
-                id: `${task._id}-${update._id}`,
-                staffName: update.staffId?.name || "N/A",
-                taskId: task._id,
-                taskTitle: task.title || "Untitled Task",
-                dailyStatus: update.comment,
-                date: update.date,
-                fileUrl: update.attachment?.fileUrl || null,
-                fileType: update.attachment?.fileType || null,
-                fileName: update.attachment?.fileName || null, // ✅ added filename
-              });
-            });
-          }
-        });
-
-        flattenedUpdates.sort((a, b) => new Date(b.date) - new Date(a.date));
-        setDailyUpdates(flattenedUpdates);
-      } catch (err) {
-        console.error("❌ Error fetching daily comments:", err);
+        const { data: tasks } = await axiosInstance.get("/tasks/daily-comments");
+        const flat = [];
+        tasks.forEach((task) =>
+          task.dailyUpdates?.forEach((u) =>
+            flat.push({
+              id: `${task._id}-${u._id}`,
+              staffName: u.staffId?.name || "N/A",
+              taskId: task._id,
+              taskTitle: task.title || "Untitled Task",
+              dailyStatus: u.comment,
+              date: u.date,
+              fileUrl: u.attachment?.fileUrl || null,
+              fileType: u.attachment?.fileType || null,
+              fileName: u.attachment?.fileName || null,
+            })
+          )
+        );
+        flat.sort((a, b) => new Date(b.date) - new Date(a.date));
+        setDailyUpdates(flat);
+      } catch {
         setError("Failed to load daily comments. Please try again.");
       } finally {
         setLoading(false);
       }
     };
-
     fetchDailyComments();
   }, []);
 
-  const filteredUpdates = dailyUpdates.filter((update) => {
-    if (!searchTerm) return true;
-    const searchLower = searchTerm.toLowerCase();
+  const filteredUpdates = dailyUpdates.filter((upd) => {
+    const q = searchTerm.toLowerCase();
     return (
-      update.staffName.toLowerCase().includes(searchLower) ||
-      update.taskTitle.toLowerCase().includes(searchLower) ||
-      update.dailyStatus.toLowerCase().includes(searchLower)
+      upd.staffName.toLowerCase().includes(q) ||
+      upd.taskTitle.toLowerCase().includes(q) ||
+      upd.dailyStatus.toLowerCase().includes(q)
     );
   });
 
-  const openDescriptionPopup = (update) => setSelectedUpdate(update);
-  const closeDescriptionPopup = useCallback(() => setSelectedUpdate(null), []);
-  const shortenComment = (comment, maxLength = 25) =>
-    comment.length > maxLength ? `${comment.substring(0, maxLength)}...` : comment;
+  const openPopup = (upd) => setSelectedUpdate(upd);
+  const closePopup = useCallback(() => setSelectedUpdate(null), []);
+  const shorten = (txt, len = 25) =>
+    txt.length > len ? `${txt.slice(0, len)}...` : txt;
 
   const handleDownload = async (taskId, fileUrl) => {
     if (!fileUrl) return alert("No attachment available.");
-
     try {
       const s3Key = decodeURIComponent(new URL(fileUrl).pathname.slice(1));
-      const encodedKey = encodeURIComponent(s3Key);
-
-      const { data } = await axiosInstance.get(`/files/presigned-url?key=${encodedKey}`);
-      if (data?.url) {
-        const fileName = s3Key.split("/").pop().split("-").slice(1).join("-");
-
-        const link = document.createElement("a");
-        link.href = data.url;
-        link.setAttribute("download", fileName); // 👈 Ensures proper name and extension
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+      const { data } = await axiosInstance.get(
+        `/files/presigned-url?key=${encodeURIComponent(s3Key)}`
+      );
+      if (data.url) {
+        const name = s3Key.split("/").pop().split("-").slice(1).join("-");
+        const a = document.createElement("a");
+        a.href = data.url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
       } else {
         alert("Failed to generate download link.");
       }
-    } catch (err) {
-      console.error("❌ File download failed:", err);
+    } catch {
       alert("Download failed. Please try again.");
     }
   };
-
-
-  const handlePopupDownload = useCallback(() => {
-    if (selectedUpdate) {
-      handleDownload(selectedUpdate.taskId, selectedUpdate.fileUrl);
-      closeDescriptionPopup();
-    }
-  }, [selectedUpdate, handleDownload, closeDescriptionPopup]);
 
   return (
     <div className="flex min-h-screen bg-gray-50">
       <AdminSidebar />
 
-      <div className="flex-grow p-6 ml-64">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-semibold text-gray-800">Daily Task Updates</h1>
-
-            <div className="relative">
+      {/* Full-width container */}
+      <main className="flex-grow p-6 md:p-8">
+        <div className="w-full">
+          {/* Header + Search */}
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
+            <h1 className="text-2xl md:text-3xl font-semibold text-gray-800">
+              Daily Task Updates
+            </h1>
+            <div className="relative w-full max-w-sm">
               <input
                 type="text"
                 placeholder="Search Staff, Task, or Comment..."
-                className="w-64 px-3 py-2 pr-10 rounded-full border border-gray-300 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                className="w-full px-3 py-2 pr-10 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
-              <button className="absolute right-2 top-2 text-gray-400">
-                <FaSearch className="h-5 w-5" />
-              </button>
+              <FaSearch className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
             </div>
           </div>
 
-          {loading && (
-            <div className="text-center py-4 text-gray-600">Loading daily updates...</div>
-          )}
-          {error && <div className="text-center py-4 text-red-500">{error}</div>}
-
-          {!loading && !error && (
+          {/* Loading / Error */}
+          {loading ? (
+            <p className="text-center py-4 text-gray-600">Loading...</p>
+          ) : error ? (
+            <p className="text-center py-4 text-red-500">{error}</p>
+          ) : (
             <div className="bg-white rounded-lg shadow overflow-hidden">
-              <table className="w-full table-auto border-collapse">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-sm font-medium text-gray-700">Staff Name</th>
-                    <th className="px-6 py-4 text-left text-sm font-medium text-gray-700">Task Name</th>
-                    <th className="px-6 py-4 text-left text-sm font-medium text-gray-700">Comment</th>
-                    <th className="px-6 py-4 text-left text-sm font-medium text-gray-700">Date & Time</th>
-                    <th className="px-6 py-4 text-left text-sm font-medium text-gray-700">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredUpdates.map((update, index) => (
-                    <tr key={`${update.taskId}-${index}`} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-500">{update.staffName}</td>
-                      <td className="px-6 py-4 text-sm text-gray-500">{update.taskTitle}</td>
-                      <td
-                        className="px-6 py-4 text-sm text-gray-500 cursor-pointer"
-                        onClick={() => openDescriptionPopup(update)}
-                        title={update.dailyStatus}
-                      >
-                        {shortenComment(update.dailyStatus)}
-                        {update.fileName && (
-                          <span className="block text-xs text-gray-400 mt-1">
-                            {update.fileName}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
-                        {new Date(update.date).toLocaleString("en-GB", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: false,
-                        }).replace(",", " ")}
-                      </td>
-                      <td className="px-6 py-4 text-right text-sm font-medium">
-                        <button
-                          onClick={() => handleDownload(update.taskId, update.fileUrl)}
-                          disabled={!update.fileUrl}
-                          className={`flex items-center gap-1 px-3 py-2 rounded-full border border-gray-400 hover:bg-gray-200  text-purple-600 hover:text-purple-800 transition ${!update.fileUrl ? "opacity-50 cursor-not-allowed" : ""
-                            }`}
-                          title={!update.fileUrl ? "No attachment" : "Download"}
+              <div className="overflow-x-auto">
+                <table className="w-full max-w-full table-auto divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {[
+                        "Staff Name",
+                        "Task Name",
+                        "Comment",
+                        "Date & Time",
+                        "Actions",
+                      ].map((col) => (
+                        <th
+                          key={col}
+                          className="px-6 py-3 text-center text-sm md:text-base font-medium text-gray-700 whitespace-nowrap"
                         >
-                          <FaDownload className="h-5 w-3.5" />
-                          <span className="text-sm font-medium text-black">Download</span>
-                        </button>
-
-                      </td>
+                          {col}
+                        </th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {filteredUpdates.length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No updates found. Try adjusting your search terms.</p>
-                </div>
-              )}
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredUpdates.map((upd) => (
+                      <tr key={upd.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 text-center text-sm md:text-base text-gray-600">
+                          {upd.staffName}
+                        </td>
+                        <td className="px-6 py-4 text-center text-sm md:text-base text-gray-600">
+                          {upd.taskTitle}
+                        </td>
+                        <td
+                          className="px-6 py-4 text-center text-sm md:text-base text-gray-600 cursor-pointer"
+                          onClick={() => openPopup(upd)}
+                          title={upd.dailyStatus}
+                        >
+                          {shorten(upd.dailyStatus)}
+                        </td>
+                        <td className="px-6 py-4 text-center text-sm md:text-base text-gray-600 whitespace-nowrap">
+                          {new Date(upd.date).toLocaleString("en-GB", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: false,
+                          })}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <button
+                            onClick={() => handleDownload(upd.taskId, upd.fileUrl)}
+                            disabled={!upd.fileUrl}
+                            className={`inline-flex justify-center items-center gap-2 px-3 py-2 rounded-full border transition ${upd.fileUrl
+                                ? "border-gray-400 hover:bg-gray-100 text-purple-600 hover:text-purple-800"
+                                : "border-gray-300 text-gray-400 cursor-not-allowed"
+                              }`}
+                            title={upd.fileUrl ? "Download" : "No file"}
+                          >
+                            <FaDownload className="h-5 w-5" />
+                            <span className="text-sm md:text-base">
+                              Download
+                            </span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {filteredUpdates.length === 0 && (
+                  <p className="text-center py-8 text-gray-500">No updates found.</p>
+                )}
+              </div>
             </div>
           )}
         </div>
-      </div>
+      </main>
 
       {selectedUpdate && (
-        <DetailedDescriptionPopup
-          update={selectedUpdate}
-          onClose={closeDescriptionPopup}
-          onDownload={handlePopupDownload}
-        />
+        <DetailedDescriptionPopup update={selectedUpdate} onClose={closePopup} />
       )}
     </div>
   );
 };
+
 export default DailyStatusDashboard;

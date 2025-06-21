@@ -4,7 +4,6 @@
 @tailwind components;
 @tailwind utilities;
 
-
 /* ===== Global Reset & Background Fix ===== */
 * {
   box-sizing: border-box;
@@ -114,18 +113,18 @@ body,
 .marquee-wrapper {
   overflow: hidden;
   position: relative;
-  width: 100%;              /* Full width to avoid horizontal overflow */
-  max-width: 1200px;        /* Optional: limits to a centered container */
-  margin: 0 auto;           /* Center the marquee */
+  width: 100%; /* Full width to avoid horizontal overflow */
+  max-width: 1200px; /* Optional: limits to a centered container */
+  margin: 0 auto; /* Center the marquee */
   background-color: #b91c1c; /* Tailwind red-700 */
-  border-radius: 9999px;    /* Full rounded */
+  border-radius: 9999px; /* Full rounded */
   padding: 1rem 0;
 }
 
 .marquee-content {
   display: inline-flex;
-  gap: 2.5rem;             /* Tailwind gap-10 */
+  gap: 2.5rem; /* Tailwind gap-10 */
   white-space: nowrap;
   animation: scroll-marquee 20s linear infinite;
-  padding: 0 2.5rem;       /* Tailwind px-10 */
+  padding: 0 2.5rem; /* Tailwind px-10 */
 }

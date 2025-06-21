@@ -108,11 +108,10 @@ const LeaveList = () => {
                   <td className="px-3 py-2 text-xs text-gray-600 break-words">{request.reason}</td>
                   <td className="px-3 py-2 text-xs">
                     <span
-                      className={`px-2 py-0.5 inline-flex text-xs leading-5 rounded-full ${
-                        request.status.toLowerCase() === "approved"
+                      className={`px-2 py-0.5 inline-flex text-xs leading-5 rounded-full ${request.status.toLowerCase() === "approved"
                           ? "text-green-500 bg-green-100"
                           : "text-red-500 bg-red-100"
-                      }`}
+                        }`}
                     >
                       {request.status === "approved" ? "Approved" : "Rejected"}
                     </span>

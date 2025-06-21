@@ -69,7 +69,7 @@ function App() {
     <Router>
       <AxiosAuthProvider />
 
-      <div className="flex flex-col font-sans bg-gray-100 min-h-screen">
+      <div className="flex flex-col font-sans min-h-screen">
         <Routes>
           {/* Home Routes */}
           <Route path="/" element={<Homepage />} />

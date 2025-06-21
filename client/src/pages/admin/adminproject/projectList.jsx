@@ -55,7 +55,7 @@ const ProjectList = () => {
   }, [projects, searchQuery]);
 
   return (
-    <div className="pl-0 md:pl-64 min-h-screen  p-6 md:p-8">
+    <div className="pl-0 md:pl-64 min-h-screen p-6 md:p-8">
       {/* Top Bar */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         {/* Title */}
@@ -63,7 +63,6 @@ const ProjectList = () => {
           <h2 className="text-2xl md:text-3xl font-bold text-gray-800">
             Project List
           </h2>
-
         </div>
 
         {/* Search & Add Project */}
@@ -72,7 +71,7 @@ const ProjectList = () => {
             onClick={() => navigate("/admin/projects/add")}
             className="px-4 py-2 hover:text-black text-gray-600 bg-white font-semibold rounded-full shadow transition-all"
           >
-            <span className="text-violet-600 text-2xl">+</span>  Add New Project
+            <span className="text-violet-600 text-2xl">+</span> Add New Project
           </button>
           <div className="relative">
             <input
@@ -81,7 +80,6 @@ const ProjectList = () => {
               className="block w-full pl-3 pr-3 py-2 bg-white text-sm md:text-base border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-
             />
             <FaSearch className="absolute right-3 top-2.5 text-violet-600" />
           </div>
@@ -106,19 +104,19 @@ const ProjectList = () => {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full table-fixed text-left border-collapse">
               <thead className="bg-gray-100 text-gray-700">
                 <tr>
-                  <th className="p-3 md:p-4 text-sm md:text-base font-semibold">
+                  <th className="w-1/4 p-3 md:p-4 text-sm md:text-base font-semibold text-center">
                     Project Name
                   </th>
-                  <th className="p-3 md:p-4 text-sm md:text-base font-semibold">
+                  <th className="w-1/4 p-3 md:p-4 text-sm md:text-base font-semibold text-center">
                     Related To
                   </th>
-                  <th className="p-3 md:p-4 text-sm md:text-base font-semibold">
+                  <th className="w-1/4 p-3 md:p-4 text-sm md:text-base font-semibold text-center">
                     Description
                   </th>
-                  <th className="p-3 md:p-4 text-sm md:text-base font-semibold ">
+                  <th className="w-1/4 p-3 md:p-4 text-sm md:text-base font-semibold text-center">
                     Action
                   </th>
                 </tr>
@@ -129,34 +127,30 @@ const ProjectList = () => {
                     key={project._id}
                     className="hover:bg-gray-50 transition-colors"
                   >
-                    <td className="p-3 md:p-4 text-gray-800 text-sm md:text-base font-medium">
+                    <td className="p-3 md:p-4 text-gray-800 text-sm md:text-base font-medium text-center">
                       {project.name}
                     </td>
-                    <td className="p-3 md:p-4 text-gray-600 text-sm md:text-base">
+                    <td className="p-3 md:p-4 text-gray-600 text-sm md:text-base text-center">
                       {project.relatedTo}
                     </td>
-                    <td className="p-3 md:p-4 text-gray-600 text-sm md:text-base max-w-md truncate">
+                    <td className="p-3 md:p-4 text-gray-600 text-sm md:text-base truncate text-center">
                       {project.description}
                     </td>
                     <td className="p-3 md:p-4 text-center">
-                      <div className="flex  gap-2 md:gap-3">
-                        {/* UPDATED EDIT BUTTON */}
+                      <div className="flex gap-2 md:gap-3 justify-center">
                         <button
                           onClick={() => handleEdit(project._id)}
                           className="flex items-center gap-1 px-3 py-2 bg-white text-gray-500 border border-gray-300 rounded-full shadow transition hover:bg-green-50"
                         >
-
                           <span>Edit</span>
-                          <FaPencilAlt w-6 h-5 className="text-green-500" />
+                          <FaPencilAlt className="text-green-500" />
                         </button>
-                        {/* UPDATED DELETE BUTTON */}
                         <button
                           onClick={() => setConfirmDeleteId(project._id)}
                           className="flex items-center gap-1 px-3 py-2 bg-white text-gray-500 border border-gray-300 rounded-full shadow transition hover:bg-red-50"
                         >
-
                           <span>Delete</span>
-                          <FaTrash w-6 h-5 className="text-red-500" />
+                          <FaTrash className="text-red-500" />
                         </button>
                       </div>
                     </td>
@@ -176,8 +170,8 @@ const ProjectList = () => {
               Are you sure?
             </h3>
             <p className="text-gray-600 mb-6">
-              Do you really want to delete this project? This action cannot be
-              undone.
+              Do you really want to delete this project? This action cannot
+              be undone.
             </p>
             <div className="flex justify-end gap-4">
               <button

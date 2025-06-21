@@ -78,7 +78,7 @@ const StaffList = () => {
               to="/admin/staffs/add"
               className="px-4 py-2 hover:text-black text-gray-600 bg-white font-semibold rounded-full shadow transition-all"
             >
-             <span className="text-violet-600 text-2xl">+</span>  Add New Staff
+              <span className="text-violet-600 text-2xl">+</span> Add New Staff
             </Link>
           )}
           <div className="relative">
@@ -104,47 +104,40 @@ const StaffList = () => {
           <div className="p-8 text-center text-red-500">{error}</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full table-fixed border-collapse">
               <thead className="bg-gray-100 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-700">
-                    Staff ID
-                  </th>
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-700">
-                    Name
-                  </th>
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-700">
-                    Role
-                  </th>
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-700">
-                    Email
-                  </th>
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-700">
-                    Action
-                  </th>
+                  {["Staff ID", "Name", "Role", "Email", "Action"].map((col) => (
+                    <th
+                      key={col}
+                      className="w-1/5 px-6 py-4 text-sm font-semibold text-gray-700 text-center"
+                    >
+                      {col}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredStaff.length > 0 ? (
-                  filteredStaff.map((member, index) => (
+                  filteredStaff.map((member, idx) => (
                     <tr
-                      key={member._id || index}
+                      key={member._id || idx}
                       className="hover:bg-gray-50 transition-colors"
                     >
-                      <td className="px-6 py-4 text-sm font-medium text-gray-800">
+                      <td className="px-6 py-4 text-sm font-medium text-gray-800 text-center">
                         {member.staffId || "N/A"}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-6 py-4 text-sm text-gray-700 text-center">
                         {member.name}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-6 py-4 text-sm text-gray-700 text-center">
                         {member.role}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-6 py-4 text-sm text-gray-700 text-center">
                         {member.email}
                       </td>
-                      <td className="px-6 py-4 text-left">
-                        <div className="flex justify-start gap-2">
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex justify-center gap-2">
                           {role === "admin" && (
                             <button
                               onClick={() =>

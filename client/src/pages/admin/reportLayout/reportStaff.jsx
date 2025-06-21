@@ -69,8 +69,15 @@ const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 
     return { path, color: colors[i % colors.length], label: val, name: d.name };
   });
   return (
+    // Make SVG responsive by setting width/height to 100% and using viewBox + preserveAspectRatio
     <div className="flex-1 flex items-center justify-center">
-      <svg width={chartSize} height={chartSize} viewBox={`0 0 ${chartSize} ${chartSize}`}>
+      <svg
+        width="100%"
+        height="100%"
+        viewBox={`0 0 ${chartSize} ${chartSize}`}
+        preserveAspectRatio="xMidYMid meet"
+        style={{maxWidth: `${chartSize}px`, maxHeight: `${chartSize}px`}} // Prevent it from getting too large
+      >
         {slices.map((s, i) => (
           <path
             key={i}
@@ -98,7 +105,6 @@ CustomDoughnutChart.propTypes = {
   strokeThickness: PropTypes.number,
   gapDegrees: PropTypes.number,
 };
-// --- END CustomDoughnutChart Component ---
 // --- END CustomDoughnutChart Component ---
 
 
@@ -135,14 +141,23 @@ const StaffReports = () => {
     topPerformer = null,
   } = overallData || {};
 
+  // NOTE: For the CustomDoughnutChart, it seems you want to display Total Staff, Task Completion, and Success Rate.
+  // However, the current implementation of CustomDoughnutChart draws slices based on `value / total`.
+  // If `totalStaff` is a count, and `taskCompletionRate`/`successRate` are percentages, directly adding them might not
+  // represent a meaningful "distribution".
+  // Assuming the intention is to visualize these three distinct metrics (perhaps as if they were parts of a whole 'staff performance score' or similar),
+  // the current `customDoughnutData` might need reconsideration if the chart's visual interpretation is critical.
+  // For now, I'll keep the structure as is to maintain the original intent, but be aware of this potential logical mismatch.
   const customDoughnutData = [
     { name: "Total Staff", value: totalStaff },
     { name: "Task Completion", value: parseFloat(taskCompletionRate) },
     { name: "Success Rate", value: parseFloat(successRate) },
   ];
 
-  const customDoughnutColors = ["#752BdF", "#41B6FF", "#FF0200"];
+  // These colors correspond to the order in customDoughnutData
+  const customDoughnutColors = ["#752BdF", "#41B6FF", "#FF0200"]; // Purple for Total Staff, Blue for Task Completion, Red for Success Rate
 
+  // The center percentage is currently set to taskCompletionRate, assuming that's the primary focus for the center.
   const centerPercentage = parseFloat(taskCompletionRate).toFixed(0) + "%";
 
   const attendanceData = {
@@ -151,7 +166,7 @@ const StaffReports = () => {
       {
         data: [
           parseFloat(attendancePercentage),
-          100 - parseFloat(attendancePercentage)
+          100 - parseFloat(attendancePercentage) // Calculate absent percentage
         ],
         backgroundColor: ["#4CAF50", "#F44336"],
       },
@@ -160,10 +175,11 @@ const StaffReports = () => {
 
   const barOptions = {
     responsive: true,
+    maintainAspectRatio: false, // Important for charts to fill container height
     scales: {
       y: {
         beginAtZero: true,
-        max: 100,
+        max: 100, // Assuming percentages, so max is 100
         ticks: { stepSize: 20, color: "#6B7280" }
       },
       x: {
@@ -172,7 +188,6 @@ const StaffReports = () => {
       }
     },
     plugins: { legend: { display: false } },
-    maintainAspectRatio: false,
   };
 
   const stats = [
@@ -255,7 +270,8 @@ const StaffReports = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-6 py-10">
+      {/* Changed max-w-7xl to w-full for full width responsiveness */}
+      <div className="mx-auto px-6 py-10 w-full">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-6 pb-6 font-poppins">
             Staff Reports
@@ -292,25 +308,20 @@ const StaffReports = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Staff Report Chart (Custom Doughnut) */}
           <motion.div
-            className="bg-white p-6 rounded-2xl shadow-lg flex"
-            style={{
-              width: '449px',
-              height: '276px', // Fixed height for the outer container
-              borderRadius: '16.46px',
-            }}
+            className="bg-white p-6 rounded-2xl shadow-lg flex flex-col justify-between"
+            style={{ borderRadius: '16.46px' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            <div className="flex-1">
-              <h2 className="text-lg font-medium text-gray-700 mb-4">
-                Staff Report
+            <div className="flex-1 flex flex-col items-center justify-center h-min-full"> {/* Applied h-min-full here */}
+              <h2 className="text-lg font-medium text-gray-700 mb-4 text-center">
+                Staff Performance Metrics
               </h2>
-              <div className="relative h-full flex items-center justify-center">
+              <div className="relative flex items-center justify-center w-full aspect-square max-w-[240px]">
                 <CustomDoughnutChart
                   data={customDoughnutData}
                   colors={customDoughnutColors}
-                  // Adjusted chartSize to account for padding and title height
-                  chartSize={190} // This value is likely to fit better
+                  chartSize={240}
                   strokeThickness={28}
                   gapDegrees={2}
                 />
@@ -320,7 +331,6 @@ const StaffReports = () => {
                     top: "50%",
                     left: "50%",
                     transform: "translate(-50%, -50%)",
-                    width: "fit-content",
                   }}
                 >
                   <span className="text-sm text-gray-500">Completion Rate</span>
@@ -331,32 +341,30 @@ const StaffReports = () => {
               </div>
             </div>
 
-            <div className="flex-shrink-0 flex flex-col justify-center pl-8 pr-4">
-              <ul className="space-y-2">
+            {/* Legend for CustomDoughnutChart - moved to bottom and made flex-wrap */}
+            <div className="mt-6">
+              <ul className="space-y-2 flex flex-wrap justify-center">
                 {customDoughnutData.map((item, i) => (
-                  <li key={item.name} className="flex items-center text-gray-600">
+                  <li key={item.name} className="flex items-center text-gray-600 px-2 py-1">
                     <span
                       className="w-4 h-4 rounded-sm mr-2"
                       style={{ backgroundColor: customDoughnutColors[i % customDoughnutColors.length] }}
                     ></span>
-                    {item.name} - {item.value}
+                    {item.name} - {item.value}{item.name !== "Total Staff" ? "%" : ""}
                   </li>
                 ))}
               </ul>
             </div>
           </motion.div>
 
+          {/* Bar Chart */}
           <motion.div
-            className="bg-white rounded-2xl p-6 shadow-md"
-            style={{
-              width: '445px',
-              height: '277px', // Fixed height for this container
-              borderRadius: '14.3px',
-            }}
+            className="bg-white rounded-2xl p-6 shadow-md flex flex-col"
+            style={{ borderRadius: '14.3px' }}
             whileHover={{ scale: 1.02 }}
           >
             <h3 className="text-lg font-medium text-gray-700 mb-4">Attendance Overview</h3>
-            <div className="relative h-full"> {/* This div takes full height of its parent */}
+            <div className="relative flex-1 h-min-full w-full"> {/* Applied h-min-full here */}
               <Bar data={attendanceData} options={barOptions} />
             </div>
           </motion.div>

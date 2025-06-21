@@ -3,8 +3,8 @@ import {
   FaProjectDiagram,
   FaUsers,
   FaTasks,
-  FaSpinner,
-  FaCheckCircle,
+  FaSpinner, // Keep FaSpinner for Ongoing Task
+  FaCheckCircle, // Keep FaCheckCircle for Completed Task
 } from "react-icons/fa";
 import NotificationBell from "../../components/notificationBell";
 import { tokenRefreshInterceptor as axiosInstance } from "../../utils/axiosInstance";
@@ -29,31 +29,29 @@ const Dashboard = () => {
       const ch = chRes.data.data;
 
       setOverviewData([
-        { name: "Total Project", value: ov.totalProjects },
-        { name: "Total Staff", value: ov.totalStaff },
-        { name: "Total Tasks", value: ov.totalTasks },
-        { name: "Ongoing Task", value: ov.ongoingTasks },
-        { name: "Completed Task", value: ov.completedTasks },
+        { name: "Total Project", value: ov.totalProjects || 0 },
+        { name: "Total Staff", value: ov.totalStaff || 0 },
+        { name: "Total Tasks", value: ov.totalTasks || 0 },
+        { name: "Ongoing Task", value: ov.ongoingTasks || 0 }, // Fourth card
+        { name: "Completed Task", value: ov.completedTasks || 0 }, // Fifth card
       ]);
 
+      const ongoing = ch.pieData.find(d => d.name === "Ongoing")?.value || 0;
+      const todoOrPending = (ch.pieData.find(d => d.name === "To Do")?.value || 0) +
+        (ch.pieData.find(d => d.name === "Pending")?.value || 0);
+      const completed = ch.pieData.find(d => d.name === "Completed")?.value || 0;
+
+      // Log the values before setting taskChartData
+      console.log("Task Data fetched: Ongoing:", ongoing, "Pending:", todoOrPending, "Completed:", completed);
+
       setTaskChartData([
-        {
-          name: "Ongoing Task",
-          value: ch.pieData.find((d) => d.name === "Ongoing")?.value || 0,
-        },
-        {
-          name: "Pending",
-          value:
-            ch.pieData.find((d) => d.name === "To Do")?.value ||
-            ch.pieData.find((d) => d.name === "Pending")?.value ||
-            0,
-        },
-        {
-          name: "Completed Task",
-          value: ch.pieData.find((d) => d.name === "Completed")?.value || 0,
-        },
+        { name: "Ongoing Task", value: Number(ongoing) },
+        { name: "Pending", value: Number(todoOrPending) },
+        { name: "Completed Task", value: Number(completed) },
       ]);
-    } catch {
+
+    } catch (err) {
+      console.error("Error fetching dashboard data:", err);
       setError("Failed to load dashboard data. Please try again later.");
     } finally {
       setLoading(false);
@@ -65,72 +63,93 @@ const Dashboard = () => {
   }, []);
 
   return (
-    <div className="bg-gray-100 min-h-screen p-4 md:p-6 lg:px-12 lg:pl-64">
+    <div className="bg-gray-100 p-4 sm:p-6 lg:pl-64 min-h-screen lg:pr-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800">
+      <div className="flex items-start justify-between mb-4 sm:mb-6">
+        {/* Adjusted this div to have consistent padding */}
+        <div className="w-full px-4 lg:px-12">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
             Welcome, Kadagam Ventures
           </h1>
-          <h2 className="text-xl font-medium text-gray-600">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-800 mt-2 sm:mt-4">
             Analytics Overview
           </h2>
         </div>
-        <div className="self-start mt-1">
-          <NotificationBell />
-        </div>
+        {/* Notification bell remains outside for top-right positioning */}
+        <NotificationBell />
       </div>
 
       {error && (
-        <div className="text-center text-red-500 font-medium mb-6">{error}</div>
+        <div className="text-center text-red-500 font-medium mb-4 sm:mb-6">
+          {error}
+        </div>
       )}
 
       {loading ? (
         <p className="text-center text-gray-600">Loading...</p>
       ) : (
         <>
-          {/* Overview Cards */}
-          <div className="flex flex-wrap justify-center gap-6 mb-8">
-            {[FaProjectDiagram, FaUsers, FaTasks, FaSpinner, FaCheckCircle].map(
+          {/* Top 5 cards - Changed to lg:grid-cols-5 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-8 mb-4 sm:mb-8 px-4 lg:px-12">
+            {[FaProjectDiagram, FaUsers, FaTasks, FaSpinner, FaCheckCircle].map( // Added FaCheckCircle for 5th card
               (Icon, i) => (
                 <OverviewCard
                   key={i}
-                  className="w-[190px] h-[222px]"
+                  className="w-full"
                   icon={<Icon />}
                   label={[
                     "Total Project",
                     "Total Staff",
                     "Total Tasks",
-                    "Ongoing Task",
-                    "Completed Task",
+                    "Ongoing Task", // Fourth label
+                    "Completed Task", // Fifth label
                   ][i]}
                   value={overviewData[i]?.value || 0}
                   bgColor={[
                     "bg-blue-200",
                     "bg-purple-200",
                     "bg-pink-200",
-                    "bg-orange-200",
-                    "bg-green-200",
+                    "bg-orange-200", // Background for Ongoing Task
+                    "bg-green-200",  // Background for Completed Task
                   ][i]}
                   iconColor={[
                     "text-blue-600",
                     "text-purple-600",
                     "text-pink-600",
-                    "text-orange-600",
-                    "text-green-600",
+                    "text-orange-600", // Icon for Ongoing Task
+                    "text-green-600",  // Icon for Completed Task
                   ][i]}
                 />
               )
             )}
           </div>
 
-          {/* Charts */}
-          <div className="flex flex-col lg:flex-row gap-6 justify-center">
-            <div className="w-full lg:w-[416px] h-[430px]">
-              <TaskDistributionDonut data={taskChartData} />
+          {/* Bottom charts row - MODIFIED TO USE PX-4 LG:PX-12 FOR CONSISTENT ALIGNMENT */}
+          {/* Removed fixed ml-12 and used px-4 lg:px-12 for consistency with cards */}
+          <div className="flex flex-col lg:flex-row space-y-4 lg:space-y-0 lg:space-x-8 px-4 lg:px-12">
+            {/* Task Distribution Donut Chart */}
+            <div className="w-full lg:w-3/5 flex-1 min-w-0 min-h-full">
+              {/* Passing default props explicitly to ensure consistency or overriding if needed */}
+              <TaskDistributionDonut
+                data={taskChartData}
+                size={240}
+                radius={100}
+                strokeWidth={24}
+                fontSize={16}
+                iconSize={32}
+              />
             </div>
-            <div className="w-full lg:w-[620px] h-[430px]">
-              <OverviewDonut data={overviewData} />
+            {/* Dashboard Overview Donut Chart */}
+            <div className="w-full lg:w-3/5 flex-1 min-w-0 min-h-full">
+              {/* Passing default props explicitly to ensure consistency or overriding if needed */}
+              <OverviewDonut
+                data={overviewData}
+                size={240}
+                radius={100}
+                strokeWidth={24}
+                fontSize={16}
+                iconSize={32}
+              />
             </div>
           </div>
         </>
@@ -141,7 +160,7 @@ const Dashboard = () => {
 
 export default Dashboard;
 
-// OverviewCard Component
+// OverviewCard (No changes to its internal structure, just props passed from parent)
 const OverviewCard = ({
   className = "",
   icon,
@@ -150,27 +169,35 @@ const OverviewCard = ({
   bgColor,
   iconColor,
 }) => (
-  <div className={`bg-white rounded-xl shadow-lg p-8 text-center ${className}`}>
+  <div className={`bg-white rounded-xl shadow-lg p-6 sm:p-8 text-center ${className}`}>
     <div
-      className={`mx-auto mb-4 h-16 w-16 flex items-center justify-center rounded-full ${bgColor}`}
+      className={`mx-auto mb-3 sm:mb-4 h-12 w-12 sm:h-16 sm:w-16 flex items-center justify-center rounded-full ${bgColor}`}
     >
-      <div className={`${iconColor} text-2xl`}>{icon}</div>
+      <div className={`${iconColor} text-xl sm:text-2xl`}>{icon}</div>
     </div>
-    <div className="text-3xl font-bold text-gray-800">{value}</div>
-    <div className="text-base font-medium text-gray-600 mt-1">{label}</div>
+    <div className="text-2xl sm:text-3xl font-bold text-gray-800">{value}</div>
+    <div className="text-sm sm:text-base font-medium text-gray-600 mt-1">{label}</div>
   </div>
 );
 
-// TaskDistributionDonut Component
-const TaskDistributionDonut = ({ data }) => {
-  const COLORS = ["#FF9800", "#F44336", "#4CAF50"];
+// TaskDistributionDonut - Reverting to previous design with labels on the left
+const TaskDistributionDonut = ({
+  data,
+  size = 240,
+  radius = 100,
+  strokeWidth = 24,
+  fontSize = 16,
+  iconSize = 32,
+}) => {
+  const COLORS = ["#FF9800", "#F44336", "#4CAF50"]; // Colors for Ongoing, Pending, Completed
   const total = data.reduce((sum, d) => sum + (d.value || 0), 0);
-  const size = 180,
-    cx = 90,
-    cy = 90,
-    radius = 70,
-    strokeWidth = 20;
-  const toRad = (deg) => ((deg - 90) * Math.PI) / 180;
+
+  const cx = size / 2;
+  const cy = size / 2;
+  const iconX = cx - iconSize / 2;
+  const iconY = cy - iconSize / 2;
+
+  const toRad = deg => ((deg - 90) * Math.PI) / 180;
   const polarToCartesian = (cx, cy, r, deg) => ({
     x: cx + r * Math.cos(toRad(deg)),
     y: cy + r * Math.sin(toRad(deg)),
@@ -179,73 +206,102 @@ const TaskDistributionDonut = ({ data }) => {
     const s = polarToCartesian(cx, cy, r, end);
     const e = polarToCartesian(cx, cy, r, start);
     const laf = end - start <= 180 ? "0" : "1";
-    return `M${s.x} ${s.y} A${r} ${r} 0 ${laf} 0 ${e.x} ${e.y}`;
+    return `M${s.x.toFixed(3)} ${s.y.toFixed(3)} A${r.toFixed(3)} ${r.toFixed(3)} 0 ${laf} 0 ${e.x.toFixed(3)} ${e.y.toFixed(3)}`;
   };
 
   let angleAcc = 0;
   const slices = data.map((d, i) => {
-    const ang = total ? (d.value / total) * 360 : 0;
+    const val = d.value || 0;
+    const ang = total ? (val / total) * 360 : 0;
     const path = describeArc(cx, cy, radius, angleAcc, angleAcc + ang);
     const mid = polarToCartesian(cx, cy, radius, angleAcc + ang / 2);
     angleAcc += ang;
-    return { path, color: COLORS[i], label: d.value, x: mid.x, y: mid.y, name: d.name };
+    return { path, color: COLORS[i], label: val, x: mid.x, y: mid.y, name: d.name };
   });
 
+  // Log the slices data to see calculated angles and values
+  console.log("TaskDistributionDonut slices:", slices);
+
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 h-full flex flex-col">
-      <h3 className="text-3xl font-semibold mb-6">Task Distribution</h3>
-      <div className="flex-1 flex items-center justify-center">
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <div className="bg-white rounded-xl shadow-lg p-6 sm:p-12 h-full flex flex-col">
+      <h3 className="text-xl sm:text-3xl font-semibold mb-2 sm:mb-4">Task Distribution</h3>
+      <div className="flex-1 flex flex-col sm:flex-row">
+        {/* Left: labels */}
+        <ul className="flex-1 flex flex-col justify-center space-y-2 sm:space-y-3 mb-4 sm:mb-0">
           {slices.map((s, i) => (
-            <path
-              key={i}
-              d={s.path}
-              fill="none"
-              stroke={s.color}
-              strokeWidth={strokeWidth}
-              strokeLinecap="round"
-            />
+            <li key={i} className="flex items-center text-base sm:text-lg">
+              <span className="w-4 h-4 sm:w-5 sm:h-5 rounded-full mr-2 sm:mr-3" style={{ backgroundColor: s.color }} />
+              <span className="text-gray-600">{s.name}</span>
+            </li>
           ))}
-          {slices.map((s, i) => (
-            <text
-              key={i}
-              x={s.x}
-              y={s.y}
-              fill="#fff"
-              textAnchor="middle"
-              dominantBaseline="central"
-              fontSize={14}
-              fontWeight="bold"
-            >
-              {s.label}
-            </text>
-          ))}
-          <image href={tasksIcon} x={cx - 12} y={cy - 12} width={24} height={24} />
-        </svg>
+        </ul>
+        {/* Right: donut chart */}
+        <div className="flex-1 flex items-center justify-center">
+          {total === 0 ? (
+            <div className="text-gray-500 text-lg font-medium text-center">
+              No tasks to display.
+              <br />
+              <img src={tasksIcon} alt="Tasks Icon" className={`mx-auto mt-2 w-[${iconSize}px] h-[${iconSize}px] opacity-50`} />
+            </div>
+          ) : (
+            <svg className="w-full h-auto" viewBox={`0 0 ${size} ${size}`}>
+              {slices.map((s, i) => (
+                <path
+                  key={i}
+                  d={s.path}
+                  fill="none"
+                  stroke={s.color}
+                  strokeWidth={strokeWidth}
+                  strokeLinecap="round"
+                />
+              ))}
+              {slices.map((s, i) => (
+                <text
+                  key={i}
+                  x={s.x}
+                  y={s.y}
+                  fill="#fff"
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fontSize={fontSize}
+                  fontWeight="bold"
+                >
+                  {s.label}
+                </text>
+              ))}
+              <image key="tasks-icon-main" href={tasksIcon} x={iconX} y={iconY} width={iconSize} height={iconSize} />
+            </svg>
+          )}
+        </div>
       </div>
-      <ul className="mt-6 space-y-2">
-        {slices.map((s, i) => (
-          <li key={i} className="flex items-center text-lg">
-            <span className="w-4 h-4 rounded-full mr-2" style={{ backgroundColor: s.color }} />
-            <span className="text-gray-600">{s.name}</span>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 };
 
-// OverviewDonut Component
-const OverviewDonut = ({ data }) => {
-  const COLORS = ["#29B6F6", "#AB47BC", "#FF4081", "#FF9800", "#4CAF50"];
-  const labels = ["Total Project", "Total Staff", "Total Tasks", "Ongoing Task", "Completed Task"];
-  const total = data.reduce((sum, d) => sum + (d.value || 0), 0);
-  const size = 240,
-    cx = 120,
-    cy = 120,
-    radius = 100,
-    strokeWidth = 24;
-  const toRad = (deg) => ((deg - 90) * Math.PI) / 180;
+// OverviewDonut - Reverting to previous design with labels on the left
+const OverviewDonut = ({
+  data,
+  size = 240,
+  radius = 100,
+  strokeWidth = 24,
+  fontSize = 16,
+  iconSize = 32,
+}) => {
+  // Filter out "Completed Task" from the data for this specific donut chart
+  const filteredData = data.filter(d => d.name !== "Completed Task");
+
+  // Adjusted COLORS and labels to match the filtered data
+  const COLORS = ["#29B6F6", "#AB47BC", "#FF4081", "#FF9800"]; // Removed #4CAF50 (Completed Task color)
+  const labels = ["Total Project", "Total Staff", "Total Tasks", "Ongoing Task"]; // Removed "Completed Task" label
+
+  const total = filteredData.reduce((sum, d) => sum + (d.value || 0), 0);
+
+  const cx = size / 2;
+  const cy = size / 2;
+  const iconX = cx - iconSize / 2;
+  const iconY = cy - iconSize / 2; // Fixed a typo here, should be iconY / 2 if used for positioning or similar
+
+  const toRad = deg => ((deg - 90) * Math.PI) / 180;
   const polarToCartesian = (cx, cy, r, deg) => ({
     x: cx + r * Math.cos(toRad(deg)),
     y: cy + r * Math.sin(toRad(deg)),
@@ -254,65 +310,69 @@ const OverviewDonut = ({ data }) => {
     const s = polarToCartesian(cx, cy, r, end);
     const e = polarToCartesian(cx, cy, r, start);
     const laf = end - start <= 180 ? "0" : "1";
-    return `M${s.x} ${s.y} A${r} ${r} 0 ${laf} 0 ${e.x} ${e.y}`;
+    return `M${s.x.toFixed(3)} ${s.y.toFixed(3)} A${r.toFixed(3)} ${r.toFixed(3)} 0 ${laf} 0 ${e.x.toFixed(3)} ${e.y.toFixed(3)}`;
   };
 
-  let angleAcc = 0;
-  const slices = data.map((d, i) => {
-    const ang = total ? (d.value / total) * 360 : 0;
-    const path = describeArc(cx, cy, radius, angleAcc, angleAcc + ang);
-    const mid = polarToCartesian(cx, cy, radius, angleAcc + ang / 2);
-    angleAcc += ang;
-    return {
-      path,
-      color: COLORS[i],
-      label: d.value,
-      x: mid.x,
-      y: mid.y,
-      name: labels[i],
-    };
+  let acc = 0;
+  const slices = filteredData.map((d, i) => { // Use filteredData here
+    const val = d.value || 0;
+    const ang = total ? (val / total) * 360 : 0;
+    const path = describeArc(cx, cy, radius, acc, acc + ang);
+    const mid = polarToCartesian(cx, cy, radius, acc + ang / 2);
+    acc += ang;
+    return { path, color: COLORS[i], label: val, x: mid.x, y: mid.y, name: labels[i] }; // Use labels for names
   });
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-12 h-full flex flex-col">
-      <h3 className="text-3xl font-semibold mb-4">Dashboard Overview</h3>
-      <div className="flex-1 flex">
-        <ul className="flex-1 flex flex-col justify-center space-y-3">
+    <div className="bg-white rounded-xl shadow-lg p-6 sm:p-12 h-full flex flex-col">
+      <h3 className="text-xl sm:text-3xl font-semibold mb-2 sm:mb-4">Dashboard Overview</h3>
+      <div className="flex-1 flex flex-col sm:flex-row">
+        {/* Left: labels */}
+        <ul className="flex-1 flex flex-col justify-center space-y-2 sm:space-y-3 mb-4 sm:mb-0">
           {slices.map((s, i) => (
-            <li key={i} className="flex items-center text-lg">
-              <span className="w-5 h-5 rounded-full mr-3" style={{ backgroundColor: s.color }} />
+            <li key={i} className="flex items-center text-base sm:text-lg">
+              <span className="w-4 h-4 sm:w-5 sm:h-5 rounded-full mr-2 sm:mr-3" style={{ backgroundColor: s.color }} />
               <span className="text-gray-700">{s.name}</span>
             </li>
           ))}
         </ul>
+        {/* Right: larger donut chart */}
         <div className="flex-1 flex items-center justify-center">
-          <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-            {slices.map((s, i) => (
-              <path
-                key={i}
-                d={s.path}
-                fill="none"
-                stroke={s.color}
-                strokeWidth={strokeWidth}
-                strokeLinecap="round"
-              />
-            ))}
-            {slices.map((s, i) => (
-              <text
-                key={i}
-                x={s.x}
-                y={s.y}
-                fill="#fff"
-                textAnchor="middle"
-                dominantBaseline="central"
-                fontSize={16}
-                fontWeight="bold"
-              >
-                {s.label}
-              </text>
-            ))}
-            <image href={boltIcon} x={cx - 16} y={cy - 16} width={32} height={32} />
-          </svg>
+          {total === 0 ? (
+            <div className="text-gray-500 text-lg font-medium text-center">
+              No overview data to display.
+              <br />
+              <img src={boltIcon} alt="Overview Icon" className={`mx-auto mt-2 w-[${iconSize}px] h-[${iconSize}px] opacity-50`} />
+            </div>
+          ) : (
+            <svg className="w-full h-auto" viewBox={`0 0 ${size} ${size}`}>
+              {slices.map((s, i) => (
+                <path
+                  key={i}
+                  d={s.path}
+                  fill="none"
+                  stroke={s.color}
+                  strokeWidth={strokeWidth}
+                  strokeLinecap="round"
+                />
+              ))}
+              {slices.map((s, i) => (
+                <text
+                  key={i}
+                  x={s.x}
+                  y={s.y}
+                  fill="#fff"
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fontSize={fontSize}
+                  fontWeight="bold"
+                >
+                  {s.label}
+                </text>
+              ))}
+              <image key="bolt-icon-main" href={boltIcon} x={iconX} y={iconY} width={iconSize} height={iconSize} />
+            </svg>
+          )}
         </div>
       </div>
     </div>

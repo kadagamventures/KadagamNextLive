@@ -63,6 +63,7 @@ const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 
     const val = d.value || 0;
     let ang = total ? (val / total) * 360 : 0;
 
+    // Apply gap only if angle is greater than 0
     if (ang > 0 && total > 0) {
       ang = Math.max(0, ang - gapDegrees);
     }
@@ -74,8 +75,15 @@ const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 
   });
 
   return (
-    <div className="flex-1 flex items-center justify-center">
-      <svg width={chartSize} height={chartSize} viewBox={`0 0 ${chartSize} ${chartSize}`}>
+    // This div will take up available space and center the SVG within it
+    <div className="flex-1 flex items-center justify-center p-4"> {/* Added padding here for better spacing */}
+      <svg
+        width="100%" // Make SVG fill its parent's width
+        height="100%" // Make SVG fill its parent's height
+        viewBox={`0 0 ${chartSize} ${chartSize}`} // Keep original viewBox for internal scaling
+        preserveAspectRatio="xMidYMid meet" // Important for scaling behavior
+        style={{maxWidth: `${chartSize}px`, maxHeight: `${chartSize}px`}} // Limit max size based on original chartSize
+      >
         {slices.map((s, i) => (
           <path
             key={i}
@@ -83,7 +91,7 @@ const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 
             fill="none"
             stroke={s.color}
             strokeWidth={strokeThickness}
-            strokeLinecap="round" // This gives the rounded ends on both sides
+            strokeLinecap="round"
           />
         ))}
       </svg>
@@ -173,7 +181,6 @@ const Attendance = () => {
   };
 
   // Prepare data for CustomDoughnutChart
-  // The order here will be: Total Staff, Present, Absent
   const customDoughnutChartData = attendanceData
     ? [
       { name: "Total Staff", value: attendanceData.totalStaff },
@@ -186,31 +193,31 @@ const Attendance = () => {
       { name: "Absent", value: 0 },
     ];
 
-  const customDoughnutColors = ["#752BdF", "#41B6FF", "#FF0200"]; // Colors from your doughnutData
+  const customDoughnutColors = ["#752BdF", "#41B6FF", "#FF0200"];
 
-  // Calculate center percentage: Here, it's based on "Present" staff (similar to "Higher Rate" in image)
+  // Calculate center percentage
   const totalForPercentage = attendanceData
     ? attendanceData.totalStaff + attendanceData.presentStaff + attendanceData.absentStaff
     : 0;
-  const higherRateValue = attendanceData ? attendanceData.presentStaff : 0; // Assuming Higher Rate means Present staff
+  const higherRateValue = attendanceData ? attendanceData.presentStaff : 0;
   const centerPercentage = totalForPercentage
     ? Math.round((higherRateValue / totalForPercentage) * 100) + "%"
     : "0%";
 
   // Bar chart data and options
   const barData = {
-    labels: ["Late Arrivals", "Early Departures"], // Corrected labels for Attendance chart
+    labels: ["Late Arrivals", "Early Departures"],
     datasets: [
       {
         data: attendanceData ? [attendanceData.lateArrivals, attendanceData.earlyDepartures] : [0, 0],
-        backgroundColor: ["#FBBF24", "#34D399"], // Colors from the bar chart in your existing Attendance component
-        barThickness: 24, // Keep this property if you want fixed bar width
+        backgroundColor: ["#FBBF24", "#34D399"],
+        barThickness: 24,
       },
     ],
   };
 
   const barOptions = {
-    responsive: true, // It's good to keep this for responsiveness
+    responsive: true,
     plugins: { legend: { display: false } },
     scales: {
       x: {
@@ -221,15 +228,15 @@ const Attendance = () => {
         grid: { color: "#E5E7EB" },
         ticks: {
           color: "#6B7280",
-          beginAtZero: true, // MOVED HERE: Now correctly inside the 'y' axis ticks
-          stepSize: 1,       // MOVED HERE: Now correctly inside the 'y' axis ticks
+          beginAtZero: true,
+          stepSize: 1,
         },
-        max: attendanceData ? Math.max(attendanceData.lateArrivals, attendanceData.earlyDepartures, 5) * 1.2 : 10, // Ensure a reasonable max even if data is 0
+        // Ensure max scales appropriately, using a reasonable default/minimum
+        max: attendanceData ? Math.max(attendanceData.lateArrivals, attendanceData.earlyDepartures, 5) * 1.2 : 10,
       },
     },
-    maintainAspectRatio: false,
+    maintainAspectRatio: false, // Essential for Chart.js to fit container height
   };
-
 
   // Stats cards
   const stats = attendanceData
@@ -275,7 +282,8 @@ const Attendance = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-6 py-10">
+      {/* Changed: Removed max-w-7xl to allow content to expand more horizontally */}
+      <div className="mx-auto px-6 py-10 w-full"> {/* Added w-full for clarity, though it's often implied by flex/grid parents */}
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl items-center font-bold text-gray-900 mb-6 pb-6 font-poppins font-weight-500 size-32px">
@@ -297,7 +305,7 @@ const Attendance = () => {
         {loading && <p className="text-indigo-600">Loading data...</p>}
         {error && <p className="text-red-600">{error}</p>}
 
-        {/* Stats Cards */}
+        {/* Stats Cards - These are already responsive due to grid and flex-col classes */}
         {attendanceData && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-8">
             {stats.map((s, i) => (
@@ -318,28 +326,25 @@ const Attendance = () => {
           </div>
         )}
 
-        {/* Charts */}
+        {/* Charts - Made Responsive */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Doughnut (now using CustomDoughnutChart) */}
+          {/* Doughnut Chart */}
           <motion.div
-            className="bg-white p-6 shadow-lg flex" // Use flex for chart and legend alignment
-            style={{
-              width: '445px', // Explicit width
-              height: '276px', // Explicit height
-              borderRadius: '16.46px', // Explicit border-radius
-            }}
+            className="bg-white p-6 shadow-lg flex flex-col justify-between"
+            style={{ borderRadius: '16.46px' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            <div className="flex-1"> {/* This div contains the title and chart */}
-              <h2 className="text-lg font-medium text-gray-700 mb-4">
+            <div className="flex-1 flex flex-col items-center justify-center">
+              <h2 className="text-lg font-medium text-gray-700 mb-4 text-center">
                 Attendance Distribution
               </h2>
-              <div className="relative flex items-center justify-center" style={{ height: 'calc(100% - 2rem)' }}> {/* Adjusted height for chart container */}
+              {/* This container ensures the SVG scales proportionally within available space */}
+              <div className="relative flex items-center justify-center w-full aspect-square max-w-[240px]"> {/* Added max-w for larger screens */}
                 <CustomDoughnutChart
                   data={customDoughnutChartData}
                   colors={customDoughnutColors}
-                  chartSize={200} // Adjusted chartSize to fit within the new explicit height of its container
+                  chartSize={240} // Base size for viewBox
                   strokeThickness={28}
                   gapDegrees={2}
                 />
@@ -348,9 +353,8 @@ const Attendance = () => {
                   className="absolute flex flex-col items-center justify-center pointer-events-none"
                   style={{
                     top: "50%",
-                    left: "50%", // Adjusted to be truly center
+                    left: "50%",
                     transform: "translate(-50%, -50%)",
-                    width: "fit-content",
                   }}
                 >
                   <span className="text-sm text-gray-500">Higher Rate</span>
@@ -361,11 +365,11 @@ const Attendance = () => {
               </div>
             </div>
 
-            {/* Right side Legend for CustomDoughnutChart */}
-            <div className="flex-shrink-0 flex flex-col justify-center pl-8 pr-4">
-              <ul className="space-y-2">
+            {/* Legend at the bottom */}
+            <div className="mt-6">
+              <ul className="space-y-2 flex flex-wrap justify-center">
                 {customDoughnutChartData.map((item, i) => (
-                  <li key={item.name} className="flex items-center text-gray-600">
+                  <li key={item.name} className="flex items-center text-gray-600 px-2 py-1">
                     <span
                       className="w-4 h-4 rounded-sm mr-2"
                       style={{ backgroundColor: customDoughnutColors[i % customDoughnutColors.length] }}
@@ -377,18 +381,15 @@ const Attendance = () => {
             </div>
           </motion.div>
 
-          {/* Bar Chart (Corrected options) */}
+          {/* Bar Chart */}
           <motion.div
-            className="bg-white p-6 shadow-lg"
-            style={{
-              width: '445px', // Explicit width
-              height: '277px', // Explicit height
-              borderRadius: '14.3px', // Explicit border-radius
-            }}
+            className="bg-white p-6 shadow-lg flex flex-col" // Added flex-col for consistent vertical layout
+            style={{ borderRadius: '14.3px' }}
             whileHover={{ scale: 1.02 }}
           >
             <h3 className="text-lg font-medium text-gray-700 mb-4">Late Arrivals And Early Departures</h3>
-            <div className="relative" style={{ height: 'calc(100% - 2rem)' }}> {/* Adjusted height for chart container */}
+            {/* Chart.js container: h-full w-full ensures it fills the parent div */}
+            <div className="relative flex-1 h-[250px] w-full"> {/* Set a base height for the chart */}
               <Bar data={barData} options={barOptions} />
             </div>
           </motion.div>
@@ -399,7 +400,7 @@ const Attendance = () => {
           <select
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-           className="border border-gray-300 rounded-full px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="border border-gray-300 rounded-full px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">Select Month</option>
             {[...Array(12)].map((_, idx) => (

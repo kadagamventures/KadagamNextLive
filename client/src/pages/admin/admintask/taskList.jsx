@@ -18,8 +18,14 @@ const TaskList = () => {
     }
   }, [dispatch, status]);
 
-  const handleAddTask = useCallback(() => navigate("/admin/tasks/add"), [navigate]);
-  const handleEdit = useCallback((id) => navigate(`/admin/tasks/edit/${id}`), [navigate]);
+  const handleAddTask = useCallback(
+    () => navigate("/admin/tasks/add"),
+    [navigate]
+  );
+  const handleEdit = useCallback(
+    (id) => navigate(`/admin/tasks/edit/${id}`),
+    [navigate]
+  );
 
   const handleDelete = useCallback(
     async (id) => {
@@ -41,22 +47,28 @@ const TaskList = () => {
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) =>
       task.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      task.projects?.some((proj) => proj.name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      task.assignedTo?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+      task.projects?.some((proj) =>
+        proj.name?.toLowerCase().includes(searchTerm.toLowerCase())
+      ) ||
+      task.assignedTo?.name
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase())
     );
   }, [tasks, searchTerm]);
 
   return (
-    <div className="pl-0 md:pl-64 min-h-screen p-6 md:p-8">
+    <div className="min-h-screen p-6 md:p-8">
       {/* Top Header */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-8">
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-800">Task Dashboard</h2>
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-800">
+          Task Dashboard
+        </h2>
         <div className="flex items-center gap-4 mt-4 md:mt-0">
           <button
             onClick={handleAddTask}
             className="px-4 py-2 hover:text-black text-gray-600 bg-white font-semibold rounded-full shadow transition-all"
           >
-            <span className="text-violet-600 text-2xl">+</span>  Add New Task
+            <span className="text-violet-600 text-2xl">+</span> Add New Task
           </button>
           <div className="relative">
             <input
@@ -75,51 +87,64 @@ const TaskList = () => {
 
       <div className="bg-white rounded-xl p-4 md:p-6 shadow">
         {status === "loading" ? (
-          <p className="text-gray-500 text-center animate-pulse">Loading tasks...</p>
+          <p className="text-gray-500 text-center animate-pulse">
+            Loading tasks...
+          </p>
         ) : filteredTasks.length === 0 ? (
-          <p className="text-gray-500 text-center">No tasks found. Start by adding one!</p>
+          <p className="text-gray-500 text-center">
+            No tasks found. Start by adding one!
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full table-fixed divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 whitespace-nowrap">Task Name</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 whitespace-nowrap">Projects</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 whitespace-nowrap">Assigned Staff</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 whitespace-nowrap">Assigned Date</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 whitespace-nowrap">Due Date</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 whitespace-nowrap">Priority</th>
-                  <th className="px-3 py-2 text-center text-xs font-medium text-gray-600 whitespace-nowrap">Action</th>
+                  {[
+                    "Task Name",
+                    "Projects",
+                    "Assigned Staff",
+                    "Assigned Date",
+                    "Due Date",
+                    "Priority",
+                    "Action",
+                  ].map((col) => (
+                    <th
+                      key={col}
+                      className="px-3 py-2 text-center text-xs font-medium text-gray-600 whitespace-nowrap"
+                    >
+                      {col}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredTasks.map((task) => (
                   <tr key={task._id} className="hover:bg-gray-50">
                     <td
-                      className="px-3 py-2 text-sm text-gray-700 font-medium max-w-sm truncate"
+                      className="px-3 py-2 text-sm text-gray-700 font-medium max-w-sm truncate text-center"
                       title={task.title}
                     >
                       {task.title}
                     </td>
-                    <td className="px-3 py-2 text-sm text-gray-600 whitespace-nowrap">
+                    <td className="px-3 py-2 text-sm text-gray-600 whitespace-nowrap text-center">
                       {task.projects?.length
                         ? task.projects.map((p) => p.name).join(", ")
                         : "N/A"}
                     </td>
-                    <td className="px-3 py-2 text-sm text-gray-600 whitespace-nowrap">
+                    <td className="px-3 py-2 text-sm text-gray-600 whitespace-nowrap text-center">
                       {task.assignedTo?.name || "N/A"}
                     </td>
-                    <td className="px-3 py-2 text-sm text-gray-600 whitespace-nowrap">
+                    <td className="px-3 py-2 text-sm text-gray-600 whitespace-nowrap text-center">
                       {task.assignedDate && !isNaN(new Date(task.assignedDate))
-                        ? new Date(task.assignedDate).toLocaleDateString("en-CA")
+                        ? new Date(task.assignedDate).toLocaleDateString(
+                          "en-CA"
+                        )
                         : "N/A"}
-
                     </td>
-
-                    <td className="px-3 py-2 text-sm text-gray-600 whitespace-nowrap">
+                    <td className="px-3 py-2 text-sm text-gray-600 whitespace-nowrap text-center">
                       {task.dueDate?.split("T")[0] || "N/A"}
                     </td>
-                    <td className="px-3 py-2 text-sm whitespace-nowrap">
+                    <td className="px-3 py-2 text-sm whitespace-nowrap text-center">
                       <span
                         className={`font-semibold ${task.priority === "High"
                             ? "text-red-500"
@@ -131,13 +156,13 @@ const TaskList = () => {
                         {task.priority}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-sm whitespace-nowrap">
+                    <td className="px-3 py-2 text-sm whitespace-nowrap text-center">
                       <div className="flex gap-2 justify-center">
                         <button
                           onClick={() => handleEdit(task._id)}
                           className="flex items-center gap-1 px-2 py-1 bg-white text-gray-500 border border-gray-300 rounded-full shadow transition hover:bg-green-50 text-xs"
                         >
-                        Edit  <FaPencilAlt className="text-green-500" /> 
+                          Edit <FaPencilAlt className="text-green-500" />
                         </button>
                         <button
                           onClick={() => handleDelete(task._id)}
@@ -151,7 +176,7 @@ const TaskList = () => {
                             "Deleting..."
                           ) : (
                             <>
-                             Delete <FaTrash className="text-red-500" /> 
+                              Delete <FaTrash className="text-red-500" />
                             </>
                           )}
                         </button>

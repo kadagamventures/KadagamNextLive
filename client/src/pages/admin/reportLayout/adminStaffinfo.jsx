@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import StaffSidebar from "../../../components/sidebar";
-import { Bar } from "react-chartjs-2"; // Removed Doughnut import
+import { Bar } from "react-chartjs-2";
 import { tokenRefreshInterceptor as axiosInstance } from "../../../utils/axiosInstance";
 import "chart.js/auto";
 import {
@@ -11,7 +11,7 @@ import {
 } from "react-icons/fa";
 import PropTypes from "prop-types";
 
-// --- CustomDoughnutChart Component (Re-added here for completeness) ---
+// --- CustomDoughnutChart Component ---
 const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 28, gapDegrees = 2 }) => {
   const cx = chartSize / 2;
   const cy = chartSize / 2;
@@ -47,8 +47,15 @@ const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 
     return { path, color: colors[i % colors.length], label: val, name: d.name };
   });
   return (
+    // Ensure the SVG itself is responsive within its container
     <div className="flex-1 flex items-center justify-center">
-      <svg width={chartSize} height={chartSize} viewBox={`0 0 ${chartSize} ${chartSize}`}>
+      <svg
+        width="100%" // Make SVG occupy 100% of its parent's width
+        height="100%" // Make SVG occupy 100% of its parent's height
+        viewBox={`0 0 ${chartSize} ${chartSize}`} // Keep viewBox for internal scaling
+        preserveAspectRatio="xMidYMid meet"
+        style={{maxWidth: `${chartSize}px`, maxHeight: `${chartSize}px`}} // Limit max size if parent allows it to grow too large
+      >
         {slices.map((s, i) => (
           <path
             key={i}
@@ -84,7 +91,9 @@ const InfoBox = ({ Icon, iconBg, iconColor, label, value }) => (
     animate={{ opacity: 1, y: 0 }}
     whileHover={{ scale: 1.03 }}
     transition={{ duration: 0.3 }}
-    className="bg-white p-4 rounded-xl shadow-md flex flex-col items-center w-full max-w-xs"
+    // Removed max-w-xs here. The card will now take the full width of its grid column.
+    // The grid layout will naturally constrain its width.
+    className="bg-white p-4 rounded-xl shadow-md flex flex-col items-center w-full"
   >
     <div className={`w-12 h-12 flex items-center justify-center rounded-full ${iconBg}`}>
       <Icon className={`text-2xl ${iconColor}`} />
@@ -142,7 +151,7 @@ const StaffReport = () => {
   return (
     <div className="flex min-h-screen bg-gray-50">
       <StaffSidebar />
-      <div className="flex-grow px-6 py-8 mx-auto max-w-screen-xl">
+      <div className="flex-grow px-6 py-8 mx-auto w-full"> {/* Changed max-w-screen-xl to w-full for full responsiveness within bounds */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -150,11 +159,11 @@ const StaffReport = () => {
           className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4"
         >
           <h1 className="text-3xl font-bold text-gray-800">Staff Performance Report</h1>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap justify-center md:justify-end gap-3 w-full md:w-auto"> {/* Added flex-wrap for smaller screens */}
             <input
               type="text"
               placeholder="Search by ID"
-              className="p-2 border s rounded-full shadow-sm bg-white"
+              className="p-2 border rounded-full shadow-sm bg-white flex-grow md:flex-none" // flex-grow for small screens
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -166,20 +175,20 @@ const StaffReport = () => {
               type="number"
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
-              className="p-2 border rounded-full shadow-sm bg-white"
+              className="p-2 border rounded-full shadow-sm bg-white w-24" // Gave a fixed width
               placeholder="Year"
             />
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(Number(e.target.value))}
-              className="p-2 border rounded-full shadow-sm bg-white"
+              className="p-2 border rounded-full shadow-sm bg-white w-32" // Gave a fixed width
             >
               {monthNames.map((m, i) => (
                 <option key={i} value={i + 1}>{m}</option>
               ))}
             </select>
             <button
-              className="px-4 py-2 bg-blue-600 text-white rounded-full shadow hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 text-white rounded-full shadow hover:bg-blue-700 flex-grow md:flex-none" // flex-grow for small screens
               onClick={handleSearchClick}
             >
               Search
@@ -198,7 +207,8 @@ const StaffReport = () => {
             className="bg-white p-6 rounded-xl shadow-md mb-8"
           >
             <h2 className="text-xl font-semibold text-gray-700 mb-4">{individualReport.staffName || individualReport.name}&#39;s Performance</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 justify-items-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 justify-items-center"> {/* Adjusted grid for more flexibility */}
+              {/* InfoBox instances will now fill their grid column's width */}
               <InfoBox Icon={FaTasks} iconBg="bg-pink-100" iconColor="text-pink-500" label="Total Tasks Assigned" value={individualReport.totalTasksAssigned} />
               <InfoBox Icon={FaCheckCircle} iconBg="bg-green-100" iconColor="text-green-500" label="Tasks Completed" value={individualReport.totalTasksCompleted} />
               <InfoBox Icon={FaClipboardList} iconBg="bg-teal-100" iconColor="text-teal-500" label="Completion Rate" value={`${individualReport.taskCompletionRate}%`} />
@@ -213,38 +223,34 @@ const StaffReport = () => {
               <InfoBox Icon={FaStar} iconBg="bg-blue-100" iconColor="text-blue-500" label="Overall Score" value={`${individualReport.overallPerformanceScore}%`} />
             </div>
 
-            <motion.div className="grid grid-cols-1 md:grid-cols-2 gap-8 justify-items-center">
+            <motion.div className="grid grid-cols-1 lg:grid-cols-2 gap-8 justify-items-center"> {/* Adjusted grid for charts */}
+              {/* Doughnut Chart Section */}
               <motion.div
-                className="bg-white p-6 rounded-2xl shadow-lg w-full max-w-md relative flex flex-col items-center justify-center" // Added flex classes
+                className="bg-white p-6 rounded-2xl shadow-lg w-full flex flex-col items-center h-min-full" // Removed max-w-md, let grid handle width
               >
                 <h2 className="text-xl font-medium text-gray-700 mb-4">Attendance</h2>
-                <div className="flex w-full justify-center items-center h-64"> {/* Set a fixed height for the container to ensure chart renders */}
-                  <CustomDoughnutChart
-                    data={[
-                      { name: "Present", value: individualReport.totalDaysPresent || 0 },
-                      { name: "Absent", value: individualReport.totalDaysAbsent || 0 }
-                    ]}
-                    colors={["#41B6FF", "#FF0200"]}
-                    chartSize={180} // Adjusted size for better fit
-                    strokeThickness={28}
-                    gapDegrees={3}
-                  />
-                  <div
-                    className="absolute flex flex-col items-center justify-center pointer-events-none"
-                    style={{
-                      // Position these values relative to the CustomDoughnutChart for proper alignment
-                      // Adjusting these based on the `chartSize` of CustomDoughnutChart
-                      top: `calc(50% + ${180 / 2}px - 28px)`, // Roughly center based on chartSize and strokeThickness
-                      left: `calc(50% - ${180 / 2}px + 28px + 10px)`, // Offset from center to right, considering legend space
-                      transform: "translate(-50%, -50%)",
-                      width: "fit-content",
-                    }}
-                  >
-                    <span className="text-center text-lg font-bold text-gray-900">
-                      {individualReport.attendancePercentage || 0}%
-                    </span>
+                {/* min-h-48 / aspect-square for more flexible chart height while maintaining aspect ratio */}
+                <div className="relative flex items-center justify-center w-full flex-1 min-h-48 aspect-square">
+                  <div className="w-full h-full relative max-w-[200px] max-h-[200px]"> {/* Restrict max size to keep chart manageable */}
+                    <CustomDoughnutChart
+                      data={[
+                        { name: "Present", value: individualReport.totalDaysPresent || 0 },
+                        { name: "Absent", value: individualReport.totalDaysAbsent || 0 }
+                      ]}
+                      colors={["#41B6FF", "#FF0200"]}
+                      chartSize={240} // Maintain a base size for viewBox, actual render will scale
+                      strokeThickness={28}
+                      gapDegrees={3}
+                    />
+                    <div
+                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center pointer-events-none"
+                    >
+                      <span className="text-center text-lg font-bold text-gray-900">
+                        {individualReport.attendancePercentage || 0}%
+                      </span>
+                    </div>
                   </div>
-                  {/* Manual Legend for CustomDoughnutChart */}
+                  {/* Manual Legend for CustomDoughnutChart, now positioned more flexibly */}
                   <div className="flex-shrink-0 flex flex-col justify-center pl-4 pr-4">
                     <ul className="space-y-2">
                       {[{ name: "Present", value: individualReport.totalDaysPresent || 0 }, { name: "Absent", value: individualReport.totalDaysAbsent || 0 }].map((item, i) => (
@@ -261,28 +267,33 @@ const StaffReport = () => {
                 </div>
               </motion.div>
 
-              <motion.div className="bg-white p-6 rounded-2xl shadow-lg w-full max-w-md">
+              {/* Bar Chart Section */}
+              <motion.div className="bg-white p-6 rounded-2xl shadow-lg w-full flex flex-col h-min-full"> {/* Removed max-w-md, let grid handle width */}
                 <h2 className="text-xl font-semibold text-gray-700 mb-4">Performance Metrics</h2>
-                <Bar
-                  data={{
-                    labels: ["Completion %", "On-Time %", "Attendance %", "Success %", "Overall %"],
-                    datasets: [{
-                      data: [
-                        individualReport.taskCompletionRate,
-                        individualReport.onTimeCompletionRate,
-                        individualReport.attendancePercentage,
-                        individualReport.successRate,
-                        individualReport.overallPerformanceScore
-                      ],
-                      backgroundColor: ["#3B82F6", "#10B981", "#F59E0B", "#6366F1", "#8B5CF6"]
-                    }]
-                  }}
-                  options={{
-                    responsive: true,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, max: 100 } }
-                  }}
-                />
+                {/* flex-1 for height, min-h for small screens, allow to grow */}
+                <div className="relative flex-1 min-h-[250px] w-full">
+                  <Bar
+                    data={{
+                      labels: ["Completion %", "On-Time %", "Attendance %", "Success %", "Overall %"],
+                      datasets: [{
+                        data: [
+                          individualReport.taskCompletionRate,
+                          individualReport.onTimeCompletionRate,
+                          individualReport.attendancePercentage,
+                          individualReport.successRate,
+                          individualReport.overallPerformanceScore
+                        ],
+                        backgroundColor: ["#3B82F6", "#10B981", "#F59E0B", "#6366F1", "#8B5CF6"]
+                      }]
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false, // Essential for responsiveness within a dynamic height container
+                      plugins: { legend: { display: false } },
+                      scales: { y: { beginAtZero: true, max: 100 } }
+                    }}
+                  />
+                </div>
               </motion.div>
             </motion.div>
           </motion.div>

@@ -72,8 +72,15 @@ const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 
   });
 
   return (
+    // Make SVG responsive by setting width/height to 100% and using viewBox + preserveAspectRatio
     <div className="flex-1 flex items-center justify-center">
-      <svg width={chartSize} height={chartSize} viewBox={`0 0 ${chartSize} ${chartSize}`}>
+      <svg
+        width="100%"
+        height="100%"
+        viewBox={`0 0 ${chartSize} ${chartSize}`}
+        preserveAspectRatio="xMidYMid meet"
+        style={{maxWidth: `${chartSize}px`, maxHeight: `${chartSize}px`}} // Prevent it from getting too large
+      >
         {slices.map((s, i) => (
           <path
             key={i}
@@ -120,6 +127,7 @@ const ProjectReports = () => {
           { name: "Ongoing", value: data.ongoingProjects },
           { name: "Pending", value: data.pendingProjects },
         ];
+        // Ensure consistent colors, possibly define them outside if used across components
         const customDoughnutColors = ["#F59E0B", "#34D399"]; // Orange for Ongoing, Green for Pending
 
         // Data for Bar chart (remains as is)
@@ -183,7 +191,7 @@ const ProjectReports = () => {
   // Bar chart options (Right Side)
   const barOptions = {
     responsive: true,
-    maintainAspectRatio: false,
+    maintainAspectRatio: false, // Important for chart to fill parent height
     scales: {
       y: { beginAtZero: true, ticks: { stepSize: 1 } },
       x: {
@@ -240,14 +248,16 @@ const ProjectReports = () => {
 
   // Calculate percentage for the center of the Doughnut chart
   const ongoingValue = projectStats ? projectStats.ongoingProjects : 0;
-  const totalDoughnutProjects = projectStats ? (projectStats.ongoingProjects + projectStats.pendingProjects) : 0;
+  const pendingValue = projectStats ? projectStats.pendingProjects : 0;
+  const totalDoughnutProjects = ongoingValue + pendingValue; // Only ongoing + pending for this doughnut
   const centerPercentage = totalDoughnutProjects
     ? Math.round((ongoingValue / totalDoughnutProjects) * 100) + "%"
     : "0%";
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-6 py-10">
+      {/* Changed max-w-7xl to w-full to allow content to expand */}
+      <div className="mx-auto px-6 py-10 w-full">
 
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-6">Project Reports</h1>
@@ -280,21 +290,20 @@ const ProjectReports = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             {/* Custom Doughnut Chart */}
             <motion.div
-              className="bg-white p-6 shadow-lg flex" // Use flex for chart and legend alignment
-              style={{
-                width: '445px', // Explicit width
-                height: '276px', // Explicit height
-                borderRadius: '16.46px', // Explicit border-radius
-              }}
+              className="bg-white p-6 shadow-lg flex flex-col justify-between" // Use flex-col and justify-between for better layout
+              style={{ borderRadius: '16.46px' }} // Keep the border-radius
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
             >
-              <div className="flex-1"> {/* This div contains the title and chart */}
-                <h2 className="text-lg font-medium text-gray-700 mb-4">Project Overview</h2>
-                <div className="relative h-full flex items-center justify-center"> {/* Changed h-80 to h-full */}
+              <div className="flex-1 flex flex-col items-center justify-center"> {/* This div contains the title and chart */}
+                <h2 className="text-lg font-medium text-gray-700 mb-4 text-center">Project Status Breakdown</h2> {/* Changed title slightly for clarity */}
+                <div className="relative flex items-center justify-center w-full aspect-square max-w-[240px]"> {/* Added max-w for larger screens */}
                   <CustomDoughnutChart
                     data={chartData.statusBreakdownCustom}
                     colors={chartData.customDoughnutColors}
+                    chartSize={240} // Base size for viewBox, SVG will scale
+                    strokeThickness={28}
+                    gapDegrees={2}
                   />
                   {/* Center text for percentage */}
                   <div
@@ -303,10 +312,9 @@ const ProjectReports = () => {
                       top: "50%",
                       left: "50%",
                       transform: "translate(-50%, -50%)",
-                      width: "fit-content",
                     }}
                   >
-                    <span className="text-sm text-gray-500">Ongoing Projects</span>
+                    <span className="text-sm text-gray-500">Ongoing</span> {/* Changed text to reflect ongoing percentage */}
                     <span className="text-2xl font-bold text-gray-900">
                       {centerPercentage}
                     </span>
@@ -314,11 +322,11 @@ const ProjectReports = () => {
                 </div>
               </div>
 
-              {/* Right side Legend for CustomDoughnutChart */}
-              <div className="flex-shrink-0 flex flex-col justify-center pl-8 pr-4">
-                <ul className="space-y-2">
+              {/* Legend for CustomDoughnutChart - moved to bottom and made flex-wrap */}
+              <div className="mt-6">
+                <ul className="space-y-2 flex flex-wrap justify-center">
                   {chartData.statusBreakdownCustom.map((item, i) => (
-                    <li key={item.name} className="flex items-center text-gray-600">
+                    <li key={item.name} className="flex items-center text-gray-600 px-2 py-1">
                       <span
                         className="w-4 h-4 rounded-sm mr-2"
                         style={{ backgroundColor: chartData.customDoughnutColors[i % chartData.customDoughnutColors.length] }}
@@ -332,17 +340,13 @@ const ProjectReports = () => {
 
             {/* Bar Chart */}
             <motion.div
-              className="bg-white rounded-2xl p-6 shadow-md"
-              style={{
-                width: '445px', // Explicit width
-                height: '277px', // Explicit height
-                borderRadius: '14.3px', // Explicit border-radius
-              }}
+              className="bg-white rounded-2xl p-6 shadow-md flex flex-col" // Use flex-col to allow chart to fill height
+              style={{ borderRadius: '14.3px' }} // Keep the border-radius
               whileHover={{ scale: 1.02 }}
             >
               <h3 className="text-lg font-medium text-gray-700 mb-4">Project Breakdown</h3>
-              {/* Changed h-80 to h-full to make it fill the parent's height */}
-              <div className="relative h-full"> 
+              {/* Chart.js container: h-[250px] as base, flex-1 and w-full for responsiveness */}
+              <div className="relative flex-1 h-[250px] w-full">
                 <Bar data={chartData.completionTrend} options={barOptions} />
               </div>
             </motion.div>

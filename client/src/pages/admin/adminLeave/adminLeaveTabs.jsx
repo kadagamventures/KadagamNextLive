@@ -5,7 +5,7 @@ const LeaveTabs = () => {
     const tabs = useMemo(() => [
         { name: "Leave Approval", path: "approval" },
         { name: "Leave List", path: "list" },
-        
+
     ], []);
 
     const [hoveredTabIndex, setHoveredTabIndex] = useState(null);
@@ -30,8 +30,17 @@ const LeaveTabs = () => {
     };
 
     return (
-        <div className="pl-5 min-h-screen">
-            <div className="fixed top-0 w-277.5 right-0 bg-white z-50 pt-6 pb-10">
+        <div className="min-h-screen">
+            <div
+                className="
+          fixed top-0 left-0 right-0
+          md:left-64 md:right-0
+          bg-white shadow-sm
+          flex justify-center items-center
+          px-6 py-4
+          z-50
+        "
+            >
                 <nav className="flex justify-center space-x-6">
                     {tabs.map((tab, index) => (
                         <NavLink
