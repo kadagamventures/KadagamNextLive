@@ -232,7 +232,7 @@ const handleViewExistingAttachment = async (fileUrl) => {
 
 
   return (
-    <div className="min-h-screen bg-[#F7F8FB] p-6 pl-64">
+    <div className="min-h-screen bg-[#F7F8FB] p-6">
       <div className="flex flex-col md:flex-row justify-between items-center mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
           {isEditMode ? "Update Task" : "Add New Task"}

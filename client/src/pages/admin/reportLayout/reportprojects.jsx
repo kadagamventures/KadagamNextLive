@@ -255,7 +255,7 @@ const ProjectReports = () => {
     : "0%";
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen ">
       {/* Changed max-w-7xl to w-full to allow content to expand */}
       <div className="mx-auto px-6 py-10 w-full">
 
@@ -301,9 +301,9 @@ const ProjectReports = () => {
                   <CustomDoughnutChart
                     data={chartData.statusBreakdownCustom}
                     colors={chartData.customDoughnutColors}
-                    chartSize={240} // Base size for viewBox, SVG will scale
-                    strokeThickness={28}
-                    gapDegrees={2}
+                    chartSize={200} // This is the SVG viewBox size, it will scale to its container
+                strokeThickness={28}
+                gapDegrees={2}
                   />
                   {/* Center text for percentage */}
                   <div

@@ -281,7 +281,7 @@ const Attendance = () => {
     : [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen ">
       {/* Changed: Removed max-w-7xl to allow content to expand more horizontally */}
       <div className="mx-auto px-6 py-10 w-full"> {/* Added w-full for clarity, though it's often implied by flex/grid parents */}
         {/* Header */}
@@ -344,9 +344,9 @@ const Attendance = () => {
                 <CustomDoughnutChart
                   data={customDoughnutChartData}
                   colors={customDoughnutColors}
-                  chartSize={240} // Base size for viewBox
-                  strokeThickness={28}
-                  gapDegrees={2}
+                  chartSize={200} // This is the SVG viewBox size, it will scale to its container
+                strokeThickness={28}
+                gapDegrees={2}
                 />
                 {/* Center text for percentage */}
                 <div

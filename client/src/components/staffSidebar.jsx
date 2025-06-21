@@ -4,7 +4,6 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   FaChartPie,
   FaTasks,
-  FaProjectDiagram,
   FaSignOutAlt,
   FaCalendarAlt,
   FaComments,
@@ -15,6 +14,7 @@ import {
   FaUserTag,
   FaFileSignature,
   FaRegFolderOpen,
+  FaClipboardList,
 } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -169,7 +169,7 @@ const StaffSidebar = () => {
     if (permissions.includes("manage_project")) {
       links.push({
         path: "/staff/projects/list",
-        icon: <FaProjectDiagram />,
+        icon: <FaClipboardList />,
         label: "Projects",
       });
     }

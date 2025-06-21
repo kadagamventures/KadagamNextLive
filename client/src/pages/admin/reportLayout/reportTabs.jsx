@@ -34,7 +34,7 @@ const ReportTabs = () => {
   return (
     <div className="pl-64 pr-8 min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       {/* Fixed Report Tabs */}
-      <div className="fixed top-0 left-64 right-8 bg-white shadow-lg z-50 p-5">
+      <div className="fixed top-0 left-64 right-8 bg-white  z-50 p-5">
         <nav className="flex justify-center space-x-6">
           {tabs.map((tab, index) => (
             <NavLink
@@ -65,7 +65,7 @@ const ReportTabs = () => {
       </div>
 
       {/* Content Section with Offset for Fixed Tabs */}
-      <div className="mt-20 bg-white p-8 rounded-2xl shadow-lg">
+      <div className="mt-20  p-8 rounded-2xl ">
         <Outlet key={location.pathname} />
       </div>
     </div>

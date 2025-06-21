@@ -2,14 +2,16 @@ import { useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   FaChartPie,
-  FaUsers,
   FaTasks,
-  FaFileAlt,
-  FaProjectDiagram,
-
-  FaCheckCircle,
+  
   FaSignOutAlt,
   FaComments,
+  FaMoneyCheck,
+  FaCalendarCheck,
+  FaUserTag,
+  FaUserAltSlash,
+  FaRegFolderOpen,
+  FaClipboardList,
 } from "react-icons/fa";
 import kadagamLogo from "../assets/kadagamlogo.png";
 
@@ -25,15 +27,15 @@ const AdminSidebar = () => {
 
   const menuItems = [
     { path: "/admin/dashboard", label: "Dashboard", icon: FaChartPie },
-    { path: "/admin/projects/list", label: "Projects", icon: FaProjectDiagram },
-    { path: "/admin/staffs/list", label: "Staff", icon: FaUsers },
+    { path: "/admin/projects/list", label: "Projects", icon: FaClipboardList },
+    { path: "/admin/staffs/list", label: "Staff", icon: FaUserTag },
     { path: "/admin/tasks/list", label: "Tasks", icon: FaTasks },
-    { path: "/admin/set-attendnce", label: "Set Attendence", icon: FaComments },
+    { path: "/admin/set-attendnce", label: "Set Attendence", icon: FaCalendarCheck },
     // { path: "/admin/tasks/review", label: "Review Tasks", icon: FaFileAlt },
     { path: "/admin/chat", label: "Chat", icon: FaComments },
-    { path: "/admin/reports", label: "Reports", icon: FaFileAlt },
-    { path: "/admin/leave", label: "Leave", icon: FaCheckCircle },
-    { path: "/admin/paymentstatus", label: "PaymentStatus", icon: FaCheckCircle },
+    { path: "/admin/reports", label: "Reports", icon: FaRegFolderOpen },
+    { path: "/admin/leave", label: "Leave", icon: FaUserAltSlash }, // This is the base path for Leave
+    { path: "/admin/paymentstatus", label: "PaymentStatus", icon: FaMoneyCheck },
     // { path: "/admin/daily-status", label: "Task Updates", icon: FaSyncAlt },
   ];
 
@@ -80,7 +82,7 @@ const AdminSidebar = () => {
       </style>
 
       {/* Header */}
-      <div className="p-1  md:p-1 mb-5">
+      <div className="p-1 md:p-1 mb-5">
         <div className="flex items-center mb-3 whitespace-nowrap">
           <img
             src={kadagamLogo}
@@ -99,22 +101,28 @@ const AdminSidebar = () => {
         className="flex-1 overflow-y-auto mb-4 pr-1 scrollbar-style"
       >
         <ul className="space-y-4">
-          {menuItems.map(({ path, label, icon: Icon }) => (
-            <li key={path}>
-              <Link
-                to={path}
-                className={`flex items-center px-3 py-3 rounded-lg transition-all duration-500 ${location.pathname === path
-                  ? "bg-blue-800 text-white shadow-md"
-                  : "hover:text-blue-800"
-                  }`}
-              >
-                <Icon className="text-lg transition-transform duration-300" />
-                <span className="hidden md:inline ml-3 font-medium">
-                  {label}
-                </span>
-              </Link>
-            </li>
-          ))}
+          {menuItems.map(({ path, label, icon: Icon }) => {
+            // Check if the current location path starts with the menu item's path
+            // This handles nested routes like /admin/leave/apply, /admin/leave/history
+            const isActive = location.pathname.startsWith(path);
+
+            return (
+              <li key={path}>
+                <Link
+                  to={path}
+                  className={`flex items-center px-3 py-3 rounded-lg transition-all duration-500 ${isActive
+                      ? "bg-blue-800 text-white shadow-md"
+                      : "hover:text-blue-800"
+                    }`}
+                >
+                  <Icon className="text-lg transition-transform duration-300" />
+                  <span className="hidden md:inline ml-3 font-medium">
+                    {label}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </div>
 

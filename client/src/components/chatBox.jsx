@@ -187,15 +187,16 @@ const ChatBox = ({ taskId, receiver, taskTitle, currentUser: passedUser }) => {
     dayjs(timestamp).isSame(dayjs(), "day")
       ? "Today"
       : dayjs(timestamp).isSame(dayjs().subtract(1, "day"), "day")
-      ? "Yesterday"
-      : dayjs(timestamp).format("DD MMM YYYY"); // Corrected to DD MMM YYYY for clarity and consistency
+        ? "Yesterday"
+        : dayjs(timestamp).format("DD MMM YYYY"); // Corrected to DD MMM YYYY for clarity and consistency
 
   const formatTime = (timestamp) => dayjs(timestamp).format("hh:mm A");
 
   let lastDate = "";
 
   return (
-    <div className="chat-box flex flex-col bg-white rounded-xl shadow-lg border overflow-hidden h-[500px]"> {/* Added a fixed height, e.g., h-[500px] */}
+    // Removed fixed height. Added flex flex-col and h-full so it fills its parent's height.
+    <div className="chat-box flex flex-col bg-white rounded-xl shadow-lg border overflow-hidden h-full">
       <div className="p-4 bg-violet-700 text-white flex items-center gap-3 sticky top-0 z-10">
         <UserCircle2 className="w-8 h-8" />
         <div className="flex-1">
@@ -204,8 +205,9 @@ const ChatBox = ({ taskId, receiver, taskTitle, currentUser: passedUser }) => {
         </div>
       </div>
 
-      {/* The message area should fill the remaining space, and scroll if content overflows */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 bg-gray-50 space-y-3 min-h-[calc(500px - 100px - 56px)]"> {/* Adjusted min-h to compensate for header and input field. Calculate this based on your fixed height and header/footer heights */}
+      {/* The message area should fill the remaining space and scroll */}
+      {/* Use flex-1 to make this div take all available vertical space */}
+      <div className="flex-1 overflow-y-auto px-4 py-3 bg-gray-50 space-y-3">
         {messages
           .filter((m) => m.taskId === taskId)
           .map((msg, idx) => {

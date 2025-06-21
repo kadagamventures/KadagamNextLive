@@ -217,7 +217,7 @@ const Reports = () => {
     : "0%";
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen  p-8">
       <motion.h2
         className="text-3xl items-center font-bold text-gray-900 mb-6 pb-6 text-center font-poppins font-weight-500 size-32px"
         initial={{ opacity: 0, y: -10 }}

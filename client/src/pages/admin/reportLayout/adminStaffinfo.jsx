@@ -47,27 +47,23 @@ const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 
     return { path, color: colors[i % colors.length], label: val, name: d.name };
   });
   return (
-    // Ensure the SVG itself is responsive within its container
-    <div className="flex-1 flex items-center justify-center">
-      <svg
-        width="100%" // Make SVG occupy 100% of its parent's width
-        height="100%" // Make SVG occupy 100% of its parent's height
-        viewBox={`0 0 ${chartSize} ${chartSize}`} // Keep viewBox for internal scaling
-        preserveAspectRatio="xMidYMid meet"
-        style={{maxWidth: `${chartSize}px`, maxHeight: `${chartSize}px`}} // Limit max size if parent allows it to grow too large
-      >
-        {slices.map((s, i) => (
-          <path
-            key={i}
-            d={s.path}
-            fill="none"
-            stroke={s.color}
-            strokeWidth={strokeThickness}
-            strokeLinecap="round"
-          />
-        ))}
-      </svg>
-    </div>
+    <svg
+      width="100%"
+      height="100%"
+      viewBox={`0 0 ${chartSize} ${chartSize}`}
+      preserveAspectRatio="xMidYMid meet"
+    >
+      {slices.map((s, i) => (
+        <path
+          key={i}
+          d={s.path}
+          fill="none"
+          stroke={s.color}
+          strokeWidth={strokeThickness}
+          strokeLinecap="round"
+        />
+      ))}
+    </svg>
   );
 };
 
@@ -91,8 +87,6 @@ const InfoBox = ({ Icon, iconBg, iconColor, label, value }) => (
     animate={{ opacity: 1, y: 0 }}
     whileHover={{ scale: 1.03 }}
     transition={{ duration: 0.3 }}
-    // Removed max-w-xs here. The card will now take the full width of its grid column.
-    // The grid layout will naturally constrain its width.
     className="bg-white p-4 rounded-xl shadow-md flex flex-col items-center w-full"
   >
     <div className={`w-12 h-12 flex items-center justify-center rounded-full ${iconBg}`}>
@@ -148,10 +142,32 @@ const StaffReport = () => {
 
   if (loading) return <div className="text-center p-4 text-lg font-semibold">Loading...</div>;
 
+  // --- Data for Doughnut Chart (Overall Performance Score) ---
+  const overallScore = individualReport?.overallPerformanceScore || 0;
+  const remainingScore = 100 - overallScore; // Assuming score is out of 100
+
+  const overallPerformanceDoughnutData = [
+    { name: "Overall Score", value: overallScore },
+    { name: "Remaining", value: remainingScore > 0 ? remainingScore : 0 } // Ensure remaining is not negative
+  ];
+  const overallPerformanceDoughnutColors = ["#8B5CF6", "#E5E7EB"]; // Purple for score, light gray for remaining
+
+
+  // --- Data for Bar Chart (Other Performance Metrics - excluding Overall as it's in Doughnut) ---
+  const performanceMetricsLabels = ["Completion %", "On-Time %", "Attendance %", "Success %"];
+  const performanceMetricsValues = individualReport ? [
+    individualReport.taskCompletionRate,
+    individualReport.onTimeCompletionRate,
+    individualReport.attendancePercentage,
+    individualReport.successRate,
+  ] : [];
+  const performanceColors = ["#3B82F6", "#10B981", "#F59E0B", "#6366F1"]; // Keep consistent colors
+
+
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen ">
       <StaffSidebar />
-      <div className="flex-grow px-6 py-8 mx-auto w-full"> {/* Changed max-w-screen-xl to w-full for full responsiveness within bounds */}
+      <div className="flex-grow px-6 py-8 mx-auto w-full">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -159,11 +175,11 @@ const StaffReport = () => {
           className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4"
         >
           <h1 className="text-3xl font-bold text-gray-800">Staff Performance Report</h1>
-          <div className="flex flex-wrap justify-center md:justify-end gap-3 w-full md:w-auto"> {/* Added flex-wrap for smaller screens */}
+          <div className="flex flex-wrap justify-center md:justify-end gap-3 w-full md:w-auto">
             <input
               type="text"
               placeholder="Search by ID"
-              className="p-2 border rounded-full shadow-sm bg-white flex-grow md:flex-none" // flex-grow for small screens
+              className="p-2 border rounded-full shadow-sm bg-white flex-grow md:flex-none"
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -175,20 +191,20 @@ const StaffReport = () => {
               type="number"
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
-              className="p-2 border rounded-full shadow-sm bg-white w-24" // Gave a fixed width
+              className="p-2 border rounded-full shadow-sm bg-white w-24"
               placeholder="Year"
             />
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(Number(e.target.value))}
-              className="p-2 border rounded-full shadow-sm bg-white w-32" // Gave a fixed width
+              className="p-2 border rounded-full shadow-sm bg-white w-32"
             >
               {monthNames.map((m, i) => (
                 <option key={i} value={i + 1}>{m}</option>
               ))}
             </select>
             <button
-              className="px-4 py-2 bg-blue-600 text-white rounded-full shadow hover:bg-blue-700 flex-grow md:flex-none" // flex-grow for small screens
+              className="px-4 py-2 bg-blue-600 text-white rounded-full shadow hover:bg-blue-700 flex-grow md:flex-none"
               onClick={handleSearchClick}
             >
               Search
@@ -207,8 +223,7 @@ const StaffReport = () => {
             className="bg-white p-6 rounded-xl shadow-md mb-8"
           >
             <h2 className="text-xl font-semibold text-gray-700 mb-4">{individualReport.staffName || individualReport.name}&#39;s Performance</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 justify-items-center"> {/* Adjusted grid for more flexibility */}
-              {/* InfoBox instances will now fill their grid column's width */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 justify-items-center">
               <InfoBox Icon={FaTasks} iconBg="bg-pink-100" iconColor="text-pink-500" label="Total Tasks Assigned" value={individualReport.totalTasksAssigned} />
               <InfoBox Icon={FaCheckCircle} iconBg="bg-green-100" iconColor="text-green-500" label="Tasks Completed" value={individualReport.totalTasksCompleted} />
               <InfoBox Icon={FaClipboardList} iconBg="bg-teal-100" iconColor="text-teal-500" label="Completion Rate" value={`${individualReport.taskCompletionRate}%`} />
@@ -223,43 +238,40 @@ const StaffReport = () => {
               <InfoBox Icon={FaStar} iconBg="bg-blue-100" iconColor="text-blue-500" label="Overall Score" value={`${individualReport.overallPerformanceScore}%`} />
             </div>
 
-            <motion.div className="grid grid-cols-1 lg:grid-cols-2 gap-8 justify-items-center"> {/* Adjusted grid for charts */}
-              {/* Doughnut Chart Section */}
+            <motion.div className="grid grid-cols-1 lg:grid-cols-2 gap-8 justify-items-center">
+              {/* Doughnut Chart Section (Now showing Overall Performance Score) */}
               <motion.div
-                className="bg-white p-6 rounded-2xl shadow-lg w-full flex flex-col items-center h-min-full" // Removed max-w-md, let grid handle width
+                className="bg-white p-6 rounded-2xl shadow-lg w-full flex flex-col items-center"
               >
-                <h2 className="text-xl font-medium text-gray-700 mb-4">Attendance</h2>
-                {/* min-h-48 / aspect-square for more flexible chart height while maintaining aspect ratio */}
-                <div className="relative flex items-center justify-center w-full flex-1 min-h-48 aspect-square">
-                  <div className="w-full h-full relative max-w-[200px] max-h-[200px]"> {/* Restrict max size to keep chart manageable */}
+                <h2 className="text-xl font-medium text-gray-700 mb-4">Overall Performance</h2>
+                <div className="relative flex items-center justify-center w-full" style={{ height: '250px' }}>
+                  <div className="w-full h-full relative max-w-[200px] max-h-[200px]">
                     <CustomDoughnutChart
-                      data={[
-                        { name: "Present", value: individualReport.totalDaysPresent || 0 },
-                        { name: "Absent", value: individualReport.totalDaysAbsent || 0 }
-                      ]}
-                      colors={["#41B6FF", "#FF0200"]}
-                      chartSize={240} // Maintain a base size for viewBox, actual render will scale
+                      data={overallPerformanceDoughnutData}
+                      colors={overallPerformanceDoughnutColors}
+                      chartSize={200}
                       strokeThickness={28}
-                      gapDegrees={3}
+                      gapDegrees={2}
                     />
                     <div
                       className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center pointer-events-none"
                     >
                       <span className="text-center text-lg font-bold text-gray-900">
-                        {individualReport.attendancePercentage || 0}%
+                        {overallScore}%
                       </span>
+                      <span className="text-center text-xs text-gray-500 mt-1">Score</span>
                     </div>
                   </div>
-                  {/* Manual Legend for CustomDoughnutChart, now positioned more flexibly */}
+                  {/* Manual Legend for CustomDoughnutChart */}
                   <div className="flex-shrink-0 flex flex-col justify-center pl-4 pr-4">
                     <ul className="space-y-2">
-                      {[{ name: "Present", value: individualReport.totalDaysPresent || 0 }, { name: "Absent", value: individualReport.totalDaysAbsent || 0 }].map((item, i) => (
+                      {overallPerformanceDoughnutData.map((item, i) => (
                         <li key={item.name} className="flex items-center text-gray-600 text-sm">
                           <span
                             className="w-4 h-4 rounded-sm mr-2"
-                            style={{ backgroundColor: ["#41B6FF", "#FF0200"][i] }}
+                            style={{ backgroundColor: overallPerformanceDoughnutColors[i] }}
                           ></span>
-                          {item.name}: {item.value}
+                          {item.name}: {item.value}%
                         </li>
                       ))}
                     </ul>
@@ -267,28 +279,21 @@ const StaffReport = () => {
                 </div>
               </motion.div>
 
-              {/* Bar Chart Section */}
-              <motion.div className="bg-white p-6 rounded-2xl shadow-lg w-full flex flex-col h-min-full"> {/* Removed max-w-md, let grid handle width */}
-                <h2 className="text-xl font-semibold text-gray-700 mb-4">Performance Metrics</h2>
-                {/* flex-1 for height, min-h for small screens, allow to grow */}
-                <div className="relative flex-1 min-h-[250px] w-full">
+              {/* Bar Chart Section (Now showing other key Performance Metrics) */}
+              <motion.div className="bg-white p-6 rounded-2xl shadow-lg w-full flex flex-col">
+                <h2 className="text-xl font-semibold text-gray-700 mb-4">Key Performance Metrics</h2>
+                <div className="relative w-full" style={{ height: '300px' }}>
                   <Bar
                     data={{
-                      labels: ["Completion %", "On-Time %", "Attendance %", "Success %", "Overall %"],
+                      labels: performanceMetricsLabels,
                       datasets: [{
-                        data: [
-                          individualReport.taskCompletionRate,
-                          individualReport.onTimeCompletionRate,
-                          individualReport.attendancePercentage,
-                          individualReport.successRate,
-                          individualReport.overallPerformanceScore
-                        ],
-                        backgroundColor: ["#3B82F6", "#10B981", "#F59E0B", "#6366F1", "#8B5CF6"]
+                        data: performanceMetricsValues,
+                        backgroundColor: performanceColors
                       }]
                     }}
                     options={{
                       responsive: true,
-                      maintainAspectRatio: false, // Essential for responsiveness within a dynamic height container
+                      maintainAspectRatio: false,
                       plugins: { legend: { display: false } },
                       scales: { y: { beginAtZero: true, max: 100 } }
                     }}

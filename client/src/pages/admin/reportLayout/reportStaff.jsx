@@ -269,7 +269,7 @@ const StaffReports = () => {
 
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen ">
       {/* Changed max-w-7xl to w-full for full width responsiveness */}
       <div className="mx-auto px-6 py-10 w-full">
         <div className="flex justify-between items-center mb-8">
@@ -321,9 +321,9 @@ const StaffReports = () => {
                 <CustomDoughnutChart
                   data={customDoughnutData}
                   colors={customDoughnutColors}
-                  chartSize={240}
-                  strokeThickness={28}
-                  gapDegrees={2}
+                  chartSize={200} // This is the SVG viewBox size, it will scale to its container
+                strokeThickness={28}
+                gapDegrees={2}
                 />
                 <div
                   className="absolute flex flex-col items-center justify-center pointer-events-none"
