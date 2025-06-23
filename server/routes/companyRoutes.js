@@ -9,10 +9,14 @@ const {
   validateRequest,
   validateEmailFormat,
   validateEmailUnique,
-  validateObjectId,
 } = require("../middlewares/validationMiddleware");
 const { verifyToken } = require("../middlewares/authMiddleware");
 
+/**
+ * @route   POST /api/company/register
+ * @desc    Step 1: Stub-register the company (basic info) and return companyId
+ * @access  Public
+ */
 router.post(
   "/register",
   [
@@ -37,39 +41,51 @@ router.post(
   companyController.registerCompany
 );
 
-
+/**
+ * @route   POST /api/company/details
+ * @desc    Step 2: Complete registration, add company details & create tenant-admin
+ * @access  Public
+ */
 router.post(
   "/details",
   [
+    // Since company._id is a 6-digit string, validate accordingly:
     body("companyId")
-      .exists()
+      .trim()
+      .notEmpty()
       .withMessage("companyId is required.")
       .bail()
-      .isString()
-      .withMessage("companyId must be a string.")
+      .isLength({ min: 6, max: 6 })
+      .withMessage("companyId must be a 6-digit code.")
       .bail()
-      .isMongoId()
-      .withMessage("companyId must be a valid MongoDB ObjectId."),
+      .matches(/^[0-9]{6}$/)
+      .withMessage("companyId must contain only digits."),
+
     body("gstin")
       .optional()
       .isAlphanumeric()
       .withMessage("GSTIN must be alphanumeric."),
+
     body("cin")
       .optional()
       .isAlphanumeric()
       .withMessage("CIN must be alphanumeric."),
+
     body("pan")
       .optional()
       .isAlphanumeric()
       .withMessage("PAN must be alphanumeric."),
+
     body("companyType")
       .optional()
       .isString()
       .withMessage("Company type must be text."),
+
     body("address")
       .optional()
       .isString()
       .withMessage("Address must be text."),
+
     body("adminPassword")
       .isLength({ min: 8 })
       .withMessage("Admin password must be at least 8 characters long."),
@@ -78,8 +94,11 @@ router.post(
   companyController.addCompanyDetails
 );
 
-// All routes below require a valid JWT
+// Protect any additional company routes below
 router.use(verifyToken);
 
+// e.g. GET /api/company/:id, PATCH, DELETE, etc.
+// router.get("/:id", companyController.getCompanyById);
+// router.patch("/:id", companyController.updateCompany);
 
 module.exports = router;
