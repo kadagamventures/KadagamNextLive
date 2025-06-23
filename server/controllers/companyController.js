@@ -1,50 +1,55 @@
-// server/controllers/companyController.js
-
 const CompanyService = require("../services/companyService");
 const EmailService = require("../services/emailService");
+const VerificationService = require("../services/verificationService");
 
- /**
-  * Step 1: Stub‐register the company (basic info) and return companyId
-  * Endpoint: POST /api/company/register
-  */
+/**
+ * Step 1: Stub-register the company (basic info) and return companyId
+ * Endpoint: POST /api/company/register
+ */
 async function registerCompany(req, res) {
   try {
-    const name     = req.body.name?.trim();
-    const email    = req.body.email?.trim().toLowerCase();
-    const password = req.body.password;
-    const phone    = req.body.phone?.trim();
+    const { name, email, password, phone } = req.body;
 
-    // 1) Validate required fields
-    if (!name || !email || !password || !phone) {
-      return res.status(400).json({
-        error: "Missing required fields: name, email, password, phone."
+    // Delegate to service; throws on duplicate email
+    const { companyId } = await CompanyService.registerCompany({
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      password,
+      phone: phone.trim(),
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Company created. Proceed to add details.",
+      data: { companyId },
+    });
+  } catch (err) {
+    console.error("Company stub registration failed:", err);
+
+    if (err.code === "EMAIL_TAKEN") {
+      return res.status(409).json({
+        success: false,
+        message: "Validation failed. Please check your input.",
+        errors: [
+          {
+            field: err.field || "email",
+            message: err.message || "This email is already registered.",
+          },
+        ],
       });
     }
 
-    // 2) Create basic company record
-    const { companyId } = await CompanyService.registerCompany({
-      name, email, password, phone
-    });
-
-    // 3) Respond with stub companyId
-    return res.status(201).json({
-      message:   "Company created. Proceed to add details.",
-      companyId
-    });
-
-  } catch (err) {
-    console.error("Company stub registration failed:", err);
     return res.status(500).json({
-      error: "Registration failed. Please try again later."
+      success: false,
+      message: "Registration failed. Please try again later.",
     });
   }
 }
 
-
- /**
-  * Step 2: Complete company details & create tenant‐admin user
-  * Endpoint: POST /api/company/details
-  */
+/**
+ * Step 2: Complete company details & create tenant-admin user
+ * Endpoint: POST /api/company/details
+ */
 async function addCompanyDetails(req, res) {
   try {
     const {
@@ -54,43 +59,79 @@ async function addCompanyDetails(req, res) {
       pan,
       companyType,
       address,
-      adminPassword
+      adminPassword,
     } = req.body;
 
-    // 1) Validate required fields
-    if (!companyId || !adminPassword) {
-      return res.status(400).json({
-        error: "Missing required fields: companyId, adminPassword."
+    const { company, adminUser } =
+      await CompanyService.completeRegistrationAndCreateAdmin({
+        companyId,
+        gstin,
+        cin,
+        pan,
+        companyType,
+        address,
+        adminPassword,
+      });
+
+    // Fire-and-forget welcome email
+    EmailService.sendEmail(
+      adminUser.email,
+      "Welcome to KadagamNext",
+      `
+Hello ${adminUser.name},
+
+Your account is ready!
+ • Company Code: ${company._id}
+ • Your Staff ID: ${adminUser.staffId}
+
+Next, please verify your email with the code we'll send you.
+Thanks,
+KadagamNext Team`.trim(),
+      `
+<p>Hello <strong>${adminUser.name}</strong>,</p>
+<p>Your tenant account has been created.</p>
+<ul>
+  <li><strong>Company Code:</strong> ${company._id}</li>
+  <li><strong>Staff ID:</strong> ${adminUser.staffId}</li>
+</ul>
+<p>Please verify your email using the verification code you will receive shortly.</p>
+<p>Thank you,<br/>KadagamNext Team</p>`.trim(),
+      `${company.name} Admin`
+    ).catch((e) => console.error("Welcome email error:", e));
+
+    // Fire-and-forget verification code
+    VerificationService.generateCode(company._id)
+      .then(() =>
+        VerificationService.sendVerificationEmail(company._id, adminUser.email)
+      )
+      .catch((e) => console.error("Verification email error:", e));
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Company details saved and admin user created. Verification code sent.",
+      data: {
+        company,
+        adminStaffId: adminUser.staffId,
+        email: adminUser.email,
+      },
+    });
+  } catch (err) {
+    console.error("Completing company details failed:", err);
+
+    if (err.code === "COMPANY_NOT_FOUND") {
+      return res.status(404).json({
+        success: false,
+        message: "Company not found for details completion.",
       });
     }
 
-    // 2) Complete the registration & create the admin user
-    const { company, adminUser } = await CompanyService.completeRegistrationAndCreateAdmin({
-      companyId,
-      gstin,
-      cin,
-      pan,
-      companyType,
-      address,
-      adminPassword
-    });
-
-    // 3) Respond with full company + admin info
-    return res.status(200).json({
-      message:      "Company details saved and admin user created. Verification code sent.",
-      company,
-      adminStaffId: adminUser.staffId,
-      email:        adminUser.email
-    });
-
-  } catch (err) {
-    console.error("Completing company details failed:", err);
     return res.status(500).json({
-      error: "Could not complete registration. Please try again later."
+      success: false,
+      message: "Could not complete registration. Please try again later.",
     });
   }
 }
-
 
 module.exports = {
   registerCompany,

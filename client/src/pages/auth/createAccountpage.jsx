@@ -1,5 +1,3 @@
-// src/pages/auth/CreateAccountPage.jsx
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -21,15 +19,15 @@ export default function CreateAccountPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+
   const [passwordError, setPasswordError] = useState("");
-  const [serverError, setServerError] = useState("");
+  const [serverErrors, setServerErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const navigate = useNavigate();
 
-  // Enable “Continue” only when all fields are filled and terms are checked
   const isContinueEnabled =
     companyName.trim() &&
     email.trim() &&
@@ -38,67 +36,92 @@ export default function CreateAccountPage() {
     confirmPassword &&
     agreedToTerms;
 
+  const validateInputs = () => {
+    if (password.length < 8) {
+      setPasswordError("Password must be at least 8 characters long.");
+      return false;
+    }
+    if (password !== confirmPassword) {
+      setPasswordError("Passwords do not match.");
+      return false;
+    }
+    setPasswordError("");
+    return true;
+  };
+
   const handleContinue = async (e) => {
     e.preventDefault();
+    setServerErrors({});
+    if (!validateInputs()) return;
 
-    // Ensure passwords match
-    if (password !== confirmPassword) {
-      setPasswordError("Passwords do not match");
-      return;
-    }
-
-    setPasswordError("");
-    setServerError("");
     setLoading(true);
-
     try {
-      // POST to the backend’s Step 1 endpoint (stub-company creation)
       const { data } = await api.post("/company/register", {
         name: companyName.trim(),
         email: email.trim().toLowerCase(),
         phone: mobile.trim(),
-        password: password,
+        password,
       });
 
-      // Extract the newly generated companyId
-      const companyId = data.companyId;
-
-      // Navigate to the second step route "/company-details"
-      // Pass companyId and adminPassword (password) in state
+      const companyId = data?.data?.companyId;
       navigate("/company-details", {
-        state: {
-          companyId,
-          adminPassword: password,
-        },
+        state: { companyId, adminPassword: password },
       });
     } catch (err) {
-      // Show server-side errors or a generic fallback
-      if (err.response?.data?.error) {
-        setServerError(err.response.data.error);
+      const resp = err.response?.data;
+      if (resp?.errors?.length) {
+        const mapped = {};
+        for (const error of resp.errors) {
+          const field = error.field;
+          const message = error.message;
+          if (field) {
+            mapped[field] = message;
+          } else if (message.toLowerCase().includes("email")) {
+            mapped["email"] = message;
+          } else {
+            mapped["form"] = message;
+          }
+        }
+        setServerErrors(mapped);
+      } else if (resp?.message) {
+        setServerErrors({ form: resp.message });
       } else {
-        setServerError("Registration failed. Please try again.");
+        setServerErrors({ form: "Something went wrong. Please try again." });
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogin = () => {
-    navigate("/admin/login");
-  };
-
-  const renderInput = ({ type, placeholder, value, onChange, Icon, toggle, isVisible }) => (
+  const renderInput = ({
+    name,
+    type,
+    placeholder,
+    value,
+    onChange,
+    Icon,
+    toggle,
+    isVisible,
+  }) => (
     <div className="relative">
       <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
         <Icon size={18} />
       </div>
       <input
+        name={name}
         type={type}
         placeholder={placeholder}
         value={value}
-        onChange={onChange}
+        onChange={(e) => {
+          onChange(e);
+          if (serverErrors[name]) {
+            setServerErrors((prev) => ({ ...prev, [name]: undefined }));
+          }
+        }}
         required
-        className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-10 p-2.5"
+        className={`bg-gray-50 border ${
+          serverErrors[name] ? "border-red-500" : "border-gray-300"
+        } text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-10 p-2.5`}
       />
       {toggle && (
         <div
@@ -107,6 +130,9 @@ export default function CreateAccountPage() {
         >
           {isVisible ? <FiEyeOff size={18} /> : <FiEye size={18} />}
         </div>
+      )}
+      {serverErrors[name] && (
+        <p className="text-red-500 text-sm mt-1">{serverErrors[name]}</p>
       )}
     </div>
   );
@@ -120,7 +146,6 @@ export default function CreateAccountPage() {
         backgroundPosition: "center",
       }}
     >
-      {/* Left branding */}
       <div className="w-1/2 bg-opacity-50 flex items-center justify-center">
         <h1 className="text-white text-6xl font-bold">
           <span className="text-red-500">Kadagam</span>{" "}
@@ -128,11 +153,10 @@ export default function CreateAccountPage() {
         </h1>
       </div>
 
-      {/* Right registration form */}
       <div className="w-1/2 relative flex items-center justify-center">
         <button
           type="button"
-          onClick={handleLogin}
+          onClick={() => navigate("/admin/login")}
           className="absolute top-4 right-8 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-full shadow-lg hover:bg-blue-700"
         >
           Login
@@ -147,6 +171,7 @@ export default function CreateAccountPage() {
           </h2>
 
           {renderInput({
+            name: "name",
             type: "text",
             placeholder: "Company Name",
             value: companyName,
@@ -155,6 +180,7 @@ export default function CreateAccountPage() {
           })}
 
           {renderInput({
+            name: "email",
             type: "email",
             placeholder: "Email",
             value: email,
@@ -163,6 +189,7 @@ export default function CreateAccountPage() {
           })}
 
           {renderInput({
+            name: "phone",
             type: "tel",
             placeholder: "Mobile Number",
             value: mobile,
@@ -171,44 +198,32 @@ export default function CreateAccountPage() {
           })}
 
           {renderInput({
+            name: "password",
             type: showPassword ? "text" : "password",
             placeholder: "Password",
             value: password,
-            onChange: (e) => {
-              setPassword(e.target.value);
-              if (confirmPassword && e.target.value !== confirmPassword) {
-                setPasswordError("Passwords do not match");
-              } else {
-                setPasswordError("");
-              }
-            },
+            onChange: (e) => setPassword(e.target.value),
             Icon: FiLock,
             toggle: () => setShowPassword((prev) => !prev),
             isVisible: showPassword,
           })}
 
           {renderInput({
+            name: "confirmPassword",
             type: showConfirmPassword ? "text" : "password",
             placeholder: "Confirm Password",
             value: confirmPassword,
-            onChange: (e) => {
-              setConfirmPassword(e.target.value);
-              if (password !== e.target.value) {
-                setPasswordError("Passwords do not match");
-              } else {
-                setPasswordError("");
-              }
-            },
+            onChange: (e) => setConfirmPassword(e.target.value),
             Icon: FiLock,
             toggle: () => setShowConfirmPassword((prev) => !prev),
             isVisible: showConfirmPassword,
           })}
 
           {passwordError && (
-            <p className="text-red-500 text-sm -mt-2">{passwordError}</p>
+            <p className="text-red-500 text-sm">{passwordError}</p>
           )}
-          {serverError && (
-            <p className="text-red-600 text-sm">{serverError}</p>
+          {serverErrors.form && (
+            <p className="text-red-600 text-sm">{serverErrors.form}</p>
           )}
 
           <label className="flex items-start gap-2 text-sm text-gray-800 mt-2">
@@ -220,17 +235,11 @@ export default function CreateAccountPage() {
             />
             <span>
               By signing up, you agree to our{" "}
-              <a
-                href="/terms-conditions"
-                className="underline text-blue-400"
-              >
+              <a href="/terms-conditions" className="underline text-blue-400">
                 Terms of Service
               </a>{" "}
               and{" "}
-              <a
-                href="/privacy-policy"
-                className="underline text-blue-400"
-              >
+              <a href="/privacy-policy" className="underline text-blue-400">
                 Privacy Policy
               </a>
               .
@@ -250,9 +259,7 @@ export default function CreateAccountPage() {
           </button>
 
           <div className="flex flex-col items-center mt-4">
-            <p className="text-sm text-gray-700">
-              Sign up via Google account
-            </p>
+            <p className="text-sm text-gray-700">Sign up via Google account</p>
             <a href={`${import.meta.env.VITE_API_URL}/auth/google`}>
               <button
                 type="button"

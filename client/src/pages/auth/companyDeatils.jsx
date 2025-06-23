@@ -15,7 +15,6 @@ import { tokenRefreshInterceptor as api } from "../../utils/axiosInstance";
 export default function CompanyDetailsPage() {
   const location = useLocation();
   const navigate = useNavigate();
-
   const { companyId, adminPassword } = location.state || {};
 
   const [gstin, setGstin] = useState("");
@@ -24,7 +23,8 @@ export default function CompanyDetailsPage() {
   const [companyType, setCompanyType] = useState("");
   const [address, setAddress] = useState("");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [serverError, setServerError] = useState("");
+
+  const [serverErrors, setServerErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -43,11 +43,10 @@ export default function CompanyDetailsPage() {
 
   const handleContinue = async (e) => {
     e.preventDefault();
-    setServerError("");
+    setServerErrors({});
     setLoading(true);
-
     try {
-      const { data } = await api.post("/company/details", {
+      const resp = await api.post("/company/details", {
         companyId,
         gstin: gstin.trim().toUpperCase(),
         pan: pan.trim().toUpperCase(),
@@ -57,14 +56,26 @@ export default function CompanyDetailsPage() {
         adminPassword,
       });
 
+      const company = resp.data.data?.company || resp.data.company;
       navigate("/verification", {
         state: {
-          companyId: data.company._id || data.companyId,
-          email: data.company.email,
+          companyId: company._id,
+          email: company.email,
         },
       });
     } catch (err) {
-      setServerError(err.response?.data?.error || "Registration failed.");
+      const data = err.response?.data;
+      if (data?.errors && Array.isArray(data.errors)) {
+        const fieldErrors = {};
+        data.errors.forEach(({ field, message }) => {
+          fieldErrors[field] = message;
+        });
+        setServerErrors(fieldErrors);
+      } else if (data?.message) {
+        setServerErrors({ form: data.message });
+      } else {
+        setServerErrors({ form: "Failed to save details. Please try again." });
+      }
     } finally {
       setLoading(false);
     }
@@ -74,19 +85,30 @@ export default function CompanyDetailsPage() {
     navigate("/admin/login");
   };
 
-  const renderInput = ({ type, placeholder, value, onChange, Icon }) => (
+  const renderInput = ({ name, type, placeholder, value, onChange, Icon }) => (
     <div className="relative">
       <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
         <Icon size={18} />
       </div>
       <input
+        name={name}
         type={type}
         placeholder={placeholder}
         value={value}
-        onChange={onChange}
+        onChange={(e) => {
+          onChange(e);
+          if (serverErrors[name]) {
+            setServerErrors((prev) => ({ ...prev, [name]: undefined }));
+          }
+        }}
         required
-        className="bg-white border border-gray-300 text-sm text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-2"
+        className={`bg-white border ${
+          serverErrors[name] ? "border-red-500" : "border-gray-300"
+        } text-sm text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-2`}
       />
+      {serverErrors[name] && (
+        <p className="text-red-500 text-sm mt-1">{serverErrors[name]}</p>
+      )}
     </div>
   );
 
@@ -124,6 +146,7 @@ export default function CompanyDetailsPage() {
           </h2>
 
           {renderInput({
+            name: "gstin",
             type: "text",
             placeholder: "Enter your GSTIN",
             value: gstin,
@@ -132,6 +155,7 @@ export default function CompanyDetailsPage() {
           })}
 
           {renderInput({
+            name: "pan",
             type: "text",
             placeholder: "Enter your PAN",
             value: pan,
@@ -140,6 +164,7 @@ export default function CompanyDetailsPage() {
           })}
 
           {renderInput({
+            name: "cin",
             type: "text",
             placeholder: "Corporate Identification Number (CIN)",
             value: cin,
@@ -152,10 +177,18 @@ export default function CompanyDetailsPage() {
               <FiBriefcase size={18} />
             </div>
             <select
+              name="companyType"
               value={companyType}
-              onChange={(e) => setCompanyType(e.target.value)}
+              onChange={(e) => {
+                setCompanyType(e.target.value);
+                if (serverErrors.companyType) {
+                  setServerErrors((prev) => ({ ...prev, companyType: undefined }));
+                }
+              }}
               required
-              className="bg-white border border-gray-300 text-sm text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-2"
+              className={`bg-white border ${
+                serverErrors.companyType ? "border-red-500" : "border-gray-300"
+              } text-sm text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-2`}
             >
               <option value="" disabled>
                 Select Company Type
@@ -163,16 +196,20 @@ export default function CompanyDetailsPage() {
               <option>Private Limited</option>
               <option>Partnership</option>
               <option>Sole Proprietorship</option>
-              <option>Limited Liability Company (LLC)</option>
-              <option>Limited Liability Partnership (LLP)</option>
-              <option>Corporation (C-Corp)</option>
-              <option>S Corporation (S-Corp)</option>
-              <option>Nonprofit Corporation</option>
+              <option>LLC</option>
+              <option>LLP</option>
+              <option>Corporation</option>
+              <option>S-Corp</option>
+              <option>Nonprofit</option>
               <option>Others</option>
             </select>
+            {serverErrors.companyType && (
+              <p className="text-red-500 text-sm mt-1">{serverErrors.companyType}</p>
+            )}
           </div>
 
           {renderInput({
+            name: "address",
             type: "text",
             placeholder: "Enter your Address",
             value: address,
@@ -180,8 +217,8 @@ export default function CompanyDetailsPage() {
             Icon: FiMapPin,
           })}
 
-          {serverError && (
-            <p className="text-red-600 text-sm">{serverError}</p>
+          {serverErrors.form && (
+            <p className="text-red-600 text-sm">{serverErrors.form}</p>
           )}
 
           <label className="flex items-start gap-2 text-sm text-gray-800">

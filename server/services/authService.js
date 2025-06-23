@@ -11,7 +11,7 @@ const ONE_HOUR = 60 * 60 * 1000;
 
 class AuthService {
   /**
-   * 1) Generate & store a password-reset token for a given userId.
+   * 1) Generate & store a password-reset token for a given userId. 
    *    Returns the raw resetToken (to be emailed).
    */
   async generateResetToken(userId) {

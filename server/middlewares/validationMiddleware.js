@@ -1,77 +1,89 @@
-const { validationResult } = require("express-validator");
+// server/middlewares/validationMiddleware.js
+
+const { validationResult, check } = require("express-validator");
+const Company = require("../models/Company");
+const User = require("../models/User");
+const Task = require("../models/Task");
 
 /**
- *  Middleware to handle validation errors in a structured format.
+ * Middleware: format express-validator errors into a consistent JSON shape
  */
-const validateRequest = (req, res, next) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({
-            success: false,
-            message: "Validation failed. Please check your input.",
-            errors: errors.array().map(err => ({
-                field: err.param,
-                message: err.msg
-            }))
-        });
-    }
-    next();
-};
+function validateRequest(req, res, next) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: "Validation failed. Please check your input.",
+      errors: errors.array().map((err) => ({
+        field: err.param,
+        message: err.msg,
+      })),
+    });
+  }
+  next();
+}
 
 /**
- *  Utility Validators for Common Fields
+ * Common field validators
  */
-const { check } = require("express-validator");
 
-// 📌 Common Email Validator
-const validateEmail = check("email")
-    .isEmail()
-    .withMessage("Invalid email format.")
-    .normalizeEmail();
+// 📧 Email must be valid
+const validateEmailFormat = check("email")
+  .isEmail()
+  .withMessage("Invalid email format.")
+  .normalizeEmail();
 
-// 📌 Common ObjectId Validator (MongoDB ID)
-const validateObjectId = (field) => 
-    check(field)
+// 📧 Email must be unique (used in /register)
+const validateEmailUnique = check("email")
+  .custom(async (email) => {
+    const existing = await Company.findOne({ email, isDeleted: false });
+    return !existing;
+  })
+  .withMessage("This email is already registered.");
+
+// 📧 Email must exist (used in /login or recovery flows)
+const validateEmailExists = check("email")
+  .custom(async (email) => {
+    const existing = await Company.findOne({ email, isDeleted: false });
+    return !!existing;
+  })
+  .withMessage("No account found for this email.");
+
+// 🔍 Generic MongoDB ObjectId validator
+const validateObjectId = (field) =>
+  check(field)
     .isMongoId()
     .withMessage(`${field} is not a valid MongoDB ID.`);
 
-// 📌 Date Validator
-const validateDate = (field) => 
-    check(field)
+// 📅 ISO date validator
+const validateDate = (field) =>
+  check(field)
     .isISO8601()
     .withMessage(`${field} must be a valid date (YYYY-MM-DD).`);
 
-/**
- *  Custom Validator: Ensure User Exists in DB
- */
-const User = require("../models/User");
-const checkUserExists = check("userId").custom(async (value) => {
-    const user = await User.findById(value);
-    if (!user) throw new Error("User not found.");
-});
+// 🧑 Ensure user exists
+const checkUserExists = check("userId")
+  .custom(async (id) => {
+    const user = await User.findOne({ _id: id, isDeleted: false });
+    return !!user;
+  })
+  .withMessage("User not found.");
 
-/**
- *  Custom Validator: Ensure Task Exists in DB
- */
-const Task = require("../models/Task");
-const checkTaskExists = check("taskId").custom(async (value) => {
-    const task = await Task.findById(value);
-    if (!task) throw new Error("Task not found.");
-});
-
-/**
- *  Simple Sum Function (Example Utility)
- */
-const sum = (a, b) => a + b;
-
-
+// 📋 Ensure task exists
+const checkTaskExists = check("taskId")
+  .custom(async (id) => {
+    const task = await Task.findOne({ _id: id, isDeleted: false });
+    return !!task;
+  })
+  .withMessage("Task not found.");
 
 module.exports = {
-    validateRequest,    // General validation middleware
-    validateEmail,      // Email validation
-    validateObjectId,   // ObjectId validation (MongoDB)
-    validateDate,       // Date validation
-    checkUserExists,    // Ensure user exists
-    checkTaskExists,    // Ensure task exists
-    sum                 // Sum function
+  validateRequest,
+  validateEmailFormat,
+  validateEmailUnique,
+  validateEmailExists,
+  validateObjectId,
+  validateDate,
+  checkUserExists,
+  checkTaskExists,
 };

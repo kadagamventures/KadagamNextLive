@@ -1,4 +1,4 @@
-// server/controllers/companyController.js
+// server/services/companyService.js
 
 const bcrypt = require("bcryptjs");
 const Company = require("../models/Company");
@@ -16,10 +16,14 @@ async function registerCompany(payload) {
   // Prevent duplicates
   const [existingCompany, existingUser] = await Promise.all([
     Company.findOne({ email, isDeleted: false }),
-    User.findOne({ email, isDeleted: false })
+    User.findOne({ email, isDeleted: false }),
   ]);
+
   if (existingCompany || existingUser) {
-    throw new Error("A company or user with this email already exists.");
+    const error = new Error("A company or user with this email already exists.");
+    error.code = "EMAIL_TAKEN";
+    error.field = "email";
+    throw error;
   }
 
   // Create basic company record (details to follow in next step)
@@ -33,11 +37,11 @@ async function registerCompany(payload) {
       startDate: Date.now(),
       nextBillingDate: null,
       lastPaymentAmount: 0,
-      paymentHistory: []
+      paymentHistory: [],
     },
     trustLevel: "new",
     isVerified: false,
-    isDeleted: false
+    isDeleted: false,
   });
 
   return { companyId: company._id };
@@ -45,7 +49,7 @@ async function registerCompany(payload) {
 
 /**
  * Step 2: Fill in the additional company details (GSTIN, CIN, PAN, etc.),
- *         then create the tenant‐admin user, send welcome + verification emails
+ *         then create the tenant-admin user, send welcome + verification emails
  */
 async function completeRegistrationAndCreateAdmin(payload) {
   const {
@@ -55,35 +59,38 @@ async function completeRegistrationAndCreateAdmin(payload) {
     pan,
     companyType,
     address,
-    adminPassword
+    adminPassword,
   } = payload;
 
-  // 1) Update the company with its new details
+  // Update company details
   const company = await Company.findByIdAndUpdate(
     companyId,
     { gstin, cin, pan, companyType, address },
     { new: true, runValidators: true }
   );
+
   if (!company) {
-    throw new Error("Company not found for details completion.");
+    const error = new Error("Company not found for details completion.");
+    error.code = "COMPANY_NOT_FOUND";
+    throw error;
   }
 
-  // 2) Create the Admin user for this company
+  // Create admin user
   const hashedPassword = await bcrypt.hash(adminPassword, 12);
-  const staffId       = await generateUniqueStaffId();
-  const adminUser     = await User.create({
-    name:       `${company.name} Admin`,
-    email:      company.email,
-    password:   hashedPassword,
-    role:       "admin",
-    companyId:  company._id,
+  const staffId = await generateUniqueStaffId();
+  const adminUser = await User.create({
+    name: `${company.name} Admin`,
+    email: company.email,
+    password: hashedPassword,
+    role: "admin",
+    companyId: company._id,
     staffId,
     permissions: ["manage_project", "manage_task", "manage_staff"],
-    isActive:   true,
-    isDeleted:  false
+    isActive: true,
+    isDeleted: false,
   });
 
-  // 3) Send Welcome Email
+  // Send welcome email
   const welcomeSubject = "Welcome to KadagamNext";
   const welcomeText = `
 Hello ${adminUser.name},
@@ -113,15 +120,12 @@ KadagamNext Team`.trim();
     welcomeText,
     welcomeHtml,
     `${company.name} Admin`
-  ).catch(err => console.error("Welcome email error:", err));
+  ).catch((err) => console.error("Welcome email error:", err));
 
-  // 4) Generate & send verification code
+  // Send verification code
   try {
     await VerificationService.generateCode(company._id);
-    await VerificationService.sendVerificationEmail(
-      company._id,
-      adminUser.email
-    );
+    await VerificationService.sendVerificationEmail(company._id, adminUser.email);
   } catch (err) {
     console.error("Verification email error:", err);
   }
@@ -131,5 +135,5 @@ KadagamNext Team`.trim();
 
 module.exports = {
   registerCompany,
-  completeRegistrationAndCreateAdmin
+  completeRegistrationAndCreateAdmin,
 };
