@@ -45,6 +45,7 @@ export default function CompanyDetailsPage() {
     e.preventDefault();
     setServerErrors({});
     setLoading(true);
+
     try {
       const resp = await api.post("/company/details", {
         companyId,
@@ -56,26 +57,36 @@ export default function CompanyDetailsPage() {
         adminPassword,
       });
 
-      const company = resp.data.data?.company || resp.data.company;
+      // Navigate to verification with returned company info
+      const returnedCompany =
+        resp.data.data?.company || resp.data.company || {};
       navigate("/verification", {
         state: {
-          companyId: company._id,
-          email: company.email,
+          companyId: returnedCompany._id || companyId,
+          email: returnedCompany.email,
         },
       });
+
     } catch (err) {
       const data = err.response?.data;
-      if (data?.errors && Array.isArray(data.errors)) {
-        const fieldErrors = {};
+      const fieldErrors = {};
+
+      if (Array.isArray(data?.errors)) {
+        // Map errors with `field`; otherwise collect under `form`
         data.errors.forEach(({ field, message }) => {
-          fieldErrors[field] = message;
+          if (field) {
+            fieldErrors[field] = message;
+          } else {
+            fieldErrors.form = message;
+          }
         });
-        setServerErrors(fieldErrors);
       } else if (data?.message) {
-        setServerErrors({ form: data.message });
+        fieldErrors.form = data.message;
       } else {
-        setServerErrors({ form: "Failed to save details. Please try again." });
+        fieldErrors.form = "Failed to save details. Please try again.";
       }
+
+      setServerErrors(fieldErrors);
     } finally {
       setLoading(false);
     }
@@ -97,6 +108,7 @@ export default function CompanyDetailsPage() {
         value={value}
         onChange={(e) => {
           onChange(e);
+          // Clear any existing error for this field
           if (serverErrors[name]) {
             setServerErrors((prev) => ({ ...prev, [name]: undefined }));
           }
@@ -121,6 +133,7 @@ export default function CompanyDetailsPage() {
         backgroundPosition: "center",
       }}
     >
+      {/* Left branding panel */}
       <div className="w-1/2 flex items-center justify-center">
         <h1 className="text-white text-6xl font-bold">
           <span className="text-red-500">Kadagam</span>{" "}
@@ -128,6 +141,7 @@ export default function CompanyDetailsPage() {
         </h1>
       </div>
 
+      {/* Right form panel */}
       <div className="w-1/2 relative flex items-center justify-center">
         <button
           type="button"
@@ -144,6 +158,13 @@ export default function CompanyDetailsPage() {
           <h2 className="text-xl font-bold text-center text-gray-900">
             Company Details
           </h2>
+
+          {/* Show a form-level error, if any */}
+          {serverErrors.form && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded mb-2">
+              {serverErrors.form}
+            </div>
+          )}
 
           {renderInput({
             name: "gstin",
@@ -204,7 +225,9 @@ export default function CompanyDetailsPage() {
               <option>Others</option>
             </select>
             {serverErrors.companyType && (
-              <p className="text-red-500 text-sm mt-1">{serverErrors.companyType}</p>
+              <p className="text-red-500 text-sm mt-1">
+                {serverErrors.companyType}
+              </p>
             )}
           </div>
 
@@ -216,10 +239,6 @@ export default function CompanyDetailsPage() {
             onChange: (e) => setAddress(e.target.value),
             Icon: FiMapPin,
           })}
-
-          {serverErrors.form && (
-            <p className="text-red-600 text-sm">{serverErrors.form}</p>
-          )}
 
           <label className="flex items-start gap-2 text-sm text-gray-800">
             <input
