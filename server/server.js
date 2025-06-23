@@ -163,7 +163,7 @@ app.post(
 );
 
 // Protected company routes (everything else)
-app.use("/api/company", verifyToken, companyRoutes);
+app.use("/api/company", companyRoutes);
 
 // Authenticated + verified tenant
 app.use("/api/admin", verifyToken, ensureVerifiedTenant, adminLimiter, adminRoutes);
