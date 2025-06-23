@@ -11,6 +11,7 @@ const compression = require("compression");
 const passport = require("passport");
 const session = require("express-session");
 const cookieParser = require("cookie-parser");
+const { body } = require("express-validator");
 
 require("./config/passport");
 
@@ -19,9 +20,41 @@ const enforceActiveSubscription = require("./middlewares/enforceActiveSubscripti
 const ensureVerifiedTenant = require("./middlewares/ensureVerifiedTenant");
 const { adminLimiter } = require("./middlewares/rateLimiterMiddleware");
 const { errorHandler, notFoundHandler } = require("./middlewares/errorMiddleware");
+const {
+  validateRequest,
+  validateEmailFormat,
+  validateEmailUnique,
+} = require("./middlewares/validationMiddleware");
 
 const connectDB = require("./config/dbConfig");
 const { connectRedis, redisClient } = require("./config/redisConfig");
+
+const authRoutes             = require("./routes/authRoutes");
+const verificationRoutes     = require("./routes/verificationRoutes");
+const paymentRoutes          = require("./routes/paymentRoutes");
+const planRoutes             = require("./routes/planRoutes");
+const invoiceRoutes          = require("./routes/invoiceRoutes");
+const companyRoutes          = require("./routes/companyRoutes");
+const adminRoutes            = require("./routes/adminRoutes");
+const userRoutes             = require("./routes/userRoutes");
+const projectRoutes          = require("./routes/projectRoutes");
+const taskRoutes             = require("./routes/taskRoutes");
+const attendanceRoutes       = require("./routes/attendanceRoutes");
+const leaveRoutes            = require("./routes/leaveRoutes");
+const reportRoutes           = require("./routes/reportRoutes");
+const fileRoutes             = require("./routes/fileRoutes");
+const notificationRoutes     = require("./routes/notificationRoutes");
+const adminDashboardRoutes   = require("./routes/adminDashboardRoutes");
+const staffPermissionsRoutes = require("./routes/staffPermissionsRoutes");
+const performanceRoutes      = require("./routes/performanceRoutes");
+const chatRoutes             = require("./routes/chatRoutes");
+const roomChatRoutes         = require("./routes/roomChatRoutes");
+const superAdminRoutes       = require("./routes/superAdminRoutes");
+const deleteFileRoute        = require("./routes/deleteFile");
+const officeTimingRoutes     = require("./routes/officeAttendanceTiming");
+const paymentStatusRoutes    = require("./routes/paymentStatusRoutes");
+
+const { registerCompany } = require("./controllers/companyController");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -97,37 +130,39 @@ app.get("/",       (req, res) => res.json({ message: "🟢 Welcome to KadagamNex
 })();
 
 // ──────────────── ROUTES ────────────────
-const authRoutes             = require("./routes/authRoutes");
-const verificationRoutes     = require("./routes/verificationRoutes");
-const paymentRoutes          = require("./routes/paymentRoutes");
-const planRoutes             = require("./routes/planRoutes");
-const invoiceRoutes          = require("./routes/invoiceRoutes");
-const companyRoutes          = require("./routes/companyRoutes");
-const adminRoutes            = require("./routes/adminRoutes");
-const userRoutes             = require("./routes/userRoutes");
-const projectRoutes          = require("./routes/projectRoutes");
-const taskRoutes             = require("./routes/taskRoutes");
-const attendanceRoutes       = require("./routes/attendanceRoutes");
-const leaveRoutes            = require("./routes/leaveRoutes");
-const reportRoutes           = require("./routes/reportRoutes");
-const fileRoutes             = require("./routes/fileRoutes");
-const notificationRoutes     = require("./routes/notificationRoutes");
-const adminDashboardRoutes   = require("./routes/adminDashboardRoutes");
-const staffPermissionsRoutes = require("./routes/staffPermissionsRoutes");
-const performanceRoutes      = require("./routes/performanceRoutes");
-const chatRoutes             = require("./routes/chatRoutes");
-const roomChatRoutes         = require("./routes/roomChatRoutes");
-const superAdminRoutes       = require("./routes/superAdminRoutes");
-const deleteFileRoute        = require("./routes/deleteFile");
-const officeTimingRoutes     = require("./routes/officeAttendanceTiming");
-const paymentStatusRoutes    = require("./routes/paymentStatusRoutes");
-
 // Public routes
 app.use("/api/auth",    authRoutes);
 app.use("/api/verify",  verificationRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/plan",    planRoutes);
 app.use("/api/invoices",invoiceRoutes);
+
+// Public company registration (no JWT)
+app.post(
+  "/api/company/register",
+  [
+    validateEmailFormat,
+    validateEmailUnique,
+    body("name")
+      .trim()
+      .notEmpty()
+      .withMessage("Company name is required."),
+    body("password")
+      .isLength({ min: 8 })
+      .withMessage("Password must be at least 8 characters long."),
+    body("phone")
+      .trim()
+      .notEmpty()
+      .withMessage("Phone number is required.")
+      .bail()
+      .isMobilePhone()
+      .withMessage("Phone number must be valid."),
+  ],
+  validateRequest,
+  registerCompany
+);
+
+// Protected company routes (everything else)
 app.use("/api/company", verifyToken, companyRoutes);
 
 // Authenticated + verified tenant
