@@ -18,27 +18,30 @@ const LoadingScreen = () => (
   </div>
 );
 
-// Initialize root container
-const root = createRoot(document.getElementById("root"));
+// Get the root DOM node
+const container = document.getElementById("root");
 
-root.render(
-  <StrictMode>
-    <Provider store={store}>
-      <PersistGate loading={<LoadingScreen />} persistor={persistor}>
-        <App />
-
-        <ToastContainer
-          position="top-right"
-          autoClose={3000}
-          hideProgressBar={false}
-          newestOnTop
-          closeOnClick
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          theme="light"
-        />
-      </PersistGate>
-    </Provider>
-  </StrictMode>
-);
+// ✅ Prevent duplicate root creation (especially useful in Vite HMR/dev mode)
+if (!container._reactRootContainer) {
+  const root = createRoot(container);
+  root.render(
+    <StrictMode>
+      <Provider store={store}>
+        <PersistGate loading={<LoadingScreen />} persistor={persistor}>
+          <App />
+          <ToastContainer
+            position="top-right"
+            autoClose={3000}
+            hideProgressBar={false}
+            newestOnTop
+            closeOnClick
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+            theme="light"
+          />
+        </PersistGate>
+      </Provider>
+    </StrictMode>
+  );
+}

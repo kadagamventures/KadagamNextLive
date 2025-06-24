@@ -1,7 +1,9 @@
-// src/redux/slices/authSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { tokenRefreshInterceptor } from "../../utils/axiosInstance";
-import { disconnectChatSocket, initializeChatSocket } from "../../websocket/chatSocket";
+import {
+  disconnectChatSocket,
+  initializeChatSocket,
+} from "../../websocket/chatSocket";
 
 // Safe LocalStorage retrieval
 const safeGetItem = (key, isJSON = false) => {
@@ -14,12 +16,14 @@ const safeGetItem = (key, isJSON = false) => {
   }
 };
 
-// Initial Auth State
+const user = safeGetItem("user", true);
+const token = safeGetItem("token");
+
 const initialState = {
-  user: safeGetItem("user", true),
+  user,
   role: safeGetItem("role"),
-  token: safeGetItem("token"),
-  isAuthenticated: !!safeGetItem("user"),
+  token,
+  isAuthenticated: !!user && !!token,
   status: "idle",
   error: null,
   resetStatus: null,
@@ -27,22 +31,24 @@ const initialState = {
   nextBillingDate: safeGetItem("nextBillingDate"),
 };
 
-// ─────────────────────────────────────────────
+// ───────────────────────────────
 // 🔐 Thunks for API calls
-// ─────────────────────────────────────────────
+// ───────────────────────────────
 
 // Admin Login
 export const loginUser = createAsyncThunk(
   "auth/loginUser",
   async ({ loginId, password }, thunkAPI) => {
     try {
-      const { data } = await tokenRefreshInterceptor.post("/auth/admin/login", { loginId, password });
+      const { data } = await tokenRefreshInterceptor.post("/auth/admin/login", {
+        loginId,
+        password,
+      });
 
       if (!data?.user || !data?.accessToken) {
         return thunkAPI.rejectWithValue("Invalid response from server.");
       }
 
-      // Persist to localStorage
       localStorage.setItem("user", JSON.stringify(data.user));
       localStorage.setItem("role", data.user.role);
       localStorage.setItem("token", data.accessToken);
@@ -57,7 +63,9 @@ export const loginUser = createAsyncThunk(
         nextBillingDate: data.nextBillingDate,
       };
     } catch (error) {
-      return thunkAPI.rejectWithValue(error.response?.data?.message || "Login failed.");
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || "Login failed."
+      );
     }
   }
 );
@@ -65,12 +73,13 @@ export const loginUser = createAsyncThunk(
 // Admin Logout
 export const logoutUser = createAsyncThunk("auth/logoutUser", async () => {
   await tokenRefreshInterceptor.post("/auth/admin/logout");
-  // Clear storage
+
   localStorage.removeItem("user");
   localStorage.removeItem("role");
   localStorage.removeItem("token");
   localStorage.removeItem("subscriptionStatus");
   localStorage.removeItem("nextBillingDate");
+
   return null;
 });
 
@@ -87,7 +96,9 @@ export const forgotPassword = createAsyncThunk(
       }
       return data.message;
     } catch (error) {
-      return thunkAPI.rejectWithValue(error.response?.data?.message || "Failed to send reset link.");
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || "Failed to send reset link."
+      );
     }
   }
 );
@@ -97,17 +108,22 @@ export const resetPassword = createAsyncThunk(
   "auth/resetPassword",
   async ({ token, newPassword }, thunkAPI) => {
     try {
-      const { data } = await tokenRefreshInterceptor.post("/auth/reset-password", { token, newPassword });
+      const { data } = await tokenRefreshInterceptor.post("/auth/reset-password", {
+        token,
+        newPassword,
+      });
       return data.message;
     } catch (error) {
-      return thunkAPI.rejectWithValue(error.response?.data?.message || "Failed to reset password.");
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || "Failed to reset password."
+      );
     }
   }
 );
 
-// ─────────────────────────────────────────────
-// 📦 Auth Slice (Admin Login Only)
-// ─────────────────────────────────────────────
+// ───────────────────────────────
+// 📦 Auth Slice
+// ───────────────────────────────
 const authSlice = createSlice({
   name: "auth",
   initialState,
@@ -121,11 +137,13 @@ const authSlice = createSlice({
       state.error = null;
       state.subscriptionStatus = null;
       state.nextBillingDate = null;
+
       localStorage.removeItem("user");
       localStorage.removeItem("role");
       localStorage.removeItem("token");
       localStorage.removeItem("subscriptionStatus");
       localStorage.removeItem("nextBillingDate");
+
       disconnectChatSocket();
     },
   },
@@ -145,12 +163,14 @@ const authSlice = createSlice({
         state.isAuthenticated = true;
         state.subscriptionStatus = subscriptionStatus;
         state.nextBillingDate = nextBillingDate;
+
         disconnectChatSocket();
         initializeChatSocket();
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload;
+        state.isAuthenticated = false;
       })
 
       // Logout
@@ -162,6 +182,7 @@ const authSlice = createSlice({
         state.status = "idle";
         state.subscriptionStatus = null;
         state.nextBillingDate = null;
+
         disconnectChatSocket();
       })
 

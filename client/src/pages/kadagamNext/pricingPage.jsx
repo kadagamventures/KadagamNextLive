@@ -30,26 +30,29 @@ export default function PricingPage() {
 
       const resp = await paymentService.createOrder({ planId: plan._id });
 
+      // ✅ Handle free trial
       if (resp.trialActivated) {
+        if (resp.accessToken) {
+          localStorage.setItem("accessToken", resp.accessToken);
+        }
         navigate("/admin/dashboard");
         return;
       }
 
       const { order } = resp;
+
       await loadRazorpay();
 
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount: order.totalAmount.toString(),
+        amount: Math.round(order.amount).toString(), // Razorpay expects amount in paise
         currency: order.currency,
         name: "KadagamNext",
-        description: plan.isFreeTrial
-          ? `${plan.duration.value} ${plan.duration.unit} Free Trial`
-          : `${plan.duration.value} ${plan.duration.unit} Subscription`,
+        description: `${plan.duration.value} ${plan.duration.unit} Subscription`,
         order_id: order.orderId,
         handler: async (response) => {
-          const razorpay_order_id = response.razorpay_order_id || response.order_id;
-          const razorpay_payment_id = response.razorpay_payment_id || response.payment_id;
+          const razorpay_order_id = response.razorpay_order_id;
+          const razorpay_payment_id = response.razorpay_payment_id;
           const razorpay_signature = response.razorpay_signature;
 
           if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
@@ -57,11 +60,15 @@ export default function PricingPage() {
             return;
           }
 
-          await paymentService.capturePayment({
+          const result = await paymentService.capturePayment({
             razorpay_order_id,
             razorpay_payment_id,
             razorpay_signature,
           });
+
+          if (result?.accessToken) {
+            localStorage.setItem("accessToken", result.accessToken);
+          }
 
           navigate("/admin/dashboard");
         },
@@ -70,12 +77,18 @@ export default function PricingPage() {
           contact: localStorage.getItem("userPhone") || "",
         },
         theme: { color: "#139DEB" },
+        modal: {
+          ondismiss: () => {
+            console.log("Razorpay modal closed by user");
+          },
+        },
       };
 
-      new window.Razorpay(options).open();
+      const rzp = new window.Razorpay(options);
+      rzp.open();
     } catch (err) {
       console.error("Payment error:", err);
-      alert(err.error || err.message || "Payment failed. Please try again.");
+      alert(err?.response?.data?.error || err.message || "Payment failed. Please try again.");
     }
   };
 

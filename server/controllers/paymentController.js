@@ -1,8 +1,10 @@
 require("dotenv").config();
-const crypto          = require("crypto");
-const planService     = require("../services/planService");
+const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
+
+const planService = require("../services/planService");
 const razorpayService = require("../services/razorpayService");
-const billingService  = require("../services/billingService");
+const billingService = require("../services/billingService");
 
 module.exports = {
   /**
@@ -19,9 +21,7 @@ module.exports = {
 
     const companyId = req.user?.companyId;
     if (!companyId) {
-      return res
-        .status(401)
-        .json({ error: "Unauthorized: missing companyId in token" });
+      return res.status(401).json({ error: "Unauthorized: missing companyId in token" });
     }
 
     try {
@@ -32,18 +32,28 @@ module.exports = {
 
       if (plan.isFreeTrial) {
         const subscription = await billingService.activateTrial(companyId, planId);
+
+        // Optional: issue a token for free trial too
+        const accessToken = jwt.sign({ companyId }, process.env.JWT_SECRET, { expiresIn: "1h" });
+
+        res.cookie("accessToken", accessToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+          maxAge: 60 * 60 * 1000, // 1 hour
+        });
+
         return res.status(200).json({
           trialActivated: true,
           subscription,
+          accessToken,
         });
       }
 
-      const order = await razorpayService.createOrder(
+      const order = await razorpayService.createOrder(companyId, planId, "INR", {
         companyId,
         planId,
-        "INR",
-        { companyId, planId }
-      );
+      });
 
       return res.status(200).json({
         trialActivated: false,
@@ -51,9 +61,7 @@ module.exports = {
       });
     } catch (err) {
       console.error("❌ createOrder Error:", err);
-      return res
-        .status(500)
-        .json({ error: err.message || "Something went wrong" });
+      return res.status(500).json({ error: err.message || "Something went wrong" });
     }
   },
 
@@ -63,60 +71,59 @@ module.exports = {
    * and updates the subscription.
    */
   async capturePayment(req, res) {
-    // 1️⃣ Ensure auth first
     const companyId = req.user?.companyId;
     if (!companyId) {
       console.error("❌ capturePayment: missing companyId in token");
-      return res
-        .status(401)
-        .json({ error: "Unauthorized: missing companyId in token" });
+      return res.status(401).json({ error: "Unauthorized: missing companyId in token" });
     }
 
-    // 2️⃣ Debug log inbound body
     console.log("▶️ [capturePayment] req.body:", req.body);
 
-    // 3️⃣ Support both razorpay_* and raw keys
-    const razorpay_order_id   = req.body.razorpay_order_id   || req.body.order_id;
+    const razorpay_order_id = req.body.razorpay_order_id || req.body.order_id;
     const razorpay_payment_id = req.body.razorpay_payment_id || req.body.payment_id;
-    const razorpay_signature  = req.body.razorpay_signature;
+    const razorpay_signature = req.body.razorpay_signature;
 
-    // 4️⃣ Validate required parameters
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      console.error(
-        "❌ capturePayment missing params:",
-        { razorpay_order_id, razorpay_payment_id, razorpay_signature }
-      );
-      return res
-        .status(400)
-        .json({ error: "Missing required payment parameters" });
+      console.error("❌ capturePayment missing params:", {
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+      });
+      return res.status(400).json({ error: "Missing required payment parameters" });
     }
 
     try {
-      // 5️⃣ Process payment success: record history, generate & email invoice
       const { invoiceNumber, downloadUrl } = await razorpayService.handlePaymentSuccess({
         razorpay_order_id,
         razorpay_payment_id,
         razorpay_signature,
       });
 
-      // 6️⃣ Fetch updated subscription status
       const subscription = await billingService.fetchStatus(companyId);
 
-      // 7️⃣ Respond to client
+      // 🪙 Issue a fresh access token after payment
+      const accessToken = jwt.sign({ companyId }, process.env.JWT_SECRET, { expiresIn: "1h" });
+
+      res.cookie("accessToken", accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+        maxAge: 60 * 60 * 1000,
+      });
+
       return res.status(200).json({
         success: true,
         subscription,
         invoiceNumber,
         downloadUrl,
+        accessToken,
       });
     } catch (err) {
       console.error("❌ capturePayment Error:", err);
       if (err.message.includes("Invalid Razorpay signature")) {
         return res.status(401).json({ error: err.message });
       }
-      return res
-        .status(500)
-        .json({ error: err.message || "Something went wrong" });
+      return res.status(500).json({ error: err.message || "Something went wrong" });
     }
   },
 
@@ -126,14 +133,11 @@ module.exports = {
    */
   async handleWebhook(req, res) {
     try {
-      const secret    = process.env.RAZORPAY_WEBHOOK_SECRET;
+      const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
       const signature = req.headers["x-razorpay-signature"];
-      const payload   = JSON.stringify(req.body);
+      const payload = JSON.stringify(req.body);
 
-      const expected = crypto
-        .createHmac("sha256", secret)
-        .update(payload)
-        .digest("hex");
+      const expected = crypto.createHmac("sha256", secret).update(payload).digest("hex");
 
       if (expected !== signature) {
         return res.status(400).send("Invalid signature");
@@ -143,9 +147,9 @@ module.exports = {
       if (event === "payment.captured" && p.payment?.entity) {
         const payment = p.payment.entity;
         await razorpayService.handlePaymentSuccess({
-          razorpay_order_id:   payment.order_id,
+          razorpay_order_id: payment.order_id,
           razorpay_payment_id: payment.id,
-          razorpay_signature:  signature,
+          razorpay_signature: signature,
         });
       }
 
@@ -165,14 +169,14 @@ module.exports = {
     if (!companyId) {
       return res.status(400).json({ error: "Missing companyId in token." });
     }
+
     try {
       const statusInfo = await billingService.fetchStatus(companyId);
       return res.status(200).json(statusInfo);
     } catch (err) {
       console.error("❌ fetchStatus Error:", err);
-      return res
-        .status(500)
-        .json({ error: err.message || "Something went wrong" });
+      return res.status(500).json({ error: err.message || "Something went wrong" });
     }
   },
 };
+  

@@ -2,10 +2,10 @@ import axios from "axios";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-// ✅ Axios instance using cookies
+// ✅ Axios instance
 const tokenRefreshInterceptor = axios.create({
   baseURL: BASE_URL,
-  withCredentials: true, // 🔥 Essential to send cookies
+  withCredentials: true, // Optional if using HttpOnly cookies
   timeout: 30000,
 });
 
@@ -24,23 +24,26 @@ const onTokenRefreshed = (token) => {
 
 const retryFailedRequest = (error) => {
   return new Promise((resolve) => {
-    subscribeTokenRefresh((token) => {
+    subscribeTokenRefresh(() => {
       resolve(tokenRefreshInterceptor(error.config));
     });
   });
 };
 
-// --- Helper to read cookie value
-const getCookie = (name) => {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop().split(";").shift();
+// --- Helper to get token from localStorage
+const getToken = () => {
+  try {
+    const token = localStorage.getItem("token");
+    return token && token !== "null" && token !== "undefined" ? token : null;
+  } catch {
+    return null;
+  }
 };
 
-// --- Request Interceptor: Add Authorization Header
+// --- Request Interceptor: Add Authorization Header from localStorage
 tokenRefreshInterceptor.interceptors.request.use(
   (config) => {
-    const token = getCookie("accessToken");
+    const token = getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -68,12 +71,9 @@ tokenRefreshInterceptor.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      // 🔄 Use POST /auth/refresh and path match backend
-      const refreshResponse = await axios.post(
-        `${BASE_URL}/auth/refresh`,
-        null,
-        { withCredentials: true }
-      );
+      const refreshResponse = await axios.post(`${BASE_URL}/auth/refresh`, null, {
+        withCredentials: true,
+      });
 
       const { accessToken } = refreshResponse.data;
 
@@ -81,12 +81,14 @@ tokenRefreshInterceptor.interceptors.response.use(
         throw new Error("No token received during refresh.");
       }
 
-      // Notify all subscribers and retry original request
+      // Save new token
+      localStorage.setItem("token", accessToken);
+
+      // Retry original request with new token
+      originalRequest.headers.Authorization = `Bearer ${accessToken}`;
       onTokenRefreshed(accessToken);
       isRefreshing = false;
 
-      // Update Authorization header for the retried request
-      originalRequest.headers.Authorization = `Bearer ${accessToken}`;
       return tokenRefreshInterceptor(originalRequest);
     } catch (refreshError) {
       console.error("🔴 Token refresh failed:", refreshError.message);

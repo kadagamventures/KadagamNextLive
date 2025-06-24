@@ -1,20 +1,57 @@
-import { useState } from "react";
+// src/pages/auth/AdminLogin.jsx
+
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { initializeChatSocket, disconnectChatSocket } from "../../websocket/chatSocket";
+import { useDispatch, useSelector } from "react-redux";
+import { loginUser } from "../../redux/slices/authSlice";
+import {
+  initializeChatSocket,
+  disconnectChatSocket,
+} from "../../websocket/chatSocket";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { FiMail, FiLock } from "react-icons/fi";
 import backgroundImg from "../../assets/backimage.png";
 import kadagamLogo from "../../assets/kadagamlogo.png";
-import { tokenRefreshInterceptor as api } from "../../utils/axiosInstance";
 import { toast } from "react-toastify";
 
 const AdminLogin = () => {
   const [credentials, setCredentials] = useState({ loginId: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState(null);
 
+  const { status, error, user, isAuthenticated, subscriptionStatus } = useSelector(
+    (state) => state.auth
+  );
+  const dispatch = useDispatch();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (status === "success" && isAuthenticated && user) {
+      if (user.role !== "admin") {
+        setFormError("Access denied. Only admins can log in.");
+        return;
+      }
+
+      switch (subscriptionStatus) {
+        case "active":
+          toast.success("Login successful!");
+          initializeChatSocket()
+            .then(() => console.log("🟢 Chat socket initialized"))
+            .catch((err) => console.warn("⚠ Chat socket init failed:", err));
+          setTimeout(() => navigate("/admin/dashboard"), 150);
+          break;
+
+        case "pending":
+          toast.warn("Your subscription is pending. Please subscribe.");
+          navigate("/pricing", { state: { companyId: user.companyId } });
+          break;
+
+        default:
+          toast.error("Your company is not verified or has been deactivated.");
+          break;
+      }
+    }
+  }, [status, isAuthenticated, user, subscriptionStatus, navigate]);
 
   const handleChange = (e) =>
     setCredentials((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -23,75 +60,47 @@ const AdminLogin = () => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError(null);
-    setLoading(true);
+    setFormError(null);
 
     const { loginId, password } = credentials;
     if (!loginId || !password) {
-      setError("Both Login ID and Password are required.");
-      setLoading(false);
+      setFormError("Both Login ID and Password are required.");
       return;
     }
 
-    try {
-      disconnectChatSocket();
+    disconnectChatSocket();
 
-      const resp = await api.post("/auth/admin/login", { loginId, password });
-      const {
-        accessToken,
-        user,
-        subscriptionStatus,
-        nextBillingDate,
-      } = resp.data;
+    const resultAction = await dispatch(loginUser({ loginId, password }));
 
-      localStorage.setItem("accessToken", accessToken);
+    if (loginUser.rejected.match(resultAction)) {
+      const res = resultAction.payload;
 
-      if (user.role !== "admin") {
-        setError("Access denied. Only admins can log in.");
-        setLoading(false);
-        return;
-      }
-
-      if (subscriptionStatus === "active") {
-        await initializeChatSocket();
-        navigate("/admin/dashboard");
-      } else if (subscriptionStatus === "pending") {
-        toast.warn("Your company subscription is pending. Please subscribe.");
-        navigate("/pricing", { state: { companyId: user.companyId } });
-      } else {
-        toast.error("Your company is not verified or has been deactivated.");
-      }
-    } catch (err) {
-      const res = err.response;
       if (
-        res?.status === 403 &&
-        res.data?.code === "EMAIL_NOT_VERIFIED" &&
-        res.data?.companyId
+        res?.code === "EMAIL_NOT_VERIFIED" &&
+        res?.companyId &&
+        credentials?.loginId
       ) {
-        const { companyId } = res.data;
-        const email = credentials.loginId;
-
         try {
-          // ✅ Use the new public resend route
-          await api.post("/verify/resend", { companyId });
-        } catch (e) {
-          console.warn("OTP resend failed but continuing to verification screen.");
+          await fetch("/api/verify/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ companyId: res.companyId }),
+          });
+        } catch (err) {
+          console.warn("⚠ OTP send failed:", err);
         }
 
         navigate("/verification", {
           replace: true,
-          state: { companyId, email },
+          state: {
+            companyId: res.companyId,
+            email: credentials.loginId,
+          },
         });
-        return;
+      } else {
+        setFormError(res || "Login failed.");
       }
-
-      setError(
-        res?.data?.message ||
-        err.message ||
-        "Login failed. Please try again."
-      );
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -121,9 +130,9 @@ const AdminLogin = () => {
             Admin Login
           </h3>
 
-          {error && (
+          {formError && (
             <p className="text-sm text-red-600 bg-red-100 p-2 rounded mb-4 text-center">
-              {error}
+              {formError}
             </p>
           )}
 
@@ -139,7 +148,7 @@ const AdminLogin = () => {
                 value={credentials.loginId}
                 onChange={handleChange}
                 className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={loading}
+                disabled={status === "loading"}
               />
             </div>
 
@@ -154,7 +163,7 @@ const AdminLogin = () => {
                 value={credentials.password}
                 onChange={handleChange}
                 className="w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={loading}
+                disabled={status === "loading"}
               />
               <button
                 type="button"
@@ -169,9 +178,9 @@ const AdminLogin = () => {
             <button
               type="submit"
               className="w-full py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition disabled:opacity-50"
-              disabled={loading}
+              disabled={status === "loading"}
             >
-              {loading ? "Logging in..." : "Continue"}
+              {status === "loading" ? "Logging in..." : "Continue"}
             </button>
           </form>
 
@@ -179,7 +188,7 @@ const AdminLogin = () => {
             <button
               onClick={() => navigate("/admin/forgot-password")}
               className="text-sm text-blue-600 hover:underline"
-              disabled={loading}
+              disabled={status === "loading"}
             >
               Forgot your password?
             </button>
@@ -206,7 +215,7 @@ const AdminLogin = () => {
           <button
             onClick={() => navigate("/staff/login")}
             className="mt-6 w-full text-sm text-blue-600 hover:underline"
-            disabled={loading}
+            disabled={status === "loading"}
           >
             Staff Login
           </button>

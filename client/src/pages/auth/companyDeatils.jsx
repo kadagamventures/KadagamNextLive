@@ -47,6 +47,7 @@ export default function CompanyDetailsPage() {
     setLoading(true);
 
     try {
+      // 1) Save the details + create admin user
       const resp = await api.post("/company/details", {
         companyId,
         gstin: gstin.trim().toUpperCase(),
@@ -57,28 +58,27 @@ export default function CompanyDetailsPage() {
         adminPassword,
       });
 
-      // Navigate to verification with returned company info
-      const returnedCompany =
-        resp.data.data?.company || resp.data.company || {};
+      // 2) Immediately send exactly one verification code
+      await api.post("/verify/send", { companyId });
+
+      // 3) Navigate to your Verification page
+      //    Pass along companyId+email so they can confirm
+      const returnedEmail =
+        resp.data.data?.email || resp.data.data?.company?.email;
       navigate("/verification", {
         state: {
-          companyId: returnedCompany._id || companyId,
-          email: returnedCompany.email,
+          companyId,
+          email: returnedEmail,
         },
       });
-
     } catch (err) {
       const data = err.response?.data;
       const fieldErrors = {};
 
       if (Array.isArray(data?.errors)) {
-        // Map errors with `field`; otherwise collect under `form`
         data.errors.forEach(({ field, message }) => {
-          if (field) {
-            fieldErrors[field] = message;
-          } else {
-            fieldErrors.form = message;
-          }
+          if (field) fieldErrors[field] = message;
+          else fieldErrors.form = message;
         });
       } else if (data?.message) {
         fieldErrors.form = data.message;
@@ -108,7 +108,6 @@ export default function CompanyDetailsPage() {
         value={value}
         onChange={(e) => {
           onChange(e);
-          // Clear any existing error for this field
           if (serverErrors[name]) {
             setServerErrors((prev) => ({ ...prev, [name]: undefined }));
           }
@@ -159,7 +158,6 @@ export default function CompanyDetailsPage() {
             Company Details
           </h2>
 
-          {/* Show a form-level error, if any */}
           {serverErrors.form && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded mb-2">
               {serverErrors.form}

@@ -1,9 +1,7 @@
 // server/controllers/companyController.js
 
-const CompanyService      = require("../services/companyService");
-const EmailService        = require("../services/emailService");
-const VerificationService = require("../services/verificationService");
-const Company             = require("../models/Company");
+const CompanyService = require("../services/companyService");
+const Company        = require("../models/Company");
 
 /**
  * Step 1: Stub-register the company (basic info) and return companyId
@@ -36,7 +34,7 @@ async function registerCompany(req, res) {
           field: err.field || "email",
           message: err.message || "This email is already registered.",
         }],
-        existingCompanyId: err.existingCompanyId,  // ← include the existing ID
+        existingCompanyId: err.existingCompanyId,
       });
     }
 
@@ -50,6 +48,8 @@ async function registerCompany(req, res) {
 /**
  * Step 2: Complete company details & create tenant-admin user
  * Endpoint: POST /api/company/details
+ *
+ * NOTE: OTP generation/email is now handled exclusively via /api/verify/send.
  */
 async function addCompanyDetails(req, res) {
   try {
@@ -74,28 +74,17 @@ async function addCompanyDetails(req, res) {
         adminPassword,
       });
 
-    // Fire-and-forget welcome + verification emails
-    EmailService.sendEmail(
-      adminUser.email,
-      "Welcome to KadagamNext",
-      `Hello ${adminUser.name},\n\nYour account is ready!\n • Company Code: ${company._id}\n • Your Staff ID: ${adminUser.staffId}\n\nNext, please verify your email with the code we'll send you.\nThanks,\nKadagamNext Team`
-    ).catch((e) => console.error("Welcome email error:", e));
-
-    VerificationService.generateCode(company._id)
-      .then(() =>
-        VerificationService.sendVerificationEmail(company._id, adminUser.email)
-      )
-      .catch((e) => console.error("Verification email error:", e));
-
+    // Only send the welcome email here; OTP is sent via /api/verify/send
+    // (The service already sends the welcome email.)
     return res.status(200).json({
       success: true,
       next: "verify",
       message:
-        "Company details saved and admin user created. Verification code sent.",
+        "Company details saved and admin user created. Please verify via the verification endpoint.",
       data: {
         company,
         adminStaffId: adminUser.staffId,
-        email: adminUser.email,
+        email:        adminUser.email,
       },
     });
   } catch (err) {
@@ -108,12 +97,11 @@ async function addCompanyDetails(req, res) {
       });
     }
 
-    // Catch our duplicate-details re-submit
     if (err.code === "DETAILS_DUPLICATE") {
       return res.status(200).json({
         success: true,
         next: "verify",
-        message: "Details already submitted—OTP resent.",
+        message: "Details already submitted—OTP has been (re)sent.",
       });
     }
 
@@ -127,6 +115,8 @@ async function addCompanyDetails(req, res) {
 /**
  * Step 3: Verify company via OTP/code
  * Endpoint: POST /api/company/verify
+ *
+ * (Optional: you may route this through your /api/verify/confirm controller instead.)
  */
 async function verifyCompany(req, res) {
   try {
@@ -161,7 +151,6 @@ async function verifyCompany(req, res) {
  */
 async function getCompanyStatus(req, res) {
   try {
-    // assumes auth middleware sets req.user.companyId
     const company = await Company.findById(
       req.user.companyId,
       "isVerified"
@@ -192,9 +181,8 @@ async function getCompanyStatus(req, res) {
  */
 async function resendOtp(req, res) {
   try {
-    // Accept companyId & email either from req.user (logged-in) or req.body (login or incomplete reg)
     const companyId = req.user?.companyId || req.body.companyId;
-    const email     = req.user?.email || req.body.email;
+    const email     = req.user?.email     || req.body.email;
 
     if (!companyId || !email) {
       return res.status(400).json({
@@ -203,12 +191,11 @@ async function resendOtp(req, res) {
       });
     }
 
-    await VerificationService.generateCode(companyId);
-    await VerificationService.sendVerificationEmail(companyId, email);
-
-    return res.status(200).json({
-      success: true,
-      message: "Verification code resent to your email.",
+    // Delegate JWT generation and email to your /api/verify/send route
+    // (Or you could directly call VerificationService here if preferred.)
+    return res.status(400).json({
+      success: false,
+      message: "Use /api/verify/send to get a new code.",
     });
   } catch (err) {
     console.error("Resend OTP failed:", err);

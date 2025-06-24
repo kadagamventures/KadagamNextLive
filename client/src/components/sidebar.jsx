@@ -3,7 +3,6 @@ import { Link, useLocation } from "react-router-dom";
 import {
   FaChartPie,
   FaTasks,
-  
   FaSignOutAlt,
   FaComments,
   FaMoneyCheck,
@@ -30,25 +29,24 @@ const AdminSidebar = () => {
     { path: "/admin/projects/list", label: "Projects", icon: FaClipboardList },
     { path: "/admin/staffs/list", label: "Staff", icon: FaUserTag },
     { path: "/admin/tasks/list", label: "Tasks", icon: FaTasks },
-    { path: "/admin/set-attendnce", label: "Set Attendence", icon: FaCalendarCheck },
-    // { path: "/admin/tasks/review", label: "Review Tasks", icon: FaFileAlt },
+    { path: "/admin/set-attendnce", label: "Set Attendance", icon: FaCalendarCheck },
     { path: "/admin/chat", label: "Chat", icon: FaComments },
     { path: "/admin/reports", label: "Reports", icon: FaRegFolderOpen },
-    { path: "/admin/leave", label: "Leave", icon: FaUserAltSlash }, // This is the base path for Leave
+    { path: "/admin/leave", label: "Leave", icon: FaUserAltSlash },
     { path: "/admin/paymentstatus", label: "PaymentStatus", icon: FaMoneyCheck },
-    // { path: "/admin/daily-status", label: "Task Updates", icon: FaSyncAlt },
   ];
 
-  // Scroll persistence and smooth scroll styling
   useEffect(() => {
     const container = scrollRef.current;
-    const saved = sessionStorage.getItem("admin-sidebar-scroll");
-    if (container && saved) {
-      container.scrollTo({ top: parseInt(saved, 10), behavior: "auto" });
+    const savedScroll = sessionStorage.getItem("admin-sidebar-scroll");
+    if (container && savedScroll) {
+      container.scrollTo({ top: parseInt(savedScroll, 10), behavior: "auto" });
     }
 
     const saveScroll = () => {
-      sessionStorage.setItem("admin-sidebar-scroll", container.scrollTop.toString());
+      if (container) {
+        sessionStorage.setItem("admin-sidebar-scroll", container.scrollTop.toString());
+      }
     };
 
     container?.addEventListener("scroll", saveScroll);
@@ -56,7 +54,7 @@ const AdminSidebar = () => {
   }, [location.pathname]);
 
   return (
-    <nav className="bg-white text-gray-500 w-16 md:w-64 h-screen fixed top-0 left-0 p-4 md:p-6 flex flex-col shadow-lg">
+    <nav className="bg-white text-gray-500 w-16 md:w-64 h-screen fixed top-0 left-0 p-4 md:p-6 flex flex-col shadow-lg z-50">
       <style>
         {`
           .scrollbar-style::-webkit-scrollbar {
@@ -81,12 +79,12 @@ const AdminSidebar = () => {
         `}
       </style>
 
-      {/* Header */}
-      <div className="p-1 md:p-1 mb-5">
+      {/* Logo Header */}
+      <div className="p-1 mb-5">
         <div className="flex items-center mb-3 whitespace-nowrap">
           <img
             src={kadagamLogo}
-            alt="Logo"
+            alt="Kadagam Logo"
             className="w-10 h-10 md:w-12 md:h-12 mr-7 md:mr-0"
           />
           <h3 className="hidden md:block font-extrabold text-red-600">
@@ -96,24 +94,19 @@ const AdminSidebar = () => {
       </div>
 
       {/* Scrollable Menu */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto mb-4 pr-1 scrollbar-style"
-      >
+      <div ref={scrollRef} className="flex-1 overflow-y-auto mb-4 pr-1 scrollbar-style">
         <ul className="space-y-4">
           {menuItems.map(({ path, label, icon: Icon }) => {
-            // Check if the current location path starts with the menu item's path
-            // This handles nested routes like /admin/leave/apply, /admin/leave/history
             const isActive = location.pathname.startsWith(path);
-
             return (
               <li key={path}>
                 <Link
                   to={path}
-                  className={`flex items-center px-3 py-3 rounded-lg transition-all duration-500 ${isActive
+                  className={`flex items-center px-3 py-3 rounded-lg transition-all duration-500 ${
+                    isActive
                       ? "bg-blue-800 text-white shadow-md"
                       : "hover:text-blue-800"
-                    }`}
+                  }`}
                 >
                   <Icon className="text-lg transition-transform duration-300" />
                   <span className="hidden md:inline ml-3 font-medium">
@@ -126,7 +119,7 @@ const AdminSidebar = () => {
         </ul>
       </div>
 
-      {/* Bottom Logout */}
+      {/* Logout Button */}
       <div className="p-4 md:p-6">
         <button
           onClick={handleLogout}
@@ -139,4 +132,5 @@ const AdminSidebar = () => {
     </nav>
   );
 };
+
 export default AdminSidebar;
