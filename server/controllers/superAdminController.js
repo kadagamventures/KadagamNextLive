@@ -1,8 +1,5 @@
 const superAdminService = require("../services/superAdminService");
 
-// ─────────────────────────────────────────────
-// 🍪 Shared cookie options
-// ─────────────────────────────────────────────
 const ONE_HOUR = 60 * 60 * 1000;
 const isProd = process.env.NODE_ENV === "production";
 const cookieOptions = {
@@ -12,9 +9,7 @@ const cookieOptions = {
   maxAge: ONE_HOUR,
 };
 
-// ─────────────────────────────────────────────
 // 🔐 POST /api/super-admin/login
-// ─────────────────────────────────────────────
 const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -40,9 +35,7 @@ const login = async (req, res, next) => {
   }
 };
 
-// ─────────────────────────────────────────────
 // 🏢 GET /api/super-admin/companies
-// ─────────────────────────────────────────────
 const getCompanies = async (req, res, next) => {
   try {
     const companies = await superAdminService.getAllCompanies();
@@ -52,9 +45,7 @@ const getCompanies = async (req, res, next) => {
   }
 };
 
-// ─────────────────────────────────────────────
 // 🏢 GET /api/super-admin/companies/:id
-// ─────────────────────────────────────────────
 const getCompanyDetails = async (req, res, next) => {
   try {
     const company = await superAdminService.getCompanyById(req.params.id);
@@ -64,9 +55,7 @@ const getCompanyDetails = async (req, res, next) => {
   }
 };
 
-// ─────────────────────────────────────────────
 // 🔄 PUT /api/super-admin/companies/:id/subscription
-// ─────────────────────────────────────────────
 const updateSubscription = async (req, res, next) => {
   try {
     const { status } = req.body;
@@ -74,10 +63,7 @@ const updateSubscription = async (req, res, next) => {
       return res.status(400).json({ error: "Subscription status is required." });
     }
 
-    const company = await superAdminService.updateCompanySubscriptionStatus(
-      req.params.id,
-      status
-    );
+    const company = await superAdminService.updateCompanySubscriptionStatus(req.params.id, status);
     return res.status(200).json({
       message: "Subscription status updated",
       company,
@@ -87,9 +73,7 @@ const updateSubscription = async (req, res, next) => {
   }
 };
 
-// ─────────────────────────────────────────────
 // ⚙️ PUT /api/super-admin/companies/:id/trust
-// ─────────────────────────────────────────────
 const updateTrust = async (req, res, next) => {
   try {
     const { trustLevel, isVerified } = req.body;
@@ -113,9 +97,7 @@ const updateTrust = async (req, res, next) => {
   }
 };
 
-// ─────────────────────────────────────────────
 // ❌ DELETE /api/super-admin/companies/:id
-// ─────────────────────────────────────────────
 const deleteCompany = async (req, res, next) => {
   try {
     const company = await superAdminService.softDeleteCompany(req.params.id);
@@ -128,9 +110,7 @@ const deleteCompany = async (req, res, next) => {
   }
 };
 
-// ─────────────────────────────────────────────
 // 💰 GET /api/super-admin/revenue?year=YYYY
-// ─────────────────────────────────────────────
 const getRevenue = async (req, res, next) => {
   try {
     const year = req.query.year ? parseInt(req.query.year, 10) : new Date().getFullYear();
@@ -141,24 +121,17 @@ const getRevenue = async (req, res, next) => {
   }
 };
 
-// ─────────────────────────────────────────────
 // 📄 GET /api/super-admin/companies/:id/payments?year=YYYY
-// ─────────────────────────────────────────────
 const getPaymentHistory = async (req, res, next) => {
   try {
-    const history = await superAdminService.getPaymentHistory(
-      req.params.id,
-      req.query.year
-    );
+    const history = await superAdminService.getPaymentHistory(req.params.id, req.query.year);
     return res.status(200).json(history);
   } catch (err) {
     next(err);
   }
 };
 
-// ─────────────────────────────────────────────
 // 📥 GET /api/super-admin/companies/:id/payments/:invoiceId/pdf
-// ─────────────────────────────────────────────
 const downloadInvoicePDF = async (req, res, next) => {
   try {
     const buffer = await superAdminService.downloadInvoicePDF(req.params.invoiceId);
@@ -174,9 +147,7 @@ const downloadInvoicePDF = async (req, res, next) => {
   }
 };
 
-// ─────────────────────────────────────────────
 // ⚙️ GET /api/super-admin/plans
-// ─────────────────────────────────────────────
 const getPlanConfig = async (req, res, next) => {
   try {
     const plans = await superAdminService.getPlanConfig();
@@ -186,9 +157,7 @@ const getPlanConfig = async (req, res, next) => {
   }
 };
 
-// ─────────────────────────────────────────────
 // ⚙️ PUT /api/super-admin/plans
-// ─────────────────────────────────────────────
 const updatePlanConfig = async (req, res, next) => {
   try {
     const configs = req.body;
@@ -220,6 +189,40 @@ const updatePlanConfig = async (req, res, next) => {
     const updated = await superAdminService.updatePlanConfig(configs);
     return res.status(200).json(updated);
   } catch (err) {
+    if (err.message?.startsWith("Duplicate duration found")) {
+      return res.status(409).json({ error: err.message });
+    }
+    next(err);
+  }
+};
+
+// 🔁 PUT /api/super-admin/plans/:id
+const updateSinglePlan = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const cfg = req.body;
+
+    const validUnits = ["days", "months", "years"];
+    if (
+      !cfg ||
+      typeof cfg.name !== "string" ||
+      typeof cfg.duration?.value !== "number" ||
+      !validUnits.includes(cfg.duration?.unit) ||
+      typeof cfg.price !== "number" ||
+      typeof cfg.gstPercentage !== "number"
+    ) {
+      return res.status(400).json({
+        error:
+          "Missing or invalid fields. Required: name (string), duration.value (number), duration.unit ('days'|'months'|'years'), price (number), gstPercentage (number).",
+      });
+    }
+
+    const updated = await superAdminService.updateSinglePlan(id, cfg);
+    return res.status(200).json({
+      message: "Plan updated successfully",
+      plan: updated,
+    });
+  } catch (err) {
     next(err);
   }
 };
@@ -239,4 +242,5 @@ module.exports = {
   downloadInvoicePDF,
   getPlanConfig,
   updatePlanConfig,
+  updateSinglePlan, // ✅ Added
 };

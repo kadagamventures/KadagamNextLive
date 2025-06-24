@@ -94,4 +94,13 @@ router
   .get(verifyToken, isSuperAdmin, superAdminController.getPlanConfig)
   .put(verifyToken, isSuperAdmin, superAdminController.updatePlanConfig);
 
+// 🔁 Update Single Plan
+// PUT /api/super-admin/plans/:id
+router.put(
+  "/plans/:id",
+  verifyToken,
+  isSuperAdmin,
+  superAdminController.updateSinglePlan
+);
+
 module.exports = router;

@@ -28,7 +28,7 @@ class SuperAdminService {
     return { token, user };
   }
 
-  // 📦 List all companies (tenants)
+  // 📦 List all companies
   async getAllCompanies() {
     const companies = await Company.find({ isDeleted: false })
       .populate({
@@ -52,7 +52,7 @@ class SuperAdminService {
     }));
   }
 
-  // 📄 Fetch single company details
+  // 📄 Get single company
   async getCompanyById(companyId) {
     const c = await Company.findById(companyId)
       .populate({
@@ -75,7 +75,7 @@ class SuperAdminService {
     };
   }
 
-  // 💰 Fetch payment history + presigned URLs
+  // 💰 Get payment history
   async getPaymentHistory(companyId, year) {
     const company = await Company.findOne({
       _id: companyId,
@@ -237,10 +237,19 @@ class SuperAdminService {
       .lean();
   }
 
-  // 🔁 Update plan configurations
+  // 🔁 Update plan configurations (bulk)
   async updatePlanConfig(configs) {
     if (!Array.isArray(configs) || configs.length === 0) {
       throw new Error("Must provide an array of plan configurations.");
+    }
+
+    const seen = new Set();
+    for (const cfg of configs) {
+      const key = `${cfg.duration.value}-${cfg.duration.unit}`;
+      if (seen.has(key)) {
+        throw new Error(`Duplicate duration found: ${cfg.duration.value} ${cfg.duration.unit}`);
+      }
+      seen.add(key);
     }
 
     const ops = configs.map(cfg => {
@@ -266,7 +275,30 @@ class SuperAdminService {
     return this.getPlanConfig();
   }
 
-  // 📥 Proxy‑download raw PDF bytes via server
+  // ✅ NEW: Update a single plan
+  async updateSinglePlan(planId, cfg) {
+    const isFree = cfg.price === 0;
+    const updated = await Plan.findByIdAndUpdate(
+      planId,
+      {
+        $set: {
+          name: cfg.name,
+          duration: cfg.duration,
+          price: cfg.price,
+          gstPercentage: cfg.gstPercentage ?? 18,
+          isActive: Boolean(cfg.isActive),
+          isFreeTrial: isFree
+        }
+      },
+      { new: true }
+    ).lean();
+
+    if (!updated) throw new Error("Plan not found or update failed");
+
+    return updated;
+  }
+
+  // 📥 Download invoice PDF stream
   async downloadInvoicePDF(invoiceId) {
     if (!invoiceId) throw new Error("Invoice ID is required");
 

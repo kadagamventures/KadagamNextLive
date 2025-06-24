@@ -16,9 +16,9 @@ export default function VerificationPage() {
   const { companyId, email } = location.state || {};
 
   useEffect(() => {
+    // If accessed directly or missing state, send back to signup
     if (!companyId || !email) {
-      // If accessed directly, send back to signup
-      navigate('/auth/signup', { replace: true });
+      navigate('/signin', { replace: true });
     }
   }, [companyId, email, navigate]);
 
@@ -27,7 +27,7 @@ export default function VerificationPage() {
     const nextOtp = [...otp];
     nextOtp[index] = value;
     setOtp(nextOtp);
-    if (value && index < 3) {
+    if (value && index < otp.length - 1) {
       const nextInput = document.getElementById(`otp-${index + 1}`);
       nextInput?.focus();
     }
@@ -38,16 +38,17 @@ export default function VerificationPage() {
     setError('');
 
     const code = otp.join('');
-    if (code.length < 4) {
-      setError('Please enter the 4-digit code.');
+    if (code.length < otp.length) {
+      setError(`Please enter the ${otp.length}-digit code.`);
       return;
     }
 
     try {
-      await api.post('/verify/confirm', { companyId, code });
+      await api.post('/company/verify', { companyId, code });
       // After successful verification, navigate to Admin Login
       navigate('/admin/login', {
-        state: { companyId, prefillEmail: email },
+        state: { prefillEmail: email },
+        replace: true,
       });
     } catch (err) {
       setError(
@@ -60,7 +61,7 @@ export default function VerificationPage() {
   const handleResend = async () => {
     setResendMessage('');
     try {
-      await api.post('/verify/send', { companyId });
+      await api.post('/company/resend-otp', { companyId });
       setResendMessage('Code resent. Check your inbox.');
     } catch {
       setResendMessage('Could not resend code. Try again later.');
@@ -96,7 +97,7 @@ export default function VerificationPage() {
             Enter Verification Code
           </h2>
           <p className="text-sm text-gray-600 text-center">
-            We sent a 4-digit code to
+            We sent a {otp.length}-digit code to
           </p>
           <input
             type="email"
@@ -148,7 +149,7 @@ export default function VerificationPage() {
 
           <button
             type="button"
-            onClick={() => navigate('/admin/login')}
+            onClick={() => navigate('/admin/login', { replace: true })}
             className="text-sm text-blue-600 hover:underline"
           >
             Back to Login

@@ -69,6 +69,39 @@ export default function CreateAccountPage() {
       });
     } catch (err) {
       const resp = err.response?.data;
+
+      // ✅ Handle EMAIL_TAKEN but unverified case
+      if (
+        err.response?.status === 409 &&
+        resp?.message?.toLowerCase().includes("email") &&
+        resp?.existingCompanyId
+      ) {
+        try {
+          await api.post(
+            "/company/resend-otp",
+            {},
+            {
+              headers: {
+                "x-company-id": resp.existingCompanyId, // if using header auth
+              },
+            }
+          );
+
+          navigate("/verification", {
+            state: {
+              companyId: resp.existingCompanyId,
+              email: email.trim().toLowerCase(),
+            },
+          });
+        } catch (resendError) {
+          console.error("Resend OTP failed:", resendError);
+          setServerErrors({
+            form: "Email already registered. Could not resend OTP.",
+          });
+        }
+        return;
+      }
+
       if (resp?.errors?.length) {
         const mapped = {};
         for (const error of resp.errors) {

@@ -11,7 +11,7 @@ const ONE_HOUR = 60 * 60 * 1000;
 
 class AuthService {
   /**
-   * 1) Generate & store a password-reset token for a given userId. 
+   * 1) Generate & store a password-reset token for a given userId.
    *    Returns the raw resetToken (to be emailed).
    */
   async generateResetToken(userId) {
@@ -19,10 +19,13 @@ class AuthService {
     if (!user) throw new Error("User not found");
     if (user.isDeleted) throw new Error("User no longer active.");
     if (!user.isActive) throw new Error("User inactive. Contact admin.");
+
+    // super_admins skip company check
     if (user.role !== "super_admin") {
       const comp = await Company.findById(user.companyId);
-      if (!comp || comp.isDeleted)
+      if (!comp || comp.isDeleted) {
         throw new Error("Company unavailable or banned.");
+      }
     }
 
     // Clear any existing reset token
@@ -41,14 +44,13 @@ class AuthService {
   }
 
   /**
-   * 2) Consume a reset-token + newPassword:
+   * 2) Consume a reset-token + newPassword
    */
   async resetPassword(token, newPassword) {
     if (!token || !newPassword)
       throw new Error("Token and new password are required.");
 
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
-
     const user = await User.findOne({
       resetPasswordToken:   hashedToken,
       resetPasswordExpires: { $gt: Date.now() },
@@ -57,7 +59,6 @@ class AuthService {
 
     const salt = await bcrypt.genSalt(12);
     user.password = await bcrypt.hash(newPassword, salt);
-
     user.resetPasswordToken   = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
@@ -74,6 +75,7 @@ class AuthService {
     const password = passwordRaw.trim();
     let user;
 
+    // find user by email or staffId
     if (isEmail) {
       user = await User.findOne({
         email:     loginId.toLowerCase(),
@@ -87,22 +89,37 @@ class AuthService {
         isDeleted: false,
       });
     }
+    if (!user) {
+      throw this._makeError(401, "INVALID_CREDENTIALS", "User not found.");
+    }
 
-    if (!user) throw new Error("User not found.");
-    if (!user.isActive)
-      throw new Error("User account is inactive. Contact admin.");
+    if (!user.isActive) {
+      throw this._makeError(403, "INACTIVE_ACCOUNT", "User account is inactive. Contact admin.");
+    }
 
-    // Determine subscription status
-    const subResult = await this._fetchSubscriptionStatus(user);
+    // check company status
+    const comp = await Company.findById(user.companyId);
+    if (!comp || comp.isDeleted) {
+      throw this._makeError(403, "COMPANY_INVALID", "Company unavailable or banned.", {
+        companyId: user.companyId,
+      });
+    }
+    if (!comp.isVerified) {
+      throw this._makeError(403, "EMAIL_NOT_VERIFIED", "Email not verified.", {
+        companyId: user.companyId,
+      });
+    }
 
-    // Verify password
+    // verify password
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) throw new Error("Incorrect password");
+    if (!isMatch) {
+      throw this._makeError(401, "INVALID_CREDENTIALS", "Incorrect password");
+    }
 
-    // Generate a fresh access token
+    // generate token
     const accessToken = tokenUtils.generateAccessToken(user);
 
-    // Omit sensitive fields
+    // sanitize user object
     const safeUser = user.toObject();
     delete safeUser.password;
     delete safeUser.resetPasswordToken;
@@ -111,47 +128,27 @@ class AuthService {
     return {
       token:              accessToken,
       user:               safeUser,
-      subscriptionStatus: subResult.status,
-      nextBillingDate:    subResult.nextBillingDate,
+      subscriptionStatus: comp.subscription?.status || "pending",
+      nextBillingDate:    comp.subscription?.nextBillingDate || null,
     };
   }
 
   /**
-   * 4) New! Refresh only subscription status for an already-authenticated user.
+   * 4) Refresh subscription status
    */
   async refreshSubscription(userId) {
     const user = await User.findById(userId);
     if (!user) throw new Error("User not found.");
 
-    const subResult = await this._fetchSubscriptionStatus(user);
-    return {
-      subscriptionStatus: subResult.status,
-      nextBillingDate:    subResult.nextBillingDate,
-    };
-  }
-
-  /**
-   * Internal helper to fetch a user's subscription status & next billing date.
-   */
-  async _fetchSubscriptionStatus(user) {
-    let status         = "pending";
-    let nextBillingDate = null;
-
-    if (user.role === "super_admin") {
-      status = "active";  // super admins are always treated active
-    } else {
-      const company = await Company.findById(user.companyId);
-      if (!company || company.isDeleted) {
-        status = "inactive";
-      } else if (!company.isVerified) {
-        status = "unverified";
-      } else {
-        status         = company.subscription?.status || "pending";
-        nextBillingDate = company.subscription?.nextBillingDate || null;
-      }
+    const comp = await Company.findById(user.companyId);
+    if (!comp || comp.isDeleted) {
+      throw new Error("Company unavailable or banned.");
     }
 
-    return { status, nextBillingDate };
+    return {
+      subscriptionStatus: comp.subscription?.status || "pending",
+      nextBillingDate:    comp.subscription?.nextBillingDate || null,
+    };
   }
 
   /**
@@ -170,6 +167,17 @@ class AuthService {
   async hashPassword(plainPassword) {
     const salt = await bcrypt.genSalt(12);
     return bcrypt.hash(plainPassword, salt);
+  }
+
+  /**
+   * Helper to throw a structured error
+   */
+  _makeError(statusCode, code, message, extras = {}) {
+    const err = new Error(message);
+    err.statusCode = statusCode;
+    err.code       = code;
+    Object.assign(err, extras);
+    return err;
   }
 }
 

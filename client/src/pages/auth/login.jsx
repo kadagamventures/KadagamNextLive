@@ -1,16 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
-import { toast } from "react-toastify";
-import { loginUser } from "../../redux/slices/authSlice";
-import {
-  initializeChatSocket,
-  disconnectChatSocket,
-} from "../../websocket/chatSocket";
+import { initializeChatSocket, disconnectChatSocket } from "../../websocket/chatSocket";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { FiMail, FiLock } from "react-icons/fi";
 import backgroundImg from "../../assets/backimage.png";
 import kadagamLogo from "../../assets/kadagamlogo.png";
-import { FiMail, FiLock } from "react-icons/fi";
+import { tokenRefreshInterceptor as api } from "../../utils/axiosInstance";
+import { toast } from "react-toastify";
 
 const AdminLogin = () => {
   const [credentials, setCredentials] = useState({ loginId: "", password: "" });
@@ -19,7 +15,6 @@ const AdminLogin = () => {
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
-  const dispatch = useDispatch();
 
   const handleChange = (e) =>
     setCredentials((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -40,35 +35,61 @@ const AdminLogin = () => {
 
     try {
       disconnectChatSocket();
-      const actionResult = await dispatch(loginUser({ loginId, password }));
-      const result = actionResult.payload;
 
-      if (loginUser.fulfilled.match(actionResult)) {
-        const { user, subscriptionStatus } = result;
+      const resp = await api.post("/auth/admin/login", { loginId, password });
+      const {
+        accessToken,
+        user,
+        subscriptionStatus,
+        nextBillingDate,
+      } = resp.data;
 
-        if (user.role !== "admin") {
-          setError("Access denied. Only admins can log in.");
-          setLoading(false);
-          return;
-        }
+      localStorage.setItem("accessToken", accessToken);
 
-        if (subscriptionStatus === "active") {
-          await initializeChatSocket();
-          navigate("/admin/dashboard");
-        } else if (subscriptionStatus === "pending") {
-          toast.warn("Your company subscription is pending. Please subscribe.");
-          navigate("/pricing", { state: { companyId: user.companyId } });
-        } else if (subscriptionStatus === "invalid") {
-          toast.error("Your company is not verified or has been deactivated.");
-        } else {
-          toast.warn("Company subscription is not active.");
-          navigate("/pricing", { state: { companyId: user.companyId } });
-        }
+      if (user.role !== "admin") {
+        setError("Access denied. Only admins can log in.");
+        setLoading(false);
+        return;
+      }
+
+      if (subscriptionStatus === "active") {
+        await initializeChatSocket();
+        navigate("/admin/dashboard");
+      } else if (subscriptionStatus === "pending") {
+        toast.warn("Your company subscription is pending. Please subscribe.");
+        navigate("/pricing", { state: { companyId: user.companyId } });
       } else {
-        setError(result?.message || "Invalid login attempt.");
+        toast.error("Your company is not verified or has been deactivated.");
       }
     } catch (err) {
-      setError(err.message || "Login failed. Please try again.");
+      const res = err.response;
+      if (
+        res?.status === 403 &&
+        res.data?.code === "EMAIL_NOT_VERIFIED" &&
+        res.data?.companyId
+      ) {
+        const { companyId } = res.data;
+        const email = credentials.loginId;
+
+        try {
+          // ✅ Use the new public resend route
+          await api.post("/verify/resend", { companyId });
+        } catch (e) {
+          console.warn("OTP resend failed but continuing to verification screen.");
+        }
+
+        navigate("/verification", {
+          replace: true,
+          state: { companyId, email },
+        });
+        return;
+      }
+
+      setError(
+        res?.data?.message ||
+        err.message ||
+        "Login failed. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -76,7 +97,7 @@ const AdminLogin = () => {
 
   return (
     <div
-      className="relative min-h-screen flex overflow-visible"
+      className="relative min-h-screen flex"
       style={{
         backgroundImage: `url(${backgroundImg})`,
         backgroundSize: "cover",
@@ -85,12 +106,7 @@ const AdminLogin = () => {
     >
       <div className="hidden md:flex w-1/2 bg-opacity-50 items-center justify-center">
         <div className="text-white text-center p-8">
-          <h1
-            className="text-5xl font-extrabold"
-            style={{ fontFamily: "inter", fontSize: "69px" }}
-          >
-            Kadagam Next
-          </h1>
+          <h1 className="text-5xl font-extrabold">Kadagam Next</h1>
           <p className="mt-4 text-xl">Your ultimate workspace</p>
         </div>
       </div>
@@ -113,7 +129,7 @@ const AdminLogin = () => {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 pointer-events-none">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
                 <FiMail size={18} />
               </div>
               <input
@@ -122,13 +138,13 @@ const AdminLogin = () => {
                 placeholder="Admin ID or Email"
                 value={credentials.loginId}
                 onChange={handleChange}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 disabled={loading}
               />
             </div>
 
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 pointer-events-none">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
                 <FiLock size={18} />
               </div>
               <input
@@ -137,7 +153,7 @@ const AdminLogin = () => {
                 placeholder="Password"
                 value={credentials.password}
                 onChange={handleChange}
-                className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 disabled={loading}
               />
               <button

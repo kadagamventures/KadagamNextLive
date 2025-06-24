@@ -1,24 +1,24 @@
 // server/server.js
 
 require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
-const helmet = require("helmet");
-const morgan = require("morgan");
-const http = require("http");
-const mongoose = require("mongoose");
+const express     = require("express");
+const cors        = require("cors");
+const helmet      = require("helmet");
+const morgan      = require("morgan");
+const http        = require("http");
+const mongoose    = require("mongoose");
 const compression = require("compression");
-const passport = require("passport");
-const session = require("express-session");
-const cookieParser = require("cookie-parser");
-const { body } = require("express-validator");
+const passport    = require("passport");
+const session     = require("express-session");
+const cookieParser= require("cookie-parser");
+const { body }    = require("express-validator");
 
 require("./config/passport");
 
-const { verifyToken } = require("./middlewares/authMiddleware");
-const enforceActiveSubscription = require("./middlewares/enforceActiveSubscription");
-const ensureVerifiedTenant = require("./middlewares/ensureVerifiedTenant");
-const { adminLimiter } = require("./middlewares/rateLimiterMiddleware");
+const { verifyToken }              = require("./middlewares/authMiddleware");
+const enforceActiveSubscription    = require("./middlewares/enforceActiveSubscription");
+const ensureVerifiedTenant         = require("./middlewares/ensureVerifiedTenant");
+const { adminLimiter }             = require("./middlewares/rateLimiterMiddleware");
 const { errorHandler, notFoundHandler } = require("./middlewares/errorMiddleware");
 const {
   validateRequest,
@@ -26,7 +26,7 @@ const {
   validateEmailUnique,
 } = require("./middlewares/validationMiddleware");
 
-const connectDB = require("./config/dbConfig");
+const connectDB    = require("./config/dbConfig");
 const { connectRedis, redisClient } = require("./config/redisConfig");
 
 const authRoutes             = require("./routes/authRoutes");
@@ -53,8 +53,6 @@ const superAdminRoutes       = require("./routes/superAdminRoutes");
 const deleteFileRoute        = require("./routes/deleteFile");
 const officeTimingRoutes     = require("./routes/officeAttendanceTiming");
 const paymentStatusRoutes    = require("./routes/paymentStatusRoutes");
-
-const { registerCompany } = require("./controllers/companyController");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -130,46 +128,23 @@ app.get("/",       (req, res) => res.json({ message: "🟢 Welcome to KadagamNex
 })();
 
 // ──────────────── ROUTES ────────────────
-// Public routes
+// Public auth & verification
 app.use("/api/auth",    authRoutes);
 app.use("/api/verify",  verificationRoutes);
-app.use("/api/payment", paymentRoutes);
-app.use("/api/plan",    planRoutes);
-app.use("/api/invoices",invoiceRoutes);
 
-// Public company registration (no JWT)
-app.post(
-  "/api/company/register",
-  [
-    validateEmailFormat,
-    validateEmailUnique,
-    body("name")
-      .trim()
-      .notEmpty()
-      .withMessage("Company name is required."),
-    body("password")
-      .isLength({ min: 8 })
-      .withMessage("Password must be at least 8 characters long."),
-    body("phone")
-      .trim()
-      .notEmpty()
-      .withMessage("Phone number is required.")
-      .bail()
-      .isMobilePhone()
-      .withMessage("Phone number must be valid."),
-  ],
-  validateRequest,
-  registerCompany
-);
+// Public payment & plans
+app.use("/api/payment",  paymentRoutes);
+app.use("/api/plan",     planRoutes);
+app.use("/api/invoices", invoiceRoutes);
 
-// Protected company routes (everything else)
+// All company‐related routes (register, details, verify, status, resend-otp)
 app.use("/api/company", companyRoutes);
 
-// Authenticated + verified tenant
+// Protected admin/staff routes (must be verified tenant)
 app.use("/api/admin", verifyToken, ensureVerifiedTenant, adminLimiter, adminRoutes);
 app.use("/api/staff", verifyToken, ensureVerifiedTenant, adminLimiter, userRoutes);
 
-// Subscription-protected routes
+// Subscription‐protected routes
 const subscriptionMiddleware = [ verifyToken, ensureVerifiedTenant, enforceActiveSubscription ];
 app.use("/api/projects",      ...subscriptionMiddleware, projectRoutes);
 app.use("/api/tasks",         ...subscriptionMiddleware, taskRoutes);

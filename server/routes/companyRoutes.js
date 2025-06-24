@@ -1,16 +1,16 @@
-// routes/companyRoutes.js
+// server/routes/companyRoutes.js
 
-const express = require("express");
-const { body } = require("express-validator");
-const router = express.Router();
+const express               = require("express");
+const { body }              = require("express-validator");
+const router                = express.Router();
 
-const companyController = require("../controllers/companyController");
+const companyController     = require("../controllers/companyController");
 const {
   validateRequest,
   validateEmailFormat,
   validateEmailUnique,
 } = require("../middlewares/validationMiddleware");
-const { verifyToken } = require("../middlewares/authMiddleware");
+const { verifyToken }       = require("../middlewares/authMiddleware");
 
 /**
  * @route   POST /api/company/register
@@ -49,7 +49,6 @@ router.post(
 router.post(
   "/details",
   [
-    // Since company._id is a 6-digit string, validate accordingly:
     body("companyId")
       .trim()
       .notEmpty()
@@ -60,32 +59,26 @@ router.post(
       .bail()
       .matches(/^[0-9]{6}$/)
       .withMessage("companyId must contain only digits."),
-
     body("gstin")
       .optional()
       .isAlphanumeric()
       .withMessage("GSTIN must be alphanumeric."),
-
     body("cin")
       .optional()
       .isAlphanumeric()
       .withMessage("CIN must be alphanumeric."),
-
     body("pan")
       .optional()
       .isAlphanumeric()
       .withMessage("PAN must be alphanumeric."),
-
     body("companyType")
       .optional()
       .isString()
       .withMessage("Company type must be text."),
-
     body("address")
       .optional()
       .isString()
       .withMessage("Address must be text."),
-
     body("adminPassword")
       .isLength({ min: 8 })
       .withMessage("Admin password must be at least 8 characters long."),
@@ -94,11 +87,52 @@ router.post(
   companyController.addCompanyDetails
 );
 
-// Protect any additional company routes below
+/**
+ * @route   POST /api/company/verify
+ * @desc    Step 3: Verify company via OTP/code
+ * @access  Public
+ */
+router.post(
+  "/verify",
+  [
+    body("companyId")
+      .trim()
+      .notEmpty()
+      .withMessage("companyId is required."),
+    body("code")
+      .trim()
+      .notEmpty()
+      .withMessage("Verification code is required."),
+  ],
+  validateRequest,
+  companyController.verifyCompany
+);
+
+router.post(
+  "/resend-otp",
+  companyController.resendOtp
+);
+
+/**
+ * Protect the following routes—these require a valid token
+ */
 router.use(verifyToken);
 
-// e.g. GET /api/company/:id, PATCH, DELETE, etc.
-// router.get("/:id", companyController.getCompanyById);
-// router.patch("/:id", companyController.updateCompany);
+/**
+ * @route   GET /api/company/status
+ * @desc    Step 4: Get the company’s current verification status
+ * @access  Protected
+ */
+router.get(
+  "/status",
+  companyController.getCompanyStatus
+);
+
+/**
+ * @route   POST /api/company/resend-otp
+ * @desc    Step 5: Resend the OTP without re-submitting details
+ * @access  Protected
+ */
+
 
 module.exports = router;

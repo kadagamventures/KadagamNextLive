@@ -1,3 +1,5 @@
+// server/controllers/authController.js
+
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const asyncHandler = require("express-async-handler");
@@ -23,7 +25,6 @@ exports.adminLogin = asyncHandler(async (req, res) => {
   console.log("🔐 Admin Login Attempt:", loginId);
 
   if (!loginId || !password) {
-    console.log("❌ Missing credentials");
     return res.status(400).json({ message: "Login ID and password are required." });
   }
 
@@ -34,51 +35,36 @@ exports.adminLogin = asyncHandler(async (req, res) => {
   });
 
   if (!admin) {
-    console.log("❌ Admin not found");
     return res.status(401).json({ message: "Invalid credentials." });
   }
 
   const passwordMatch = await bcrypt.compare(password, admin.password);
   if (!passwordMatch) {
-    console.log("❌ Password mismatch");
     return res.status(401).json({ message: "Invalid credentials." });
   }
 
   const company = await Company.findById(String(admin.companyId));
-  const companyInvalid = !company || company.isDeleted || !company.isVerified;
 
-  if (companyInvalid) {
-    console.log("⚠️ Company invalid:", {
-      exists: !!company,
-      isDeleted: company?.isDeleted,
-      isVerified: company?.isVerified,
-    });
-
-    return res.status(200).json({
+  if (!company || company.isDeleted) {
+    return res.status(403).json({
+      code: "COMPANY_INVALID",
       message: !company
         ? "Company not found."
-        : company.isDeleted
-        ? "Company is inactive or banned."
-        : "Email not verified.",
-      accessToken: null,
-      user: {
-        id: admin._id,
-        name: admin.name,
-        email: admin.email,
-        staffId: admin.staffId || null,
-        role: admin.role,
-        permissions: admin.permissions || [],
-        companyId: admin.companyId,
-      },
-      subscriptionStatus: "invalid",
-      nextBillingDate: null,
+        : "Company is inactive or banned.",
     });
   }
 
+  if (!company.isVerified) {
+    return res.status(403).json({
+      code: "EMAIL_NOT_VERIFIED",
+      message: "Email not verified.",
+      companyId: company._id,  // 6-digit string
+    });
+  }
+
+  // success: generate tokens
   const accessToken = tokenUtils.generateAccessToken(admin);
   const refreshToken = tokenUtils.generateRefreshToken(admin);
-
-  console.log("✅ Admin login successful");
 
   res.cookie("accessToken", accessToken, cookieOptions);
   res.cookie("refreshToken", refreshToken, cookieOptions);
@@ -108,7 +94,6 @@ exports.staffLogin = asyncHandler(async (req, res) => {
   console.log("👤 Staff Login Attempt:", loginId);
 
   if (!loginId || !password || !companyId) {
-    console.log("❌ Missing staff login fields");
     return res.status(400).json({ message: "Email, password, and companyId are required." });
   }
 
@@ -123,56 +108,40 @@ exports.staffLogin = asyncHandler(async (req, res) => {
   });
 
   if (!user) {
-    console.log("❌ Staff user not found");
     return res.status(401).json({ message: "Invalid email or password." });
   }
 
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
-    console.log("❌ Staff password mismatch");
     return res.status(401).json({ message: "Invalid email or password." });
   }
 
   if (!user.isActive) {
-    console.log("⚠️ Staff account is inactive");
     return res.status(403).json({ message: "Account is inactive. Contact admin." });
   }
 
   const company = await Company.findById(String(user.companyId));
-  const companyInvalid = !company || company.isDeleted || !company.isVerified;
 
-  if (companyInvalid) {
-    console.log("⚠️ Company invalid (staff):", {
-      exists: !!company,
-      isDeleted: company?.isDeleted,
-      isVerified: company?.isVerified,
-    });
-
-    return res.status(200).json({
+  if (!company || company.isDeleted) {
+    return res.status(403).json({
+      code: "COMPANY_INVALID",
       message: !company
         ? "Company not found."
-        : company.isDeleted
-        ? "Company is inactive or banned."
-        : "Email not verified.",
-      accessToken: null,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        staffId: user.staffId,
-        role: user.role,
-        permissions: user.permissions || [],
-        companyId: user.companyId,
-      },
-      subscriptionStatus: "invalid",
-      nextBillingDate: null,
+        : "Company is inactive or banned.",
     });
   }
 
+  if (!company.isVerified) {
+    return res.status(403).json({
+      code: "EMAIL_NOT_VERIFIED",
+      message: "Email not verified.",
+      companyId: company._id,
+    });
+  }
+
+  // success: generate tokens
   const accessToken = tokenUtils.generateAccessToken(user);
   const refreshToken = tokenUtils.generateRefreshToken(user);
-
-  console.log("✅ Staff login successful");
 
   res.cookie("accessToken", accessToken, cookieOptions);
   res.cookie("refreshToken", refreshToken, cookieOptions);
@@ -202,63 +171,65 @@ exports.refreshToken = asyncHandler(async (req, res) => {
   console.log("🔄 Refresh token attempt");
 
   if (!token) {
-    console.log("❌ No refresh token");
     return res.status(401).json({ message: "Unauthorized." });
   }
 
   const isBlacklisted = await tokenUtils.isTokenBlacklisted(token);
   if (isBlacklisted) {
-    console.log("❌ Refresh token blacklisted");
     return res.status(403).json({ message: "Refresh token is blacklisted. Please log in again." });
   }
 
   const decoded = tokenUtils.verifyRefreshToken(token);
   if (!decoded) {
-    console.log("❌ Invalid refresh token");
     return res.status(403).json({ message: "Invalid refresh token." });
   }
 
   const user = await User.findById(decoded.id).select("role permissions isActive companyId");
   if (!user) {
-    console.log("❌ User not found during refresh");
     return res.status(404).json({ message: "User not found." });
   }
 
   if (!user.isActive) {
-    console.log("⚠️ User inactive during refresh");
     return res.status(403).json({ message: "Account is inactive. Contact admin." });
   }
 
-  const company = await Company.findById(String(user.companyId));
-  if (!company || company.isDeleted) {
-    console.log("⚠️ Company invalid during refresh");
+  const comp = await Company.findById(String(user.companyId));
+  if (!comp || comp.isDeleted) {
     return res.status(403).json({ message: "Company is inactive or banned." });
   }
 
   const newAccessToken = tokenUtils.generateAccessToken(user);
   res.cookie("accessToken", newAccessToken, cookieOptions);
-  console.log("✅ Token refreshed");
 
   return res.json({ accessToken: newAccessToken });
 });
 
+// ─────────────────────────────────────────────
+// 4) Refresh Subscription Status
+// ─────────────────────────────────────────────
 exports.refreshSubscription = asyncHandler(async (req, res) => {
-  // assumes verifyToken middleware has set req.user.id
-  const { subscriptionStatus, nextBillingDate } =
-    await authService.refreshSubscription(req.user.id);
-  return res.json({ subscriptionStatus, nextBillingDate });
+  const comp = await Company.findById(req.user.companyId);
+  if (!comp || comp.isDeleted) {
+    return res.status(403).json({ message: "Company unavailable or banned." });
+  }
+  return res.json({
+    subscriptionStatus: comp.subscription?.status || "pending",
+    nextBillingDate: comp.subscription?.nextBillingDate || null,
+  });
 });
 
 // ─────────────────────────────────────────────
-// Remaining exports unchanged (with logs if needed)
+// 5) Get Current User
 // ─────────────────────────────────────────────
-
 exports.getCurrentUser = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user.id).select("-password");
   if (!user) return res.status(404).json({ message: "User not found." });
   res.json({ user });
 });
 
+// ─────────────────────────────────────────────
+// 6) Request Password Reset
+// ─────────────────────────────────────────────
 exports.requestPasswordReset = asyncHandler(async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: "Email is required." });
@@ -277,6 +248,9 @@ exports.requestPasswordReset = asyncHandler(async (req, res) => {
   res.json({ message: "Password reset link sent to email." });
 });
 
+// ─────────────────────────────────────────────
+// 7) Reset Password
+// ─────────────────────────────────────────────
 exports.resetPassword = asyncHandler(async (req, res) => {
   const { token, newPassword } = req.body;
   if (!token || !newPassword) {
@@ -288,7 +262,6 @@ exports.resetPassword = asyncHandler(async (req, res) => {
     resetPasswordToken: hashedToken,
     resetPasswordExpires: { $gt: Date.now() },
   });
-
   if (!user) return res.status(400).json({ message: "Invalid or expired token." });
 
   user.password = await bcrypt.hash(newPassword, 12);
@@ -300,6 +273,9 @@ exports.resetPassword = asyncHandler(async (req, res) => {
   res.json({ message: "Password reset successful. Please log in again." });
 });
 
+// ─────────────────────────────────────────────
+// 8) Logout
+// ─────────────────────────────────────────────
 exports.logout = asyncHandler(async (req, res) => {
   await tokenUtils.blacklistUserTokens(req.user.id);
   res.clearCookie("accessToken", cookieOptions);

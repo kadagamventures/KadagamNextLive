@@ -1,9 +1,9 @@
-// server/routes/verificationRoutes.js
-
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const router = express.Router();
 const verificationController = require('../controllers/verificationController');
+const Company = require('../models/Company');
+const verificationService = require('../services/verificationService');
 
 /**
  * Helper middleware to run express-validator checks
@@ -53,6 +53,39 @@ router.post(
   ],
   runValidation,
   verificationController.confirmCode
+);
+
+/**
+ * @route   POST /api/verify/resend
+ * @desc    Resend verification code if company email is not verified
+ * @body    { companyId: string }
+ */
+router.post(
+  '/resend',
+  [
+    body('companyId')
+      .trim()
+      .notEmpty().withMessage('companyId is required')
+      .isLength({ min: 6, max: 6 }).withMessage('companyId must be 6 digits'),
+  ],
+  runValidation,
+  async (req, res) => {
+    try {
+      const { companyId } = req.body;
+
+      const company = await Company.findById(companyId);
+      if (!company) {
+        return res.status(404).json({ error: 'Company not found' });
+      }
+
+      await verificationService.sendVerificationEmail(companyId, company.email);
+
+      return res.json({ message: 'Verification code resent to your email.' });
+    } catch (err) {
+      console.error("🔴 /verify/resend error:", err);
+      return res.status(500).json({ error: 'Failed to resend verification code.' });
+    }
+  }
 );
 
 module.exports = router;

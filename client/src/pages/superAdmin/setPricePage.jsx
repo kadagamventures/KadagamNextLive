@@ -1,16 +1,25 @@
 // 📂 src/pages/SetPlan.jsx
+
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import { tokenRefreshInterceptor as axios } from "../../utils/axiosInstance";
 
 const PlanCard = ({ plan, onUpdate }) => {
-  const [duration, setDuration] = useState(plan.duration.value);
-  const [unit, setUnit]         = useState(plan.duration.unit);
-  const [price, setPrice]       = useState(plan.price);
-  const [gst, setGst]           = useState(plan.gstPercentage);
+  if (!plan || !plan.duration) {
+    return <div className="text-red-500">Invalid plan data</div>;
+  }
 
-  // derive a dynamic display name like “7 Days” or “1 Month”
-  const displayName = `${duration} ${unit.charAt(0).toUpperCase() + unit.slice(1)}${duration > 1 && !unit.endsWith("s") ? "s" : ""}`;
+  const [duration, setDuration] = useState(plan.duration?.value ?? 1);
+  const [unit, setUnit] = useState(plan.duration?.unit ?? "months");
+  const [price, setPrice] = useState(plan.price ?? 0);
+  const [gst, setGst] = useState(plan.gstPercentage ?? 18);
+
+  const formatUnit = (unit, value) => {
+    const capitalized = unit.charAt(0).toUpperCase() + unit.slice(1);
+    return value === 1 ? capitalized.slice(0, -1) : capitalized;
+  };
+
+  const displayName = `${duration} ${formatUnit(unit, duration)}`;
 
   const handleUpdate = () => {
     onUpdate(plan._id, {
@@ -19,7 +28,7 @@ const PlanCard = ({ plan, onUpdate }) => {
       duration: { value: Number(duration), unit },
       price: Number(price),
       gstPercentage: Number(gst),
-      isActive: plan.isActive
+      isActive: plan.isActive,
     });
   };
 
@@ -105,26 +114,25 @@ PlanCard.propTypes = {
   plan: PropTypes.shape({
     _id: PropTypes.string.isRequired,
     duration: PropTypes.shape({
-      value: PropTypes.number.isRequired,
-      unit: PropTypes.oneOf(["days","months","years"]).isRequired
-    }).isRequired,
-    price: PropTypes.number.isRequired,
-    gstPercentage: PropTypes.number.isRequired,
-    isActive: PropTypes.bool.isRequired
+      value: PropTypes.number,
+      unit: PropTypes.string,
+    }),
+    price: PropTypes.number,
+    gstPercentage: PropTypes.number,
+    isActive: PropTypes.bool,
   }).isRequired,
-  onUpdate: PropTypes.func.isRequired
+  onUpdate: PropTypes.func.isRequired,
 };
 
 const SetPlan = () => {
-  const [plans, setPlans]     = useState([]);
+  const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch plans on mount
   useEffect(() => {
     (async () => {
       try {
         const res = await axios.get("/super-admin/plans");
-        setPlans(res.data);
+        setPlans(res.data || []);
       } catch (err) {
         console.error("Failed to load plans:", err);
         alert("Could not fetch plan configurations.");
@@ -134,23 +142,26 @@ const SetPlan = () => {
     })();
   }, []);
 
-  // Handle a single-plan update
   const handlePlanUpdate = async (_id, updatedCfg) => {
     try {
+      // Send only the updated plan (one by one)
       const res = await axios.put("/super-admin/plans", [updatedCfg]);
       const freshList = res.data;
+
       setPlans((prev) =>
-        prev.map((p) =>
-          p._id === _id ? freshList.find((q) => q._id === _id) : p
-        )
+        prev.map((p) => (p._id === _id ? freshList.find((q) => q._id === _id) || p : p))
       );
+
       alert("Plan updated successfully.");
     } catch (err) {
       console.error("Error updating plan:", err);
-      alert(
-        err.response?.data?.error ||
-        `Update failed: ${err.message}`
-      );
+      const msg = err?.response?.data?.error || err.message;
+
+      if (msg.startsWith("Duplicate duration found")) {
+        alert("Update failed: A plan with the same duration already exists.");
+      } else {
+        alert(`Update failed: ${msg}`);
+      }
     }
   };
 
@@ -165,12 +176,8 @@ const SetPlan = () => {
       </h1>
 
       <div className="flex flex-wrap justify-center" style={{ gap: "36px" }}>
-        {plans.map((plan) => (
-          <PlanCard
-            key={plan._id}
-            plan={plan}
-            onUpdate={handlePlanUpdate}
-          />
+        {plans.map((plan, index) => (
+          <PlanCard key={plan._id || index} plan={plan} onUpdate={handlePlanUpdate} />
         ))}
       </div>
     </div>
