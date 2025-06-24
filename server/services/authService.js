@@ -1,5 +1,3 @@
-// server/services/authService.js
-
 const crypto     = require("crypto");
 const bcrypt     = require("bcryptjs");
 const User       = require("../models/User");
@@ -10,17 +8,13 @@ require("dotenv").config();
 const ONE_HOUR = 60 * 60 * 1000;
 
 class AuthService {
-  /**
-   * 1) Generate & store a password-reset token for a given userId.
-   *    Returns the raw resetToken (to be emailed).
-   */
+  // 1) Generate & store a password-reset token
   async generateResetToken(userId) {
     const user = await User.findById(userId);
     if (!user) throw new Error("User not found");
     if (user.isDeleted) throw new Error("User no longer active.");
     if (!user.isActive) throw new Error("User inactive. Contact admin.");
 
-    // super_admins skip company check
     if (user.role !== "super_admin") {
       const comp = await Company.findById(user.companyId);
       if (!comp || comp.isDeleted) {
@@ -28,7 +22,6 @@ class AuthService {
       }
     }
 
-    // Clear any existing reset token
     user.resetPasswordToken   = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
@@ -43,14 +36,12 @@ class AuthService {
     return resetToken;
   }
 
-  /**
-   * 2) Consume a reset-token + newPassword
-   */
+  // 2) Reset password using token
   async resetPassword(token, newPassword) {
-    if (!token || !newPassword)
-      throw new Error("Token and new password are required.");
+    if (!token || !newPassword) throw new Error("Token and new password are required.");
 
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
     const user = await User.findOne({
       resetPasswordToken:   hashedToken,
       resetPasswordExpires: { $gt: Date.now() },
@@ -66,29 +57,27 @@ class AuthService {
     return user;
   }
 
-  /**
-   * 3) Authenticate user (email/staffId + password)
-   */
+  // 3) Authenticate user (login)
   async authenticateUser(loginIdRaw, passwordRaw, companyId) {
     const loginId = loginIdRaw.trim();
-    const isEmail = loginId.includes("@");
     const password = passwordRaw.trim();
+    const isEmail = loginId.includes("@");
     let user;
 
-    // find user by email or staffId
     if (isEmail) {
       user = await User.findOne({
-        email:     loginId.toLowerCase(),
+        email: loginId.toLowerCase(),
         companyId,
         isDeleted: false,
       });
     } else {
       user = await User.findOne({
-        staffId:   loginId,
+        staffId: loginId,
         companyId,
         isDeleted: false,
       });
     }
+
     if (!user) {
       throw this._makeError(401, "INVALID_CREDENTIALS", "User not found.");
     }
@@ -97,29 +86,26 @@ class AuthService {
       throw this._makeError(403, "INACTIVE_ACCOUNT", "User account is inactive. Contact admin.");
     }
 
-    // check company status
     const comp = await Company.findById(user.companyId);
     if (!comp || comp.isDeleted) {
       throw this._makeError(403, "COMPANY_INVALID", "Company unavailable or banned.", {
         companyId: user.companyId,
       });
     }
+
     if (!comp.isVerified) {
       throw this._makeError(403, "EMAIL_NOT_VERIFIED", "Email not verified.", {
         companyId: user.companyId,
       });
     }
 
-    // verify password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       throw this._makeError(401, "INVALID_CREDENTIALS", "Incorrect password");
     }
 
-    // generate token
     const accessToken = tokenUtils.generateAccessToken(user);
 
-    // sanitize user object
     const safeUser = user.toObject();
     delete safeUser.password;
     delete safeUser.resetPasswordToken;
@@ -133,9 +119,7 @@ class AuthService {
     };
   }
 
-  /**
-   * 4) Refresh subscription status
-   */
+  // 4) Refresh subscription
   async refreshSubscription(userId) {
     const user = await User.findById(userId);
     if (!user) throw new Error("User not found.");
@@ -151,27 +135,37 @@ class AuthService {
     };
   }
 
-  /**
-   * 5) Get User by ID (omit sensitive fields)
-   */
+  // 5) Get user info by ID
   async getUserById(id) {
-    const user = await User.findById(id)
-      .select("-password -resetPasswordToken -resetPasswordExpires");
+    const user = await User.findById(id).select("-password -resetPasswordToken -resetPasswordExpires");
     if (!user) throw new Error("User not found");
     return user;
   }
 
-  /**
-   * 6) Manual Hash Utility
-   */
+  // 6) Hash password utility
   async hashPassword(plainPassword) {
     const salt = await bcrypt.genSalt(12);
     return bcrypt.hash(plainPassword, salt);
   }
 
-  /**
-   * Helper to throw a structured error
-   */
+  // 7) Logout logic
+  async logout(req, res) {
+    // Clear session (if any)
+    if (req.session) {
+      req.session.destroy(() => {});
+    }
+
+    // Clear refresh token cookie
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+    });
+
+    return { message: "Logged out successfully." };
+  }
+
+  // Helper error
   _makeError(statusCode, code, message, extras = {}) {
     const err = new Error(message);
     err.statusCode = statusCode;

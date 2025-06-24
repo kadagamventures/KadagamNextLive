@@ -1,5 +1,3 @@
-// server/controllers/authController.js
-
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const asyncHandler = require("express-async-handler");
@@ -22,7 +20,6 @@ const cookieOptions = {
 // ─────────────────────────────────────────────
 exports.adminLogin = asyncHandler(async (req, res) => {
   const { loginId, password } = req.body;
-  console.log("🔐 Admin Login Attempt:", loginId);
 
   if (!loginId || !password) {
     return res.status(400).json({ message: "Login ID and password are required." });
@@ -44,13 +41,10 @@ exports.adminLogin = asyncHandler(async (req, res) => {
   }
 
   const company = await Company.findById(String(admin.companyId));
-
   if (!company || company.isDeleted) {
     return res.status(403).json({
       code: "COMPANY_INVALID",
-      message: !company
-        ? "Company not found."
-        : "Company is inactive or banned.",
+      message: !company ? "Company not found." : "Company is inactive or banned.",
     });
   }
 
@@ -58,11 +52,10 @@ exports.adminLogin = asyncHandler(async (req, res) => {
     return res.status(403).json({
       code: "EMAIL_NOT_VERIFIED",
       message: "Email not verified.",
-      companyId: company._id,  // 6-digit string
+      companyId: company._id,
     });
   }
 
-  // success: generate tokens
   const accessToken = tokenUtils.generateAccessToken(admin);
   const refreshToken = tokenUtils.generateRefreshToken(admin);
 
@@ -91,7 +84,6 @@ exports.adminLogin = asyncHandler(async (req, res) => {
 // ─────────────────────────────────────────────
 exports.staffLogin = asyncHandler(async (req, res) => {
   const { loginId, password, companyId } = req.body;
-  console.log("👤 Staff Login Attempt:", loginId);
 
   if (!loginId || !password || !companyId) {
     return res.status(400).json({ message: "Email, password, and companyId are required." });
@@ -121,13 +113,10 @@ exports.staffLogin = asyncHandler(async (req, res) => {
   }
 
   const company = await Company.findById(String(user.companyId));
-
   if (!company || company.isDeleted) {
     return res.status(403).json({
       code: "COMPANY_INVALID",
-      message: !company
-        ? "Company not found."
-        : "Company is inactive or banned.",
+      message: !company ? "Company not found." : "Company is inactive or banned.",
     });
   }
 
@@ -139,7 +128,6 @@ exports.staffLogin = asyncHandler(async (req, res) => {
     });
   }
 
-  // success: generate tokens
   const accessToken = tokenUtils.generateAccessToken(user);
   const refreshToken = tokenUtils.generateRefreshToken(user);
 
@@ -168,11 +156,7 @@ exports.staffLogin = asyncHandler(async (req, res) => {
 // ─────────────────────────────────────────────
 exports.refreshToken = asyncHandler(async (req, res) => {
   const token = req.cookies.refreshToken;
-  console.log("🔄 Refresh token attempt");
-
-  if (!token) {
-    return res.status(401).json({ message: "Unauthorized." });
-  }
+  if (!token) return res.status(401).json({ message: "Unauthorized." });
 
   const isBlacklisted = await tokenUtils.isTokenBlacklisted(token);
   if (isBlacklisted) {
@@ -185,13 +169,8 @@ exports.refreshToken = asyncHandler(async (req, res) => {
   }
 
   const user = await User.findById(decoded.id).select("role permissions isActive companyId");
-  if (!user) {
-    return res.status(404).json({ message: "User not found." });
-  }
-
-  if (!user.isActive) {
-    return res.status(403).json({ message: "Account is inactive. Contact admin." });
-  }
+  if (!user) return res.status(404).json({ message: "User not found." });
+  if (!user.isActive) return res.status(403).json({ message: "Account is inactive. Contact admin." });
 
   const comp = await Company.findById(String(user.companyId));
   if (!comp || comp.isDeleted) {
@@ -200,18 +179,18 @@ exports.refreshToken = asyncHandler(async (req, res) => {
 
   const newAccessToken = tokenUtils.generateAccessToken(user);
   res.cookie("accessToken", newAccessToken, cookieOptions);
-
   return res.json({ accessToken: newAccessToken });
 });
 
 // ─────────────────────────────────────────────
-// 4) Refresh Subscription Status
+// 4) Refresh Subscription
 // ─────────────────────────────────────────────
 exports.refreshSubscription = asyncHandler(async (req, res) => {
   const comp = await Company.findById(req.user.companyId);
   if (!comp || comp.isDeleted) {
     return res.status(403).json({ message: "Company unavailable or banned." });
   }
+
   return res.json({
     subscriptionStatus: comp.subscription?.status || "pending",
     nextBillingDate: comp.subscription?.nextBillingDate || null,
@@ -262,6 +241,7 @@ exports.resetPassword = asyncHandler(async (req, res) => {
     resetPasswordToken: hashedToken,
     resetPasswordExpires: { $gt: Date.now() },
   });
+
   if (!user) return res.status(400).json({ message: "Invalid or expired token." });
 
   user.password = await bcrypt.hash(newPassword, 12);
@@ -277,7 +257,10 @@ exports.resetPassword = asyncHandler(async (req, res) => {
 // 8) Logout
 // ─────────────────────────────────────────────
 exports.logout = asyncHandler(async (req, res) => {
-  await tokenUtils.blacklistUserTokens(req.user.id);
+  if (req.user?.id) {
+    await tokenUtils.blacklistUserTokens(req.user.id);
+  }
+
   res.clearCookie("accessToken", cookieOptions);
   res.clearCookie("refreshToken", cookieOptions);
   res.json({ message: "Logged out successfully." });

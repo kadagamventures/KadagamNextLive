@@ -1,5 +1,3 @@
-// src/redux/slices/authSlice.js
-
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { tokenRefreshInterceptor } from "../../utils/axiosInstance";
 import {
@@ -74,7 +72,7 @@ export const loginUser = createAsyncThunk(
 
 // Admin Logout
 export const logoutUser = createAsyncThunk("auth/logoutUser", async () => {
-  await tokenRefreshInterceptor.post("/auth/admin/logout");
+  await tokenRefreshInterceptor.post("/auth/logout");
 
   localStorage.removeItem("user");
   localStorage.removeItem("role");
@@ -188,7 +186,7 @@ const authSlice = createSlice({
         state.subscriptionStatus = subscriptionStatus;
         state.nextBillingDate = nextBillingDate;
 
-        disconnectChatSocket();
+        disconnectChatSocket(); // cleanup first
         initializeChatSocket();
       })
       .addCase(loginUser.rejected, (state, action) => {
@@ -242,7 +240,7 @@ const authSlice = createSlice({
         state.nextBillingDate = action.payload.nextBillingDate;
       })
       .addCase(refreshSubscription.rejected, (state) => {
-        // optionally handle error
+        // silently fail or handle
       });
   },
 });
