@@ -1,3 +1,5 @@
+// src/redux/slices/authSlice.js
+
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { tokenRefreshInterceptor } from "../../utils/axiosInstance";
 import {
@@ -88,7 +90,10 @@ export const forgotPassword = createAsyncThunk(
   "auth/forgotPassword",
   async ({ email, remember }, thunkAPI) => {
     try {
-      const { data } = await tokenRefreshInterceptor.post("/auth/forgot-password", { email });
+      const { data } = await tokenRefreshInterceptor.post(
+        "/auth/forgot-password",
+        { email }
+      );
       if (remember) {
         localStorage.setItem("rememberedEmail", email);
       } else {
@@ -108,15 +113,33 @@ export const resetPassword = createAsyncThunk(
   "auth/resetPassword",
   async ({ token, newPassword }, thunkAPI) => {
     try {
-      const { data } = await tokenRefreshInterceptor.post("/auth/reset-password", {
-        token,
-        newPassword,
-      });
+      const { data } = await tokenRefreshInterceptor.post(
+        "/auth/reset-password",
+        {
+          token,
+          newPassword,
+        }
+      );
       return data.message;
     } catch (error) {
       return thunkAPI.rejectWithValue(
         error.response?.data?.message || "Failed to reset password."
       );
+    }
+  }
+);
+
+// Refresh Subscription Status
+export const refreshSubscription = createAsyncThunk(
+  "auth/refreshSubscription",
+  async (_, thunkAPI) => {
+    try {
+      const { data } = await tokenRefreshInterceptor.get("/auth/subscription");
+      localStorage.setItem("subscriptionStatus", data.subscriptionStatus);
+      localStorage.setItem("nextBillingDate", data.nextBillingDate ?? "");
+      return data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue("Failed to refresh subscription.");
     }
   }
 );
@@ -155,7 +178,8 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
-        const { user, role, token, subscriptionStatus, nextBillingDate } = action.payload;
+        const { user, role, token, subscriptionStatus, nextBillingDate } =
+          action.payload;
         state.status = "success";
         state.user = user;
         state.role = role;
@@ -210,6 +234,15 @@ const authSlice = createSlice({
       .addCase(resetPassword.rejected, (state, action) => {
         state.resetStatus = "failed";
         state.error = action.payload;
+      })
+
+      // Refresh Subscription
+      .addCase(refreshSubscription.fulfilled, (state, action) => {
+        state.subscriptionStatus = action.payload.subscriptionStatus;
+        state.nextBillingDate = action.payload.nextBillingDate;
+      })
+      .addCase(refreshSubscription.rejected, (state) => {
+        // optionally handle error
       });
   },
 });

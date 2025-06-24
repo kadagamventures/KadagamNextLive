@@ -1,11 +1,16 @@
+// src/pages/pricing/PricingPage.jsx
+
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
 import paymentService from "../../services/paymentService";
 import { loadRazorpay } from "../../utils/loadRazorpay";
+import { refreshSubscription } from "../../redux/slices/authSlice";
 
 export default function PricingPage() {
   const [plans, setPlans] = useState([]);
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   useEffect(() => {
     paymentService
@@ -30,11 +35,10 @@ export default function PricingPage() {
 
       const resp = await paymentService.createOrder({ planId: plan._id });
 
-      // ✅ Handle free trial
+      // Free trial activation path
       if (resp.trialActivated) {
-        if (resp.accessToken) {
-          localStorage.setItem("accessToken", resp.accessToken);
-        }
+        // Refresh subscription state so Redux/localStorage update to "active"
+        await dispatch(refreshSubscription()).unwrap();
         navigate("/admin/dashboard");
         return;
       }
@@ -45,16 +49,14 @@ export default function PricingPage() {
 
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount: Math.round(order.amount).toString(), // Razorpay expects amount in paise
+        amount: Math.round(order.amount).toString(),
         currency: order.currency,
         name: "KadagamNext",
         description: `${plan.duration.value} ${plan.duration.unit} Subscription`,
         order_id: order.orderId,
         handler: async (response) => {
-          const razorpay_order_id = response.razorpay_order_id;
-          const razorpay_payment_id = response.razorpay_payment_id;
-          const razorpay_signature = response.razorpay_signature;
-
+          const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
+            response;
           if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
             alert("Payment confirmation failed. Please contact support.");
             return;
@@ -66,10 +68,8 @@ export default function PricingPage() {
             razorpay_signature,
           });
 
-          if (result?.accessToken) {
-            localStorage.setItem("accessToken", result.accessToken);
-          }
-
+          // After capture, refresh subscription status
+          await dispatch(refreshSubscription()).unwrap();
           navigate("/admin/dashboard");
         },
         prefill: {
@@ -88,7 +88,11 @@ export default function PricingPage() {
       rzp.open();
     } catch (err) {
       console.error("Payment error:", err);
-      alert(err?.response?.data?.error || err.message || "Payment failed. Please try again.");
+      alert(
+        err?.response?.data?.error ||
+          err.message ||
+          "Payment failed. Please try again."
+      );
     }
   };
 
