@@ -50,7 +50,6 @@ const paymentSchema = new mongoose.Schema(
 
 const companySchema = new mongoose.Schema(
   {
-    // Override default ObjectId; assign 6-digit string in pre-validate
     _id: { type: String },
 
     name: { type: String, required: true, trim: true },
@@ -63,15 +62,12 @@ const companySchema = new mongoose.Schema(
       index: true,
     },
 
-    // Phone: now permits absent or empty before enforcing digits
     phone: {
       type: String,
       trim: true,
       validate: {
         validator: v => {
-          // pass if not set or empty
           if (v == null || v === "") return true;
-          // otherwise must be 10–15 digits
           return /^[0-9]{10,15}$/.test(v);
         },
         message: props => `${props.value} is not a valid phone number!`,
@@ -84,7 +80,7 @@ const companySchema = new mongoose.Schema(
       uppercase: true,
       validate: {
         validator: v =>
-          /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/.test(v),
+          !v || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/.test(v),
         message: props => `${props.value} is not a valid GSTIN!`,
       },
     },
@@ -94,7 +90,7 @@ const companySchema = new mongoose.Schema(
       uppercase: true,
       validate: {
         validator: v =>
-          /^[A-Z]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/.test(v),
+          !v || /^[A-Z]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/.test(v),
         message: props => `${props.value} is not a valid CIN!`,
       },
     },
@@ -103,7 +99,7 @@ const companySchema = new mongoose.Schema(
       trim: true,
       uppercase: true,
       validate: {
-        validator: v => /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v),
+        validator: v => !v || /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v),
         message: props => `${props.value} is not a valid PAN!`,
       },
     },
@@ -120,12 +116,13 @@ const companySchema = new mongoose.Schema(
         "Corporation (C-Corp)",
         "Nonprofit Corporation",
         "Others",
+        "Google-Auth", // ✅ Added for OAuth
       ],
       default: "Private Limited",
     },
+
     address: { type: String, trim: true },
 
-    // Subscription & billing
     subscription: {
       planId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -161,7 +158,6 @@ companySchema.index({ name: "text", email: "text" });
 // Index payments by date
 companySchema.index({ "subscription.paymentHistory.date": 1 });
 
-// Auto-generate 6-digit _id on new Company
 companySchema.pre("validate", async function (next) {
   if (this.isNew && !this._id) {
     try {
@@ -173,7 +169,6 @@ companySchema.pre("validate", async function (next) {
   } else next();
 });
 
-// Recalculate subscription summary when paymentHistory changes
 companySchema.pre("save", function (next) {
   if (this.isModified("subscription.paymentHistory")) {
     const successes = this.subscription.paymentHistory.filter(p => p.status === "success");
