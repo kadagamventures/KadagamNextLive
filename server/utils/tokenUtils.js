@@ -1,6 +1,7 @@
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const { redisClient } = require("../config/redisConfig");
+console.log("🔑 JWT_SECRET =", process.env.JWT_SECRET);
 
 
 if (!process.env.JWT_SECRET) {
