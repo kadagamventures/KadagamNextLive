@@ -22,18 +22,16 @@ async function registerCompany(payload) {
     const error = new Error("A company or user with this email already exists.");
     error.code = "EMAIL_TAKEN";
     error.field = "email";
-    // Include the existing company ID so controller can resend OTP
     error.existingCompanyId = existingCompany
       ? existingCompany._id
       : existingUser.companyId;
     throw error;
   }
 
-  // Create basic company record (details to follow in next step)
-  const company = await Company.create({
+  // Build stub data, only include phone when provided
+  const data = {
     name,
     email,
-    phone,
     subscription: {
       planId: null,
       status: "pending",
@@ -43,17 +41,20 @@ async function registerCompany(payload) {
       paymentHistory: [],
     },
     trustLevel: "new",
-    isVerified: false,    // ← explicitly mark as un-verified until OTP step
+    isVerified: false,
     isDeleted: false,
-  });
+  };
+  if (phone) {
+    data.phone = phone;
+  }
 
+  const company = await Company.create(data);
   return { companyId: company._id };
 }
 
 /**
  * Step 2: Fill in the additional company details (GSTIN, CIN, PAN, etc.),
- *         then create the tenant-admin user and send only the welcome email.
- *         OTP generation/email is now handled entirely in /api/verify/send.
+ * then create the tenant-admin user and send only the welcome email.
  */
 async function completeRegistrationAndCreateAdmin(payload) {
   const {
@@ -66,34 +67,35 @@ async function completeRegistrationAndCreateAdmin(payload) {
     adminPassword,
   } = payload;
 
-  // 1) Update company details
+  // Update company details (validators only run on non-empty strings)
   const company = await Company.findByIdAndUpdate(
     companyId,
     { gstin, cin, pan, companyType, address },
     { new: true, runValidators: true }
   );
+
   if (!company) {
     const error = new Error("Company not found for details completion.");
     error.code = "COMPANY_NOT_FOUND";
     throw error;
   }
 
-  // 2) Create admin user
+  // Create admin user
   const hashedPassword = await bcrypt.hash(adminPassword, 12);
   const staffId = await generateUniqueStaffId();
   const adminUser = await User.create({
-    name: `${company.name} Admin`,
-    email: company.email,
-    password: hashedPassword,
-    role: "admin",
+    name:      `${company.name} Admin`,
+    email:     company.email,
+    password:  hashedPassword,
+    role:      "admin",
     companyId: company._id,
     staffId,
-    permissions: ["manage_project", "manage_task", "manage_staff"],
-    isActive: true,
+    permissions: ["manage_project","manage_task","manage_staff"],
+    isActive:  true,
     isDeleted: false,
   });
 
-  // 3) Send welcome email (fire-and-forget)
+  // Send welcome email
   const welcomeSubject = "Welcome to KadagamNext";
   const welcomeText = `
 Hello ${adminUser.name},
@@ -123,20 +125,15 @@ KadagamNext Team`.trim();
     welcomeText,
     welcomeHtml,
     `${company.name} Admin`
-  ).catch((err) => console.error("Welcome email error:", err));
+  ).catch(err => console.error("Welcome email error:", err));
 
-  // 4) Return both company and adminUser (OTP will be sent by front-end via /api/verify/send)
   return { company, adminUser };
 }
 
 /**
- * Step 3 (optional): Verify the company once OTP/code is confirmed
- *
- * This is now only used by your /api/company/verify controller, if you still
- * need a “verify via companyService” method on the back end.
+ * Step 3: Verify the company once OTP/code is confirmed
  */
 async function verifyCompany(companyId, code) {
-  // Your existing verifyCompany logic remains unchanged:
   const isValid = await require("./verificationService").verifyCode(companyId, code);
   if (!isValid) {
     const error = new Error("Invalid or expired verification code.");
@@ -144,7 +141,6 @@ async function verifyCompany(companyId, code) {
     throw error;
   }
 
-  // Flip the flag to verified
   const company = await Company.findByIdAndUpdate(
     companyId,
     { isVerified: true },
