@@ -1,3 +1,5 @@
+// server/services/AuthService.js
+
 const crypto     = require("crypto");
 const bcrypt     = require("bcryptjs");
 const User       = require("../models/User");
@@ -58,6 +60,7 @@ class AuthService {
   }
 
   // 3) Authenticate user (login)
+  //    Returns { token, user, subscriptionStatus, nextBillingDate }
   async authenticateUser(loginIdRaw, passwordRaw, companyId) {
     const loginId = loginIdRaw.trim();
     const password = passwordRaw.trim();
@@ -104,7 +107,8 @@ class AuthService {
       throw this._makeError(401, "INVALID_CREDENTIALS", "Incorrect password");
     }
 
-    const accessToken = tokenUtils.generateAccessToken(user);
+    const accessToken  = tokenUtils.generateAccessToken(user);
+    const refreshToken = tokenUtils.generateRefreshToken(user);
 
     const safeUser = user.toObject();
     delete safeUser.password;
@@ -112,7 +116,8 @@ class AuthService {
     delete safeUser.resetPasswordExpires;
 
     return {
-      token:              accessToken,
+      accessToken,
+      refreshToken,
       user:               safeUser,
       subscriptionStatus: comp.subscription?.status || "pending",
       nextBillingDate:    comp.subscription?.nextBillingDate || null,
@@ -137,7 +142,8 @@ class AuthService {
 
   // 5) Get user info by ID
   async getUserById(id) {
-    const user = await User.findById(id).select("-password -resetPasswordToken -resetPasswordExpires");
+    const user = await User.findById(id)
+      .select("-password -resetPasswordToken -resetPasswordExpires");
     if (!user) throw new Error("User not found");
     return user;
   }
@@ -148,24 +154,28 @@ class AuthService {
     return bcrypt.hash(plainPassword, salt);
   }
 
-  // 7) Logout logic
+  // 7) Logout logic: destroys session and clears both cookies
   async logout(req, res) {
-    // Clear session (if any)
+    // Destroy express-session if used
     if (req.session) {
       req.session.destroy(() => {});
     }
 
-    // Clear refresh token cookie
-    res.clearCookie("refreshToken", {
+    // Clear both tokens from cookies
+    const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
-    });
+      sameSite: "None",
+      path: "/api/auth/refresh",
+    };
+
+    res.clearCookie("refreshToken",  cookieOptions);
+    res.clearCookie("accessToken",   cookieOptions);
 
     return { message: "Logged out successfully." };
   }
 
-  // Helper error
+  // Helper to build API errors
   _makeError(statusCode, code, message, extras = {}) {
     const err = new Error(message);
     err.statusCode = statusCode;

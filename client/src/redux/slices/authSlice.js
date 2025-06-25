@@ -1,3 +1,5 @@
+// src/redux/slices/authSlice.js
+
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { tokenRefreshInterceptor } from "../../utils/axiosInstance";
 import {
@@ -40,13 +42,13 @@ export const loginUser = createAsyncThunk(
   "auth/loginUser",
   async ({ loginId, password }, thunkAPI) => {
     try {
-      const { data } = await tokenRefreshInterceptor.post("/auth/admin/login", {
-        loginId,
-        password,
-      });
+      const { data } = await tokenRefreshInterceptor.post(
+        "/auth/admin/login",
+        { loginId, password }
+      );
 
       if (!data?.user || !data?.accessToken) {
-        return thunkAPI.rejectWithValue("Invalid response from server.");
+        return thunkAPI.rejectWithValue({ message: "Invalid response from server." });
       }
 
       localStorage.setItem("user", JSON.stringify(data.user));
@@ -63,9 +65,14 @@ export const loginUser = createAsyncThunk(
         nextBillingDate: data.nextBillingDate,
       };
     } catch (error) {
-      return thunkAPI.rejectWithValue(
-        error.response?.data?.message || "Login failed."
-      );
+      const body = error.response?.data || {};
+      if (body.code) {
+        // preserve code, message, companyId, etc.
+        return thunkAPI.rejectWithValue(body);
+      }
+      return thunkAPI.rejectWithValue({
+        message: body.message || "Login failed.",
+      });
     }
   }
 );
@@ -113,10 +120,7 @@ export const resetPassword = createAsyncThunk(
     try {
       const { data } = await tokenRefreshInterceptor.post(
         "/auth/reset-password",
-        {
-          token,
-          newPassword,
-        }
+        { token, newPassword }
       );
       return data.message;
     } catch (error) {
@@ -186,7 +190,7 @@ const authSlice = createSlice({
         state.subscriptionStatus = subscriptionStatus;
         state.nextBillingDate = nextBillingDate;
 
-        disconnectChatSocket(); // cleanup first
+        disconnectChatSocket();
         initializeChatSocket();
       })
       .addCase(loginUser.rejected, (state, action) => {
@@ -240,7 +244,7 @@ const authSlice = createSlice({
         state.nextBillingDate = action.payload.nextBillingDate;
       })
       .addCase(refreshSubscription.rejected, (state) => {
-        // silently fail or handle
+        // handle or ignore
       });
   },
 });

@@ -24,9 +24,9 @@ const AdminSidebar = () => {
 
   const handleLogout = async () => {
     try {
-      await dispatch(logoutUser()); // call logout thunk
-      dispatch(resetAuthState());   // reset Redux state
-      navigate("/admin/login");     // redirect
+      await dispatch(logoutUser()); 
+      dispatch(resetAuthState());   
+      navigate("/admin/login");     
     } catch (err) {
       console.error("Logout failed", err);
     }

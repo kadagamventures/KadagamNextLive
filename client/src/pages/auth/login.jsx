@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { loginUser } from "../../redux/slices/authSlice";
+import { tokenRefreshInterceptor } from "../../utils/axiosInstance";
 import {
   initializeChatSocket,
   disconnectChatSocket,
@@ -19,7 +20,7 @@ const AdminLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState(null);
 
-  const { status, error, user, isAuthenticated, subscriptionStatus } = useSelector(
+  const { status, user, isAuthenticated, subscriptionStatus } = useSelector(
     (state) => state.auth
   );
   const dispatch = useDispatch();
@@ -53,8 +54,10 @@ const AdminLogin = () => {
     }
   }, [status, isAuthenticated, user, subscriptionStatus, navigate]);
 
-  const handleChange = (e) =>
+  const handleChange = (e) => {
+    setFormError(null);
     setCredentials((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
 
   const togglePassword = () => setShowPassword((prev) => !prev);
 
@@ -75,22 +78,15 @@ const AdminLogin = () => {
     if (loginUser.rejected.match(resultAction)) {
       const res = resultAction.payload;
 
-      if (
-        res?.code === "EMAIL_NOT_VERIFIED" &&
-        res?.companyId &&
-        credentials?.loginId
-      ) {
+      // Handle EMAIL_NOT_VERIFIED flow
+      if (res?.code === "EMAIL_NOT_VERIFIED" && res.companyId) {
         try {
-          await fetch("/api/verify/send", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ companyId: res.companyId }),
+          await tokenRefreshInterceptor.post("/verify/send", {
+            companyId: res.companyId,
           });
         } catch (err) {
           console.warn("⚠ OTP send failed:", err);
         }
-
         navigate("/verification", {
           replace: true,
           state: {
@@ -99,7 +95,8 @@ const AdminLogin = () => {
           },
         });
       } else {
-        setFormError(res || "Login failed.");
+        // Show generic or server-provided error
+        setFormError(res.message || res || "Login failed.");
       }
     }
   };
