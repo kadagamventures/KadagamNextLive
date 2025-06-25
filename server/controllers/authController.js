@@ -11,12 +11,14 @@ const emailService  = require("../services/emailService");
 const ONE_HOUR = 60 * 60 * 1000;
 const isProd   = process.env.NODE_ENV === "production";
 
-// ensure cookies are set cross-site and scoped to refresh endpoint
+// Updated cookie options to span both www and api subdomains and all paths:
 const cookieOptions = {
   httpOnly: true,
-  secure:   isProd,
-  sameSite: isProd ? "None" : "Lax",
-  path:     "/api/auth/refresh",
+  secure:   isProd,                    // HTTPS-only in production
+  sameSite: isProd ? "None" : "Lax",   // allow cross-site when in prod
+  domain:   ".kadagamnext.com",        // send to both api.kadagamnext.com & www.kadagamnext.com
+  path:     "/",                       // attach on every path
+  maxAge:   7 * 24 * 60 * 60 * 1000,   // 7 days
 };
 
 // ─────────────────────────────────────────────
