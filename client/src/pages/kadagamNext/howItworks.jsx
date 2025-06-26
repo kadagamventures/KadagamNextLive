@@ -54,7 +54,7 @@ export default function ImageUploadPreview() {
           <Link
                     to="/signin"
                     
-                  >SIGN UP FOR HERE</Link>
+                  >SIGN UP HERE</Link>
         </button>
       </div>
 
