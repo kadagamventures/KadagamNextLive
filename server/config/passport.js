@@ -1,3 +1,4 @@
+require("dotenv").config();
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const jwt = require("jsonwebtoken");
@@ -7,7 +8,7 @@ const {
   registerCompany,
   completeRegistrationAndCreateAdmin,
 } = require("../services/companyService");
-require("dotenv").config();
+
 
 // 🔐 Ensure JWT_SECRET is available
 if (!process.env.JWT_SECRET) {
