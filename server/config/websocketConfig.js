@@ -11,7 +11,7 @@ if (!jwtSecret) throw new Error("Missing JWT_SECRET in environment variables");
 const CLIENT_URLS = [
   "https://www.kadagamnext.com",
   "http://localhost:5173",
-  "https://main.d2tclwkypqhvb0.amplifyapp.com",
+  "https://main.d37un8iffky11m.amplifyapp.com",
   "https://kadagamnext.com",
 ];
 

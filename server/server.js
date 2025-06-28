@@ -87,7 +87,7 @@ const CLIENT_URLS = [
   "https://www.kadagamnext.com",
   "https://kadagamnext.com",
   "http://localhost:5173",
-  "https://main.d2tclwkypqhvb0.amplifyapp.com",
+  "https://main.d37un8iffky11m.amplifyapp.com",
 ];
 
 const corsOptions = {
