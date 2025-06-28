@@ -1,6 +1,6 @@
 // src/pages/pricing/PricingPage.jsx
 
-import React, { useEffect, useState } from "react";
+import  { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import paymentService from "../../services/paymentService";
