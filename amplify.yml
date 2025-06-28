@@ -5,17 +5,16 @@ applications:
       phases:
         preBuild:
           commands:
+            - cd client
             - nvm install 20
             - nvm use 20
-            # ignore TS/react-scripts peer deps
             - npm config set legacy-peer-deps true
-            # force Tailwind to JS-only compiler
             - export TAILWIND_EXPERIMENTAL_SKIP_OPX_INSTALL=true
-            # use npm install so the lockfile you commit (with optionalDependencies)
-            # is honored instead of erroring on missing entries
+            - rm -rf node_modules package-lock.json
             - npm install
         build:
           commands:
+            - cd client
             - npm run build
       artifacts:
         baseDirectory: dist
