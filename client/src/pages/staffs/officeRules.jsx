@@ -5,7 +5,7 @@ const OfficeRules = () => {
         <h1 className="text-5xl font-extrabold text-center text-gray-800 mb-10">
           Office Rules
         </h1>
-        {/* Common Rules */}
+       
         <div className="bg-white p-8 rounded-2xl shadow-xl mb-8 transition-transform duration-300 hover:scale-105 hover:shadow-2xl">
           <h2 className="text-3xl font-bold text-indigo-600 mb-4">
             Common Rules
