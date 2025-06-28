@@ -1,0 +1,8 @@
+# .ebextensions/websockets.config
+option_settings:
+  aws:elasticbeanstalk:environment:proxy:
+    GzipCompression: true
+    ProxyServer: nginx
+  aws:elasticbeanstalk:application:environment:
+    NODE_ENV: production
+    WEBSOCKET: 'true'
