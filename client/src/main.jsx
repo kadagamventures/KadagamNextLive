@@ -11,6 +11,14 @@ import "./index.css";
 import store, { persistor } from "./redux/store.js";
 import App from "./App.jsx";
 
+// ✅ Redirect to www to unify session cookies
+if (
+  window.location.hostname === "kadagamnext.com" &&
+  window.location.protocol === "https:"
+) {
+  window.location.replace(`https://www.kadagamnext.com${window.location.pathname}${window.location.search}`);
+}
+
 // Optional: loading screen during persistence rehydration
 const LoadingScreen = () => (
   <div className="flex justify-center items-center min-h-screen bg-white">
@@ -18,10 +26,8 @@ const LoadingScreen = () => (
   </div>
 );
 
-// Get the root DOM node
 const container = document.getElementById("root");
 
-// ✅ Prevent duplicate root creation (especially useful in Vite HMR/dev mode)
 if (!container._reactRootContainer) {
   const root = createRoot(container);
   root.render(

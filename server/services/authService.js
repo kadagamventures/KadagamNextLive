@@ -1,10 +1,10 @@
-// server/services/AuthService.js
-
 const crypto     = require("crypto");
 const bcrypt     = require("bcryptjs");
 const User       = require("../models/User");
 const Company    = require("../models/Company");
 const tokenUtils = require("../utils/tokenUtils");
+const cookieOptions = require("../config/cookieOptions");
+
 require("dotenv").config();
 
 const ONE_HOUR = 60 * 60 * 1000;
@@ -24,14 +24,14 @@ class AuthService {
       }
     }
 
-    user.resetPasswordToken   = undefined;
+    user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
 
-    const resetToken  = crypto.randomBytes(32).toString("hex");
+    const resetToken = crypto.randomBytes(32).toString("hex");
     const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
 
-    user.resetPasswordToken   = hashedToken;
+    user.resetPasswordToken = hashedToken;
     user.resetPasswordExpires = Date.now() + ONE_HOUR;
     await user.save();
 
@@ -45,14 +45,14 @@ class AuthService {
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
     const user = await User.findOne({
-      resetPasswordToken:   hashedToken,
+      resetPasswordToken: hashedToken,
       resetPasswordExpires: { $gt: Date.now() },
     });
     if (!user) throw new Error("Invalid or expired token.");
 
     const salt = await bcrypt.genSalt(12);
     user.password = await bcrypt.hash(newPassword, salt);
-    user.resetPasswordToken   = undefined;
+    user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
 
@@ -60,7 +60,6 @@ class AuthService {
   }
 
   // 3) Authenticate user (login)
-  //    Returns { token, user, subscriptionStatus, nextBillingDate }
   async authenticateUser(loginIdRaw, passwordRaw, companyId) {
     const loginId = loginIdRaw.trim();
     const password = passwordRaw.trim();
@@ -107,7 +106,7 @@ class AuthService {
       throw this._makeError(401, "INVALID_CREDENTIALS", "Incorrect password");
     }
 
-    const accessToken  = tokenUtils.generateAccessToken(user);
+    const accessToken = tokenUtils.generateAccessToken(user);
     const refreshToken = tokenUtils.generateRefreshToken(user);
 
     const safeUser = user.toObject();
@@ -118,9 +117,9 @@ class AuthService {
     return {
       accessToken,
       refreshToken,
-      user:               safeUser,
+      user: safeUser,
       subscriptionStatus: comp.subscription?.status || "pending",
-      nextBillingDate:    comp.subscription?.nextBillingDate || null,
+      nextBillingDate: comp.subscription?.nextBillingDate || null,
     };
   }
 
@@ -136,14 +135,13 @@ class AuthService {
 
     return {
       subscriptionStatus: comp.subscription?.status || "pending",
-      nextBillingDate:    comp.subscription?.nextBillingDate || null,
+      nextBillingDate: comp.subscription?.nextBillingDate || null,
     };
   }
 
   // 5) Get user info by ID
   async getUserById(id) {
-    const user = await User.findById(id)
-      .select("-password -resetPasswordToken -resetPasswordExpires");
+    const user = await User.findById(id).select("-password -resetPasswordToken -resetPasswordExpires");
     if (!user) throw new Error("User not found");
     return user;
   }
@@ -154,32 +152,23 @@ class AuthService {
     return bcrypt.hash(plainPassword, salt);
   }
 
-  // 7) Logout logic: destroys session and clears both cookies
+  // 7) Logout logic
   async logout(req, res) {
-    // Destroy express-session if used
     if (req.session) {
       req.session.destroy(() => {});
     }
 
-    // Clear both tokens from cookies
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "None",
-      path: "/api/auth/refresh",
-    };
-
-    res.clearCookie("refreshToken",  cookieOptions);
-    res.clearCookie("accessToken",   cookieOptions);
+    res.clearCookie("refreshToken", cookieOptions);
+    res.clearCookie("accessToken", cookieOptions);
 
     return { message: "Logged out successfully." };
   }
 
-  // Helper to build API errors
+  // Helper
   _makeError(statusCode, code, message, extras = {}) {
     const err = new Error(message);
     err.statusCode = statusCode;
-    err.code       = code;
+    err.code = code;
     Object.assign(err, extras);
     return err;
   }

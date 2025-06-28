@@ -1,5 +1,3 @@
-// src/redux/slices/authSlice.js
-
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { tokenRefreshInterceptor } from "../../utils/axiosInstance";
 import {
@@ -33,11 +31,10 @@ const initialState = {
   nextBillingDate: safeGetItem("nextBillingDate"),
 };
 
-// ───────────────────────────────
-// 🔐 Thunks for API calls
-// ───────────────────────────────
+// ──────────────
+// Thunks
+// ──────────────
 
-// Admin Login
 export const loginUser = createAsyncThunk(
   "auth/loginUser",
   async ({ loginId, password }, thunkAPI) => {
@@ -47,10 +44,15 @@ export const loginUser = createAsyncThunk(
         { loginId, password }
       );
 
+      // DEBUG: Log the response
+      console.log("LOGIN RESPONSE:", data);
+
+      // Validate presence of required fields
       if (!data?.user || !data?.accessToken) {
         return thunkAPI.rejectWithValue({ message: "Invalid response from server." });
       }
 
+      // Save all auth details in localStorage
       localStorage.setItem("user", JSON.stringify(data.user));
       localStorage.setItem("role", data.user.role);
       localStorage.setItem("token", data.accessToken);
@@ -66,21 +68,19 @@ export const loginUser = createAsyncThunk(
       };
     } catch (error) {
       const body = error.response?.data || {};
-      if (body.code) {
-        // preserve code, message, companyId, etc.
-        return thunkAPI.rejectWithValue(body);
-      }
       return thunkAPI.rejectWithValue({
+        code: body.code,
         message: body.message || "Login failed.",
+        ...body,
       });
     }
   }
 );
 
-// Admin Logout
 export const logoutUser = createAsyncThunk("auth/logoutUser", async () => {
   await tokenRefreshInterceptor.post("/auth/logout");
 
+  // Clear all relevant auth data from localStorage
   localStorage.removeItem("user");
   localStorage.removeItem("role");
   localStorage.removeItem("token");
@@ -90,7 +90,7 @@ export const logoutUser = createAsyncThunk("auth/logoutUser", async () => {
   return null;
 });
 
-// Forgot Password
+// Password reset thunks remain the same as your previous code
 export const forgotPassword = createAsyncThunk(
   "auth/forgotPassword",
   async ({ email, remember }, thunkAPI) => {
@@ -113,7 +113,6 @@ export const forgotPassword = createAsyncThunk(
   }
 );
 
-// Reset Password
 export const resetPassword = createAsyncThunk(
   "auth/resetPassword",
   async ({ token, newPassword }, thunkAPI) => {
@@ -131,7 +130,6 @@ export const resetPassword = createAsyncThunk(
   }
 );
 
-// Refresh Subscription Status
 export const refreshSubscription = createAsyncThunk(
   "auth/refreshSubscription",
   async (_, thunkAPI) => {
@@ -146,9 +144,10 @@ export const refreshSubscription = createAsyncThunk(
   }
 );
 
-// ───────────────────────────────
-// 📦 Auth Slice
-// ───────────────────────────────
+// ──────────────
+// Slice
+// ──────────────
+
 const authSlice = createSlice({
   name: "auth",
   initialState,

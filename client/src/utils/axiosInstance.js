@@ -2,14 +2,28 @@ import axios from "axios";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-// ✅ Axios instance
+// Centralized Token Manager
+const tokenManager = {
+  get: () => {
+    try {
+      const token = localStorage.getItem("token");
+      return token && token !== "null" && token !== "undefined" ? token : null;
+    } catch {
+      return null;
+    }
+  },
+  set: (token) => localStorage.setItem("token", token),
+  clear: () => localStorage.removeItem("token"),
+};
+
+// Axios instance
 const tokenRefreshInterceptor = axios.create({
   baseURL: BASE_URL,
-  withCredentials: true, 
+  withCredentials: true,
   timeout: 30000,
 });
 
-// --- Token Refresh State
+// Token Refresh State
 let isRefreshing = false;
 let refreshSubscribers = [];
 
@@ -30,35 +44,34 @@ const retryFailedRequest = (error) => {
   });
 };
 
-// --- Helper to get token from localStorage
-const getToken = () => {
-  try {
-    const token = localStorage.getItem("token");
-    return token && token !== "null" && token !== "undefined" ? token : null;
-  } catch {
-    return null;
-  }
-};
-
-// --- Request Interceptor: Add Authorization Header from localStorage
+// Request Interceptor
 tokenRefreshInterceptor.interceptors.request.use(
   (config) => {
-    const token = getToken();
+    const token = tokenManager.get();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      console.warn("⚠️ No access token found in localStorage");
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// --- Response Interceptor: Auto-refresh token on 401
+// Response Interceptor
 tokenRefreshInterceptor.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    if (!error.response || error.response.status !== 401 || originalRequest._retry) {
+    if (!error.response) {
+      console.error("❌ No response received:", error.message);
+      return Promise.reject(error);
+    }
+
+    const { status } = error.response;
+
+    if (status !== 401 || originalRequest._retry) {
       return Promise.reject(error);
     }
 
@@ -69,6 +82,7 @@ tokenRefreshInterceptor.interceptors.response.use(
     }
 
     isRefreshing = true;
+    console.info("🔄 Attempting token refresh...");
 
     try {
       const refreshResponse = await axios.post(`${BASE_URL}/auth/refresh`, null, {
@@ -78,23 +92,26 @@ tokenRefreshInterceptor.interceptors.response.use(
       const { accessToken } = refreshResponse.data;
 
       if (!accessToken) {
-        throw new Error("No token received during refresh.");
+        throw new Error("No access token returned during refresh.");
       }
 
-      // Save new token
-      localStorage.setItem("token", accessToken);
-
-      // Retry original request with new token
+      tokenManager.set(accessToken);
       originalRequest.headers.Authorization = `Bearer ${accessToken}`;
       onTokenRefreshed(accessToken);
-      isRefreshing = false;
 
+      console.info("✅ Token refreshed successfully");
+      isRefreshing = false;
       return tokenRefreshInterceptor(originalRequest);
     } catch (refreshError) {
-      console.error("🔴 Token refresh failed:", refreshError.message);
       isRefreshing = false;
       refreshSubscribers = [];
 
+      console.error("🔴 Token refresh failed:", refreshError);
+      if (refreshError.response?.status === 403) {
+        console.warn("🚫 Likely invalid or expired refresh token. Logging out.");
+      }
+
+      tokenManager.clear();
       window.dispatchEvent(new CustomEvent("auth:logout"));
       return Promise.reject(refreshError);
     }

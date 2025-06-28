@@ -1,4 +1,3 @@
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -12,6 +11,7 @@ const session = require("express-session");
 const cookieParser = require("cookie-parser");
 const { body } = require("express-validator");
 
+const cookieOptions = require("./config/cookieOptions"); // ✅ import cookie options
 require("./config/passport");
 
 const {
@@ -31,6 +31,7 @@ const {
 const connectDB = require("./config/dbConfig");
 const { connectRedis, redisClient } = require("./config/redisConfig");
 
+// Routes
 const authRoutes             = require("./routes/authRoutes");
 const verificationRoutes     = require("./routes/verificationRoutes");
 const paymentRoutes          = require("./routes/paymentRoutes");
@@ -61,8 +62,9 @@ const { registerCompany } = require("./controllers/companyController");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ─── SESSION SETUP ──────────────────────────────
 const isProd = process.env.NODE_ENV === "production";
+
+// ─── SESSION SETUP ──────────────────────────────
 const SESSION_SECRET = isProd
   ? process.env.SESSION_SECRET || (() => { throw new Error("SESSION_SECRET required"); })()
   : "dev_secret_change_me";
@@ -73,11 +75,12 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: isProd,               // HTTPS-only in prod
+    secure: isProd,
     sameSite: isProd ? "none" : "lax",
-    maxAge: 1000 * 60 * 60,       // 1 hour
+    maxAge: 1000 * 60 * 60,
   },
 }));
+
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(cookieParser());
@@ -96,8 +99,8 @@ const corsOptions = {
     return callback(new Error("CORS policy violation"), false);
   },
   credentials: true,
-  methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"],
-  allowedHeaders: ["Content-Type","Authorization","X-Requested-With","Accept","Origin"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
 };
 
 app.use(cors(corsOptions));
@@ -132,12 +135,11 @@ app.get("/",       (req, res) => res.json({ message: "🟢 Welcome to KadagamNex
 })();
 
 // ─── ROUTES ─────────────────────────────────────
-// Public routes
-app.use("/api/auth",    authRoutes);
-app.use("/api/verify",  verificationRoutes);
-app.use("/api/payment", paymentRoutes);
-app.use("/api/plan",    planRoutes);
-app.use("/api/invoices",invoiceRoutes);
+app.use("/api/auth",          authRoutes);
+app.use("/api/verify",        verificationRoutes);
+app.use("/api/payment",       paymentRoutes);
+app.use("/api/plan",          planRoutes);
+app.use("/api/invoices",      invoiceRoutes);
 
 // Public company registration
 app.post(
@@ -147,7 +149,7 @@ app.post(
     validateEmailUnique,
     body("name").trim().notEmpty().withMessage("Company name is required."),
     body("password").isLength({ min: 8 }).withMessage("Password must be at least 8 characters."),
-    body("phone").trim().notEmpty().withMessage("Phone number is required.").bail()
+    body("phone").trim().notEmpty().withMessage("Phone number is required.")
       .isMobilePhone().withMessage("Phone number must be valid."),
   ],
   validateRequest,
@@ -160,7 +162,7 @@ app.use("/api/admin",         verifyToken, ensureVerifiedTenant, adminLimiter, a
 app.use("/api/staff",         verifyToken, ensureVerifiedTenant, adminLimiter, userRoutes);
 
 // Subscription-protected routes
-const subMware = [ verifyToken, ensureVerifiedTenant, enforceActiveSubscription ];
+const subMware = [verifyToken, ensureVerifiedTenant, enforceActiveSubscription];
 app.use("/api/projects",      ...subMware, projectRoutes);
 app.use("/api/tasks",         ...subMware, taskRoutes);
 app.use("/api/attendance",    ...subMware, attendanceRoutes);
@@ -177,22 +179,21 @@ app.use("/api/delete-file",   ...subMware, deleteFileRoute);
 app.use("/api/office-timing", ...subMware, officeTimingRoutes);
 app.use("/api/payment-status",...subMware, paymentStatusRoutes);
 
-// Super-Admin
+// Super Admin
 app.use("/api/super-admin", superAdminRoutes);
 
-// Error handlers
+// ─── ERROR HANDLERS ─────────────────────────────
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// WebSocket + start server
+// ─── SOCKET.IO ──────────────────────────────────
 const server = http.createServer(app);
 const { initializeWebSocket } = require("./config/websocketConfig");
 const io = initializeWebSocket(server);
 app.set("io", io);
 
+// ─── START SERVER ───────────────────────────────
 server.listen(PORT, () => {
   console.log(`🚀 Server listening on http://localhost:${PORT}`);
   console.log(`📡 WebSocket available at ws://localhost:${PORT}`);
 });
-
-// Graceful shutdown omitted for brevity

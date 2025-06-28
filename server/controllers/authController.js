@@ -1,5 +1,3 @@
-// server/controllers/authController.js
-
 const bcrypt        = require("bcryptjs");
 const crypto        = require("crypto");
 const asyncHandler  = require("express-async-handler");
@@ -7,19 +5,9 @@ const User          = require("../models/User");
 const Company       = require("../models/Company");
 const tokenUtils    = require("../utils/tokenUtils");
 const emailService  = require("../services/emailService");
+const cookieOptions = require("../config/cookieOptions");
 
 const ONE_HOUR = 60 * 60 * 1000;
-const isProd   = process.env.NODE_ENV === "production";
-
-// Updated cookie options to span both www and api subdomains and all paths:
-const cookieOptions = {
-  httpOnly: true,
-  secure:   isProd,                    // HTTPS-only in production
-  sameSite: isProd ? "None" : "Lax",   // allow cross-site when in prod
-  domain:   ".kadagamnext.com",        // send to both api.kadagamnext.com & www.kadagamnext.com
-  path:     "/",                       // attach on every path
-  maxAge:   7 * 24 * 60 * 60 * 1000,   // 7 days
-};
 
 // ─────────────────────────────────────────────
 // 1) Admin Login
@@ -35,49 +23,45 @@ exports.adminLogin = asyncHandler(async (req, res) => {
     role: "admin",
     isDeleted: false,
   });
-  if (!admin) {
-    return res.status(401).json({ message: "Invalid credentials." });
-  }
-
-  if (!(await bcrypt.compare(password, admin.password))) {
+  if (!admin || !(await bcrypt.compare(password, admin.password))) {
     return res.status(401).json({ message: "Invalid credentials." });
   }
 
   const company = await Company.findById(admin.companyId);
   if (!company || company.isDeleted) {
     return res.status(403).json({
-      code:    "COMPANY_INVALID",
+      code: "COMPANY_INVALID",
       message: !company ? "Company not found." : "Company is inactive or banned.",
     });
   }
   if (!company.isVerified) {
     return res.status(403).json({
-      code:      "EMAIL_NOT_VERIFIED",
-      message:   "Email not verified.",
+      code: "EMAIL_NOT_VERIFIED",
+      message: "Email not verified.",
       companyId: company._id,
     });
   }
 
-  const accessToken  = tokenUtils.generateAccessToken(admin);
+  const accessToken = tokenUtils.generateAccessToken(admin);
   const refreshToken = tokenUtils.generateRefreshToken(admin);
 
-  res.cookie("accessToken",  accessToken,  cookieOptions);
+  res.cookie("accessToken", accessToken, cookieOptions);
   res.cookie("refreshToken", refreshToken, cookieOptions);
 
   res.json({
-    message:            "Login successful.",
+    message: "Login successful.",
     accessToken,
     user: {
-      id:          admin._id,
-      name:        admin.name,
-      email:       admin.email,
-      staffId:     admin.staffId || null,
-      role:        admin.role,
+      id: admin._id,
+      name: admin.name,
+      email: admin.email,
+      staffId: admin.staffId || null,
+      role: admin.role,
       permissions: admin.permissions || [],
-      companyId:   admin.companyId,
+      companyId: admin.companyId,
     },
-    subscriptionStatus: company.subscription?.status   || "pending",
-    nextBillingDate:    company.subscription?.nextBillingDate || null,
+    subscriptionStatus: company.subscription?.status || "pending",
+    nextBillingDate: company.subscription?.nextBillingDate || null,
   });
 });
 
@@ -94,7 +78,7 @@ exports.staffLogin = asyncHandler(async (req, res) => {
   }
 
   const user = await User.findOne({
-    email:     loginId.toLowerCase(),
+    email: loginId.toLowerCase(),
     companyId,
     isDeleted: false,
   });
@@ -108,38 +92,38 @@ exports.staffLogin = asyncHandler(async (req, res) => {
   const company = await Company.findById(user.companyId);
   if (!company || company.isDeleted) {
     return res.status(403).json({
-      code:    "COMPANY_INVALID",
+      code: "COMPANY_INVALID",
       message: !company ? "Company not found." : "Company is inactive or banned.",
     });
   }
   if (!company.isVerified) {
     return res.status(403).json({
-      code:      "EMAIL_NOT_VERIFIED",
-      message:   "Email not verified.",
+      code: "EMAIL_NOT_VERIFIED",
+      message: "Email not verified.",
       companyId: company._id,
     });
   }
 
-  const accessToken  = tokenUtils.generateAccessToken(user);
+  const accessToken = tokenUtils.generateAccessToken(user);
   const refreshToken = tokenUtils.generateRefreshToken(user);
 
-  res.cookie("accessToken",  accessToken,  cookieOptions);
+  res.cookie("accessToken", accessToken, cookieOptions);
   res.cookie("refreshToken", refreshToken, cookieOptions);
 
   res.json({
-    message:            "Login successful.",
+    message: "Login successful.",
     accessToken,
     user: {
-      id:          user._id,
-      name:        user.name,
-      email:       user.email,
-      staffId:     user.staffId,
-      role:        user.role,
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      staffId: user.staffId,
+      role: user.role,
       permissions: user.permissions || [],
-      companyId:   user.companyId,
+      companyId: user.companyId,
     },
-    subscriptionStatus: company.subscription?.status   || "pending",
-    nextBillingDate:    company.subscription?.nextBillingDate || null,
+    subscriptionStatus: company.subscription?.status || "pending",
+    nextBillingDate: company.subscription?.nextBillingDate || null,
   });
 });
 
@@ -161,13 +145,9 @@ exports.refreshToken = asyncHandler(async (req, res) => {
     return res.status(403).json({ message: "Invalid refresh token." });
   }
 
-  const user = await User.findById(decoded.id)
-    .select("role permissions isActive companyId");
-  if (!user) {
-    return res.status(404).json({ message: "User not found." });
-  }
-  if (!user.isActive) {
-    return res.status(403).json({ message: "Account is inactive. Contact admin." });
+  const user = await User.findById(decoded.id).select("role permissions isActive companyId");
+  if (!user || !user.isActive) {
+    return res.status(403).json({ message: "Account is inactive or user not found." });
   }
 
   const comp = await Company.findById(user.companyId);
@@ -190,8 +170,8 @@ exports.refreshSubscription = asyncHandler(async (req, res) => {
     return res.status(403).json({ message: "Company unavailable or banned." });
   }
   res.json({
-    subscriptionStatus: comp.subscription?.status   || "pending",
-    nextBillingDate:    comp.subscription?.nextBillingDate || null,
+    subscriptionStatus: comp.subscription?.status || "pending",
+    nextBillingDate: comp.subscription?.nextBillingDate || null,
   });
 });
 
@@ -220,10 +200,10 @@ exports.requestPasswordReset = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "User not found." });
   }
 
-  const resetToken  = crypto.randomBytes(32).toString("hex");
+  const resetToken = crypto.randomBytes(32).toString("hex");
   const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
 
-  user.resetPasswordToken   = hashedToken;
+  user.resetPasswordToken = hashedToken;
   user.resetPasswordExpires = Date.now() + ONE_HOUR;
   await user.save();
 
@@ -242,15 +222,15 @@ exports.resetPassword = asyncHandler(async (req, res) => {
 
   const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
   const user = await User.findOne({
-    resetPasswordToken:   hashedToken,
+    resetPasswordToken: hashedToken,
     resetPasswordExpires: { $gt: Date.now() },
   });
   if (!user) {
     return res.status(400).json({ message: "Invalid or expired token." });
   }
 
-  user.password             = await bcrypt.hash(newPassword, 12);
-  user.resetPasswordToken   = undefined;
+  user.password = await bcrypt.hash(newPassword, 12);
+  user.resetPasswordToken = undefined;
   user.resetPasswordExpires = undefined;
   await user.save();
 
@@ -266,7 +246,7 @@ exports.logout = asyncHandler(async (req, res) => {
     await tokenUtils.blacklistUserTokens(req.user.id);
   }
 
-  res.clearCookie("accessToken",  cookieOptions);
+  res.clearCookie("accessToken", cookieOptions);
   res.clearCookie("refreshToken", cookieOptions);
   res.json({ message: "Logged out successfully." });
 });

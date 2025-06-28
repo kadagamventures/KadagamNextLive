@@ -8,6 +8,7 @@ const notificationHandlers = require("../websockets/notificationHandlers"); // �
 const jwtSecret = process.env.JWT_SECRET;
 if (!jwtSecret) throw new Error("Missing JWT_SECRET in environment variables");
 
+// ✅ Allowed Origins
 const CLIENT_URLS = [
   "https://www.kadagamnext.com",
   "http://localhost:5173",
@@ -31,10 +32,12 @@ const initializeWebSocket = (server) => {
     io = new Server(server, {
       cors: {
         origin: (origin, callback) => {
+          console.log("🌐 WebSocket Origin Attempt:", origin);
           if (!origin || CLIENT_URLS.includes(origin)) {
-            callback(null, true);
+            return callback(null, true);
           } else {
-            callback(new Error("❌ WebSocket CORS: Not allowed origin"));
+            console.warn("❌ WebSocket CORS blocked:", origin);
+            return callback(new Error("WebSocket CORS: Not allowed origin"));
           }
         },
         credentials: true,
@@ -45,13 +48,15 @@ const initializeWebSocket = (server) => {
       pingTimeout: 10000,
     });
 
-
+    // 🛡 JWT Token Middleware
     io.use((socket, next) => {
       let token = socket.handshake.auth?.token;
 
-      if (!token) return next(new Error("Missing auth token"));
+      if (!token) {
+        console.warn("🔒 WebSocket connection rejected: Missing auth token");
+        return next(new Error("Missing auth token"));
+      }
 
-      // Handle Bearer tokens
       if (token.startsWith("Bearer ")) {
         token = token.split(" ")[1];
       }
@@ -59,26 +64,25 @@ const initializeWebSocket = (server) => {
       try {
         const decoded = jwt.verify(token, jwtSecret);
         socket.user = decoded;
+        console.log(`✅ Authenticated WebSocket user: ${decoded.id || "Unknown ID"}`);
         return next();
       } catch (err) {
-        console.error("[WebSocket Auth Error]:", err.message);
+        console.error("❌ WebSocket JWT error:", err.message);
         return next(new Error("Invalid or expired token"));
       }
     });
 
-    /**
-     * 📡 On successful WebSocket connection
-     */
+    // 📡 WebSocket Events
     io.on("connection", (socket) => {
       const { id: userId, role } = socket.user || {};
-      console.log(`[🟢 Connected] ${userId} (${role})`);
+      console.log(`[🟢 WebSocket Connected] ${userId} (${role})`);
 
-      // Heartbeat
+      // Heartbeat ping
       socket.on("ping", () => {
         socket.emit("pong", "heartbeat-ack");
       });
 
-      // Dynamic room support
+      // Room management
       socket.on("join", (roomId) => {
         socket.join(roomId);
         console.log(`[📦 Room Join] ${userId} joined ${roomId}`);
@@ -89,21 +93,19 @@ const initializeWebSocket = (server) => {
         console.log(`[📤 Room Leave] ${userId} left ${roomId}`);
       });
 
-      // ✅ Task & room chat handlers
+      // Chat & Notification Events
       chatHandlers(io, socket);
-
-      // ✅ Notification handlers (NEW)
       notificationHandlers(io, socket);
 
-      // Notify deletion
+      // Chat deletion
       socket.on("deleteChat", ({ roomId, taskId }) => {
         io.to(roomId).emit("chatDeleted", { roomId, taskId });
         console.log(`[🧹 Chat Deleted] Room: ${roomId}, Task: ${taskId}`);
       });
 
-      // Disconnection & Errors
+      // Disconnect/Error events
       socket.on("disconnect", (reason) => {
-        console.warn(`[🔌 Disconnected] ${userId} (${reason})`);
+        console.warn(`[🔌 WebSocket Disconnected] ${userId} (${reason})`);
       });
 
       socket.on("error", (err) => {
@@ -113,7 +115,6 @@ const initializeWebSocket = (server) => {
 
     console.log("[✅ WebSocket] Server Initialized");
     return io;
-
   } catch (err) {
     console.error("[❌ WebSocket Init Error]:", err.message);
     io = null;
