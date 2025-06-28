@@ -5,12 +5,6 @@ import AdminLogin from "../pages/auth/login";
 import StaffLogin from "../pages/auth/staffLogin";
 
 
-/**
- * ✅ Authentication Routes
- * - Admin Login: `/admin/login`
- * - Staff Login: `/staff/login`
- * - Forgot Password: `/forgot-password`
- */
 const AuthRoutes = () => {
   return (
     <Routes>
