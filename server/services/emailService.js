@@ -1,8 +1,7 @@
 // server/services/emailService.js
-
+require("dotenv").config();
 const { SendEmailCommand, SendRawEmailCommand } = require("@aws-sdk/client-ses");
 const MailComposer = require("nodemailer/lib/mail-composer");
-require("dotenv").config();
 const { ses } = require("../config/awsConfig");
 
 class EmailService {

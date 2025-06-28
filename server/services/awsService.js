@@ -1,5 +1,3 @@
-// services/awsService.js
-
 const {
   S3Client,
   PutObjectCommand,

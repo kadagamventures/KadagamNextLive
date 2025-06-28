@@ -1,8 +1,10 @@
 import BlurImage from "../../assets/1. Dashboard.png";
 import HybridImage from "../../assets/howitsworksecond.png";
-import LeftAnalyticsImage from "../../assets/Group 1000002351.png"; // replace with your actual image
-import RightAutomationImage from "../../assets/Group 1000002352.png"; // replace with your actual image
+import LeftAnalyticsImage from "../../assets/Group 1000002351.png"; 
+import RightAutomationImage from "../../assets/Group 1000002352.png";
 import LeftTableImage from "../../assets/Datatable.png";
+import { Link } from "react-router-dom";
+
 
 export default function ImageUploadPreview() {
   return (
@@ -49,7 +51,10 @@ export default function ImageUploadPreview() {
             borderRadius: "0px",
           }}
         >
-          <a href="/signin">SIGN UP FOR FREE</a>
+          <Link
+                    to="/signin"
+                    
+                  >SIGN UP HERE</Link>
         </button>
       </div>
 

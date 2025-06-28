@@ -2,7 +2,7 @@
 
 const mongoose = require("mongoose");
 
-// Utility for generating a unique 6‑digit company code
+// Utility for generating a unique 6-digit company code
 async function generateUniqueCompanyCode() {
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   const exists = await mongoose.models.Company.exists({ _id: code });
@@ -12,47 +12,28 @@ async function generateUniqueCompanyCode() {
 // Subdocument for each payment entry
 const paymentSchema = new mongoose.Schema(
   {
-    planName: {
-      type: String,
-      required: true,                // e.g. "1 Month", "3 Months"
-    },
-    planDuration: {
-      type: Number,
-      required: true,                // number of days (30, 90, etc)
-    },
-    planPrice: {
-      type: Number,
-      required: true,                // base price before GST
-    },
-    gstAmount: {
-      type: Number,
-      required: true,                // tax component
-    },
-    totalAmount: {
-      type: Number,
-      required: true,                // planPrice + gstAmount
-    },
-    invoiceKey: {
-      type: String,
-      required: true,                // S3 object key or URL for the PDF
-    },
-
-    amount: {
-      type: Number,
-      required: true,                // duplicate of totalAmount for backwards compatibility
-    },
-    date: {
-      type: Date,
-      default: Date.now,
-    },
+    planName: { type: String, required: true },
+    planDuration: { type: Number, required: true },
+    planPrice: { type: Number, required: true },
+    gstAmount: { type: Number, required: true },
+    totalAmount: { type: Number, required: true },
+    invoiceKey: { type: String, required: true },
+    amount: { type: Number, required: true },
+    date: { type: Date, default: Date.now },
     method: {
       type: String,
-      enum: ["card", "upi", "razorpay", "stripe", "paypal", "bank_transfer", "trial"],
+      enum: [
+        "card",
+        "upi",
+        "razorpay",
+        "stripe",
+        "paypal",
+        "bank_transfer",
+        "trial",
+      ],
       default: "card",
     },
-    transactionId: {
-      type: String,
-    },
+    transactionId: String,
     status: {
       type: String,
       enum: ["success", "failed", "pending"],
@@ -69,11 +50,10 @@ const paymentSchema = new mongoose.Schema(
 
 const companySchema = new mongoose.Schema(
   {
-    // Override default ObjectId; assign 6‑digit string in pre‑validate
     _id: { type: String },
 
-    name:        { type: String, required: true, trim: true },
-    email:       {
+    name: { type: String, required: true, trim: true },
+    email: {
       type: String,
       required: true,
       lowercase: true,
@@ -81,21 +61,26 @@ const companySchema = new mongoose.Schema(
       match: [/^\S+@\S+\.\S+$/, "Invalid email format!"],
       index: true,
     },
+
     phone: {
       type: String,
       trim: true,
       validate: {
-        validator: v => /^[0-9]{10,15}$/.test(v),
+        validator: v => {
+          if (v == null || v === "") return true;
+          return /^[0-9]{10,15}$/.test(v);
+        },
         message: props => `${props.value} is not a valid phone number!`,
       },
     },
+
     gstin: {
       type: String,
       trim: true,
       uppercase: true,
       validate: {
         validator: v =>
-          /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/.test(v),
+          !v || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/.test(v),
         message: props => `${props.value} is not a valid GSTIN!`,
       },
     },
@@ -105,7 +90,7 @@ const companySchema = new mongoose.Schema(
       uppercase: true,
       validate: {
         validator: v =>
-          /^[A-Z]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/.test(v),
+          !v || /^[A-Z]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/.test(v),
         message: props => `${props.value} is not a valid CIN!`,
       },
     },
@@ -114,10 +99,11 @@ const companySchema = new mongoose.Schema(
       trim: true,
       uppercase: true,
       validate: {
-        validator: v => /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v),
+        validator: v => !v || /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v),
         message: props => `${props.value} is not a valid PAN!`,
       },
     },
+
     companyType: {
       type: String,
       enum: [
@@ -130,12 +116,13 @@ const companySchema = new mongoose.Schema(
         "Corporation (C-Corp)",
         "Nonprofit Corporation",
         "Others",
+        "Google-Auth", // ✅ Added for OAuth
       ],
       default: "Private Limited",
     },
+
     address: { type: String, trim: true },
 
-    // Subscription & billing
     subscription: {
       planId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -147,34 +134,30 @@ const companySchema = new mongoose.Schema(
         enum: ["pending", "active", "expired", "cancelled", "trial"],
         default: "pending",
       },
-      startDate:         { type: Date, default: Date.now },
-      nextBillingDate:   { type: Date, default: null },
+      startDate: { type: Date, default: Date.now },
+      nextBillingDate: { type: Date, default: null },
       lastPaymentAmount: { type: Number, default: 0 },
-      paymentHistory:    { type: [paymentSchema], default: [] },
+      paymentHistory: { type: [paymentSchema], default: [] },
     },
 
-    logoUrl:    { type: String, default: "" },
-    website:    { type: String, default: "", trim: true },
+    logoUrl: { type: String, default: "" },
+    website: { type: String, default: "", trim: true },
     trustLevel: {
       type: String,
       enum: ["new", "verified", "flagged", "banned"],
       default: "new",
     },
     isVerified: { type: Boolean, default: false },
-    isDeleted:  { type: Boolean, default: false, index: true },
+    isDeleted: { type: Boolean, default: false, index: true },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-// Text search for Super Admin dashboard
+// Full-text index for super-admin searches
 companySchema.index({ name: "text", email: "text" });
-
-// Index payments by date for revenue queries
+// Index payments by date
 companySchema.index({ "subscription.paymentHistory.date": 1 });
 
-// Auto‐generate 6‑digit string _id on new Company
 companySchema.pre("validate", async function (next) {
   if (this.isNew && !this._id) {
     try {
@@ -186,33 +169,20 @@ companySchema.pre("validate", async function (next) {
   } else next();
 });
 
-// Recalculate subscription summary on every save when paymentHistory changes
 companySchema.pre("save", function (next) {
   if (this.isModified("subscription.paymentHistory")) {
-    const successes = this.subscription.paymentHistory.filter(
-      (p) => p.status === "success"
-    );
-    if (successes.length > 0) {
-      // Total days across all successful payments
+    const successes = this.subscription.paymentHistory.filter(p => p.status === "success");
+    if (successes.length) {
       const totalDays = successes.reduce((sum, p) => sum + p.planDuration, 0);
-
-      // First-ever successful payment date
       this.subscription.startDate = successes[0].date;
-
-      // Last payment’s amount
       const last = successes[successes.length - 1];
       this.subscription.lastPaymentAmount = last.totalAmount;
-
-      // Next billing date = last payment date + totalDays
       this.subscription.nextBillingDate = new Date(
         last.date.getTime() + totalDays * 24 * 60 * 60 * 1000
       );
-
-      // Active vs expired
       this.subscription.status =
         this.subscription.nextBillingDate > Date.now() ? "active" : "expired";
     } else {
-      // No successful payments
       this.subscription.nextBillingDate = null;
       this.subscription.lastPaymentAmount = 0;
       this.subscription.status = "pending";

@@ -1,67 +1,76 @@
-const passport = require('passport');
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const User = require('../models/User');
-const Company = require('../models/Company');
-const { generateUniqueStaffId } = require('../utils/staffUtils');
+require("dotenv").config();
+const passport = require("passport");
+const GoogleStrategy = require("passport-google-oauth20").Strategy;
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
+const Company = require("../models/Company");
+const {
+  registerCompany,
+  completeRegistrationAndCreateAdmin,
+} = require("../services/companyService");
 
-passport.use(new GoogleStrategy({
-  clientID: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: process.env.GOOGLE_CALLBACK_URL,
-}, async (accessToken, refreshToken, profile, done) => {
-  try {
-    const email = profile.emails?.[0]?.value;
-    if (!email) return done(new Error("Google account has no email."), null);
 
-    let user = await User.findOne({ email, isDeleted: false });
+// 🔐 Ensure JWT_SECRET is available
+if (!process.env.JWT_SECRET) {
+  throw new Error("❌ JWT_SECRET is not set in environment variables");
+}
 
-    // If user already exists
-    if (user) return done(null, user);
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_EXPIRES_IN = process.env.JWT_ACCESS_EXPIRES || "1h";
 
-    // Check if a company with this email already exists
-    let company = await Company.findOne({ email, isDeleted: false });
-    if (!company) {
-      // Create new company for this Google account
-      company = await Company.create({
-        name: profile.displayName,
-        email,
-        phone: '',
-        subscription: {
-          planId: null,
-          planType: null,
-          status: "pending",
-          nextBillingDate: null,
-          lastPaymentAmount: 0,
-          paymentHistory: []
-        },
-        trustLevel: "new",
-        isVerified: false,
-        isDeleted: false
-      });
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: process.env.GOOGLE_CALLBACK_URL,
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        const email = profile.emails?.[0]?.value;
+        if (!email) {
+          return done(new Error("Google profile has no email"), null);
+        }
+
+        // 1) If user exists, log them in
+        let user = await User.findOne({ email, isDeleted: false });
+        if (user) return done(null, user);
+
+        // 2) Otherwise, check for company using email
+        let company = await Company.findOne({ email, isDeleted: false });
+
+        if (!company) {
+          // Auto-register the company (no phone, use placeholder password)
+          const { companyId } = await registerCompany({
+            name: profile.displayName || "Google Company",
+            email,
+            password: null, // Google ID used temporarily as password
+          });
+
+          company = await Company.findById(companyId);
+        }
+
+        // 3) Complete registration & create admin user
+        const { adminUser } = await completeRegistrationAndCreateAdmin({
+          companyId: company._id,
+          gstin: "",
+          cin: "",
+          pan: "",
+          companyType: "Google-Auth",
+          address: "",
+          adminPassword: profile.id, // Not usable directly, just placeholder
+        });
+
+        return done(null, adminUser);
+      } catch (err) {
+        console.error("🔴 Google Strategy Error:", err);
+        return done(err, null);
+      }
     }
+  )
+);
 
-    // Create the associated admin user
-    const adminStaffId = await generateUniqueStaffId();
-
-    user = await User.create({
-      name: `${profile.displayName} Admin`,
-      email,
-      password: null, // Google login, no password
-      role: "admin",
-      companyId: company._id,
-      staffId: adminStaffId,
-      permissions: ["manage_project", "manage_task", "manage_staff"],
-      isActive: true,
-      isDeleted: false,
-      googleId: profile.id
-    });
-
-    return done(null, user);
-  } catch (err) {
-    return done(err, null);
-  }
-}));
-
+// 🔁 Session handling
 passport.serializeUser((user, done) => {
   done(null, user.id);
 });
@@ -74,3 +83,5 @@ passport.deserializeUser(async (id, done) => {
     done(err, null);
   }
 });
+
+module.exports = passport;
