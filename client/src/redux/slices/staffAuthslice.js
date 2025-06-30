@@ -1,5 +1,3 @@
-// 📂 src/redux/slices/staffAuthSlice.js
-
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { tokenRefreshInterceptor as axiosInstance } from "../../utils/axiosInstance";
 import { disconnectChatSocket } from "../../websocket/chatSocket";
@@ -18,7 +16,6 @@ const safeParse = (key, defaultValue = null) => {
 
 // 🔹 Async Thunks
 
-// 🔐 Login Staff (multi-tenant: email + companyId)
 export const loginStaff = createAsyncThunk(
   "staffAuth/loginStaff",
   async ({ email, password, companyId }, thunkAPI) => {
@@ -32,18 +29,16 @@ export const loginStaff = createAsyncThunk(
       const { accessToken, user } = response.data;
       if (!accessToken || !user) throw new Error("Invalid server response");
 
-      localStorage.setItem("accessToken", accessToken); // <-- updated
+      localStorage.setItem("accessToken", accessToken);
       localStorage.setItem("user", JSON.stringify(user));
       localStorage.setItem("role", user.role);
       localStorage.setItem("permissions", JSON.stringify(user.permissions || []));
       localStorage.setItem("companyId", user.companyId);
 
-      return { user, token: accessToken };
+      return { user, accessToken }; // Return with accessToken key
     } catch (error) {
       const message = error.response?.data?.message || "Login failed";
-      console.warn("🛑 Login error:", message);
       if (error.response?.status === 401) {
-        // Only clear relevant keys, not the entire storage
         localStorage.removeItem("accessToken");
         localStorage.removeItem("user");
         localStorage.removeItem("role");
@@ -55,15 +50,12 @@ export const loginStaff = createAsyncThunk(
   }
 );
 
-// 🔓 Logout Staff
 export const logoutStaff = createAsyncThunk("staffAuth/logoutStaff", async () => {
-  // Only clear relevant keys, not the entire storage
   localStorage.removeItem("accessToken");
   localStorage.removeItem("user");
   localStorage.removeItem("role");
   localStorage.removeItem("permissions");
   localStorage.removeItem("companyId");
-
   disconnectChatSocket();
   return null;
 });
@@ -71,9 +63,10 @@ export const logoutStaff = createAsyncThunk("staffAuth/logoutStaff", async () =>
 // 🔹 Initial State
 const initialState = {
   user: safeParse("user", null),
-  token: localStorage.getItem("accessToken") || null, // <-- updated
+  accessToken: localStorage.getItem("accessToken") || null, // Consistent key
   role: localStorage.getItem("role") || null,
   permissions: safeParse("permissions", []),
+  isAuthenticated: !!localStorage.getItem("user") && !!localStorage.getItem("accessToken"),
   loading: false,
   error: null,
 };
@@ -85,11 +78,12 @@ const staffAuthSlice = createSlice({
   reducers: {
     resetStaffState(state) {
       state.user = null;
-      state.token = null;
+      state.accessToken = null;
       state.role = null;
       state.permissions = [];
       state.loading = false;
       state.error = null;
+      state.isAuthenticated = false;
       localStorage.removeItem("accessToken");
       localStorage.removeItem("user");
       localStorage.removeItem("role");
@@ -108,27 +102,30 @@ const staffAuthSlice = createSlice({
       .addCase(loginStaff.fulfilled, (state, action) => {
         state.loading = false;
         state.user = action.payload.user;
-        state.token = action.payload.token;
+        state.accessToken = action.payload.accessToken;
         state.role = action.payload.user.role;
         state.permissions = action.payload.user.permissions || [];
+        state.isAuthenticated = !!action.payload.user && !!action.payload.accessToken;
         state.error = null;
       })
       .addCase(loginStaff.rejected, (state, action) => {
         state.loading = false;
         state.user = null;
-        state.token = null;
+        state.accessToken = null;
         state.role = null;
         state.permissions = [];
+        state.isAuthenticated = false;
         state.error = action.payload || "Login failed.";
       })
       // 🔄 Logout Staff
       .addCase(logoutStaff.fulfilled, (state) => {
         state.user = null;
-        state.token = null;
+        state.accessToken = null;
         state.role = null;
         state.permissions = [];
         state.loading = false;
         state.error = null;
+        state.isAuthenticated = false;
       });
   },
 });

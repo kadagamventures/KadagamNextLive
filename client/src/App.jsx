@@ -40,33 +40,26 @@ function App() {
   const dispatch = useDispatch();
   const auth = useSelector((state) => state.auth);
   const staffAuth = useSelector((state) => state.staffAuth);
+  // Detect redux-persist rehydration
+  const isRehydrated = useSelector((state) => state._persist?.rehydrated);
   const [staffPermissions, setStaffPermissions] = useState([]);
 
-  // Safety: keep staffPermissions in state for StaffRoutes
+  // Only run once on mount
   useEffect(() => {
     const storedPermissions = JSON.parse(localStorage.getItem("staffPermissions") || "[]");
     setStaffPermissions(Array.isArray(storedPermissions) ? storedPermissions : []);
   }, []);
 
-  // Consistent accessToken usage + session safety
+  // Run after state rehydration
   useEffect(() => {
-    const token = localStorage.getItem("accessToken"); // Must match axiosInstance.js
+    if (!isRehydrated) return;
+    // Always prefer redux token over localStorage
+    const token =
+      auth.token ||
+      staffAuth.token ||
+      localStorage.getItem("accessToken");
     const user = auth?.user || staffAuth?.user;
 
-    // Extra session safety: if missing accessToken, clear sensitive info!
-    if (!token) {
-      localStorage.removeItem("user");
-      localStorage.removeItem("role");
-      localStorage.removeItem("permissions");
-      localStorage.removeItem("subscriptionStatus");
-      localStorage.removeItem("nextBillingDate");
-      localStorage.removeItem("companyId");
-      localStorage.removeItem("staffPermissions");
-      // Optionally force-redirect (comment if you want to stay on home page):
-      // window.location.href = "/admin/login";
-    }
-
-    // Only initialize sockets if user+token exist
     if (user && token) {
       initializeChatSocket({
         onSocketConnected: () => dispatch(setSocketConnected(true)),
@@ -74,15 +67,14 @@ function App() {
         onUserOnline: (userId) => dispatch(setUserOnline(userId)),
         onUserOffline: (userId) => dispatch(setUserOffline(userId)),
       });
-
       initializeNotificationSocket(dispatch);
     }
-  }, [auth?.user, staffAuth?.user, dispatch]);
+    // eslint-disable-next-line
+  }, [isRehydrated, auth?.user, staffAuth?.user, auth.token, staffAuth.token, dispatch]);
 
   return (
     <Router>
       <AxiosAuthProvider />
-
       <div className="flex flex-col font-sans min-h-screen">
         <Routes>
           {/* Home Routes */}
