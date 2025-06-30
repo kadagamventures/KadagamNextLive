@@ -8,6 +8,7 @@ import Howitworks from "./pages/kadagamNext/howItworks";
 import Pricing from "./pages/kadagamNext/pricingPage";
 import Privacy from "./pages/kadagamNext/privacypolicy";
 import Terms from "./pages/kadagamNext/termspage";
+import About from "./pages/kadagamNext/about";
 
 // Auth Pages
 import CreateAccountPage from "./pages/auth/createAccountpage";
@@ -19,7 +20,6 @@ import StaffLogin from "./pages/auth/staffLogin";
 import ForgotPassword from "./pages/auth/forgotPassword";
 import ResetPassword from "./pages/auth/resetPassword";
 import VerificationPage from "./pages/auth/verficationpage";
-import About from "./pages/kadagamNext/about"
 
 // Routes & Components
 import SuperAdminRoute from "./routes/superAdminRoutes";
@@ -42,18 +42,32 @@ function App() {
   const staffAuth = useSelector((state) => state.staffAuth);
   const [staffPermissions, setStaffPermissions] = useState([]);
 
+  // Safety: keep staffPermissions in state for StaffRoutes
   useEffect(() => {
     const storedPermissions = JSON.parse(localStorage.getItem("staffPermissions") || "[]");
     setStaffPermissions(Array.isArray(storedPermissions) ? storedPermissions : []);
   }, []);
 
+  // Consistent accessToken usage + session safety
   useEffect(() => {
-    // 🚩 UPDATED: Use "accessToken" instead of "token"
-    const token = localStorage.getItem("accessToken");
+    const token = localStorage.getItem("accessToken"); // Must match axiosInstance.js
     const user = auth?.user || staffAuth?.user;
 
+    // Extra session safety: if missing accessToken, clear sensitive info!
+    if (!token) {
+      localStorage.removeItem("user");
+      localStorage.removeItem("role");
+      localStorage.removeItem("permissions");
+      localStorage.removeItem("subscriptionStatus");
+      localStorage.removeItem("nextBillingDate");
+      localStorage.removeItem("companyId");
+      localStorage.removeItem("staffPermissions");
+      // Optionally force-redirect (comment if you want to stay on home page):
+      // window.location.href = "/admin/login";
+    }
+
+    // Only initialize sockets if user+token exist
     if (user && token) {
-      // 🔌 Initialize chat socket
       initializeChatSocket({
         onSocketConnected: () => dispatch(setSocketConnected(true)),
         onSocketDisconnected: () => dispatch(setSocketConnected(false)),
@@ -61,7 +75,6 @@ function App() {
         onUserOffline: (userId) => dispatch(setUserOffline(userId)),
       });
 
-      // 🔔 Initialize notification socket
       initializeNotificationSocket(dispatch);
     }
   }, [auth?.user, staffAuth?.user, dispatch]);

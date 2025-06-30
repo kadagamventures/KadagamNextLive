@@ -1,4 +1,6 @@
-const redis = require("redis");
+// server/config/redisConfig.js
+
+const { createClient } = require("redis");
 
 let redisClient;
 let redisReady = false;
@@ -8,9 +10,11 @@ let redisReady = false;
  */
 const getRedisClient = () => {
   if (!redisClient) {
-    redisClient = redis.createClient({
-      host: process.env.REDIS_HOST || "127.0.0.1",
-      port: Number(process.env.REDIS_PORT) || 6379,
+    redisClient = createClient({
+      socket: {
+        host: process.env.REDIS_HOST || "127.0.0.1",
+        port: Number(process.env.REDIS_PORT) || 6379,
+      },
       password: process.env.REDIS_PASSWORD || undefined,
     });
 
@@ -40,26 +44,22 @@ const getRedisClient = () => {
 /**
  * Connect to Redis (used on startup)
  */
-const connectRedis = () => {
+const connectRedis = async () => {
   const client = getRedisClient();
 
-  return new Promise((resolve, reject) => {
-    if (redisReady) {
-      console.log("🟡 [Redis] Already ready. Skipping connect.");
-      return resolve();
-    }
+  if (client.isOpen || client.status === "connecting") {
+    console.log("🟡 [Redis] Already connecting or connected. Skipping...");
+    return;
+  }
 
-    client.once("ready", () => {
-      redisReady = true;
-      resolve();
-    });
-
-    client.once("error", (err) => {
-      redisReady = false;
-      console.error("❌ [Redis] Connection failed:", err.message);
-      reject(err);
-    });
-  });
+  try {
+    console.log("⏳ [Redis] Connecting...");
+    await client.connect();
+  } catch (error) {
+    redisReady = false;
+    console.error("❌ [Redis] Connection failed:", error.message);
+    setTimeout(connectRedis, 5000); // Retry after 5s
+  }
 };
 
 /**
@@ -86,16 +86,17 @@ const isRedisReady = () => redisReady;
 /**
  * Gracefully close Redis on shutdown
  */
-const closeRedis = () => {
+const closeRedis = async () => {
   const client = getRedisClient();
-  if (client.connected) {
-    client.quit(() => {
+  if (client.isOpen) {
+    try {
+      await client.quit();
       console.log("✅ [Redis] Connection closed gracefully.");
-      process.exit(0);
-    });
-  } else {
-    process.exit(0);
+    } catch (error) {
+      console.error("❌ [Redis] Error during shutdown:", error.message);
+    }
   }
+  process.exit(0);
 };
 
 // Graceful process termination hooks

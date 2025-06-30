@@ -115,7 +115,7 @@ app.use(morgan("combined"));
 app.get("/health", (req, res) => res.json({ status: "UP" }));
 app.get("/",       (req, res) => res.json({ message: "🟢 Welcome to KadagamNext API. Use /api" }));
 
-// Version endpoint (manually bump or automate with build tools)
+// Version endpoint (bump with your deploy or CI)
 app.get("/version", (req, res) => {
   res.json({
     version: process.env.APP_VERSION || "1.0.0",

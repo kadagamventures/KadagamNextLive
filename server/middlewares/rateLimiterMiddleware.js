@@ -1,12 +1,13 @@
 const rateLimit = require("express-rate-limit");
-const RedisStore = require("rate-limit-redis"); // ✅ Correct default import
+const { RedisStore } = require("rate-limit-redis");
 const { redisClient } = require("../config/redisConfig");
 
-// ✅ General API Rate Limiter
+// 🟢 General API Rate Limiter (for normal users)
 const generalLimiter = rateLimit({
   store: new RedisStore({
-    client: redisClient,
-    expiry: 15 * 60,
+    sendCommand: (...args) => redisClient.sendCommand(args), // Use sendCommand for redis@4+
+    // Optionally: client: redisClient, // If `sendCommand` not needed, just use client
+    expiry: 15 * 60, // 15 minutes (in seconds)
   }),
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -19,10 +20,10 @@ const generalLimiter = rateLimit({
   skipSuccessfulRequests: true,
 });
 
-// ✅ Admin Rate Limiter
+// 🟢 Admin Rate Limiter
 const adminLimiter = rateLimit({
   store: new RedisStore({
-    client: redisClient,
+    sendCommand: (...args) => redisClient.sendCommand(args),
     expiry: 15 * 60,
   }),
   windowMs: 15 * 60 * 1000,
