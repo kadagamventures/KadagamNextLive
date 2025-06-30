@@ -1,29 +1,34 @@
+// src/utils/axiosInstance.js
+
 import axios from "axios";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-// Centralized Token Manager
+// Use a consistent key everywhere
+const ACCESS_TOKEN_KEY = "accessToken";
+
+// Centralized Token Manager (now always uses 'accessToken')
 const tokenManager = {
   get: () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem(ACCESS_TOKEN_KEY);
       return token && token !== "null" && token !== "undefined" ? token : null;
     } catch {
       return null;
     }
   },
-  set: (token) => localStorage.setItem("token", token),
-  clear: () => localStorage.removeItem("token"),
+  set: (token) => localStorage.setItem(ACCESS_TOKEN_KEY, token),
+  clear: () => localStorage.removeItem(ACCESS_TOKEN_KEY),
 };
 
-// Axios instance
+// Axios instance for all API calls
 const tokenRefreshInterceptor = axios.create({
   baseURL: BASE_URL,
   withCredentials: true,
   timeout: 30000,
 });
 
-// Token Refresh State
+// Token refresh state
 let isRefreshing = false;
 let refreshSubscribers = [];
 
@@ -44,21 +49,19 @@ const retryFailedRequest = (error) => {
   });
 };
 
-// Request Interceptor
+// Request Interceptor: Attach token to all requests
 tokenRefreshInterceptor.interceptors.request.use(
   (config) => {
     const token = tokenManager.get();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-    } else {
-      console.warn("⚠️ No access token found in localStorage");
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor
+// Response Interceptor: Handles 401 and token refresh
 tokenRefreshInterceptor.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -71,6 +74,7 @@ tokenRefreshInterceptor.interceptors.response.use(
 
     const { status } = error.response;
 
+    // Only intercept *first* 401 error per request
     if (status !== 401 || originalRequest._retry) {
       return Promise.reject(error);
     }
@@ -85,9 +89,12 @@ tokenRefreshInterceptor.interceptors.response.use(
     console.info("🔄 Attempting token refresh...");
 
     try {
-      const refreshResponse = await axios.post(`${BASE_URL}/auth/refresh`, null, {
-        withCredentials: true,
-      });
+      // Try to get a new access token via refresh endpoint (must be HTTP-only cookie in browser)
+      const refreshResponse = await axios.post(
+        `${BASE_URL}/auth/refresh`,
+        null,
+        { withCredentials: true }
+      );
 
       const { accessToken } = refreshResponse.data;
 
@@ -106,16 +113,37 @@ tokenRefreshInterceptor.interceptors.response.use(
       isRefreshing = false;
       refreshSubscribers = [];
 
-      console.error("🔴 Token refresh failed:", refreshError);
-      if (refreshError.response?.status === 403) {
-        console.warn("🚫 Likely invalid or expired refresh token. Logging out.");
-      }
-
+      // Session expired: clear tokens, notify user, and redirect
       tokenManager.clear();
-      window.dispatchEvent(new CustomEvent("auth:logout"));
+      window.dispatchEvent(
+        new CustomEvent("auth:logout", {
+          detail: { reason: "Session expired. Please log in again." },
+        })
+      );
       return Promise.reject(refreshError);
     }
   }
 );
+
+// Global logout handler - applies everywhere
+window.addEventListener("auth:logout", (event) => {
+  // Remove all user data and tokens
+  localStorage.clear();
+  // Optionally: clear Redux, React Query, etc.
+  if (event?.detail?.reason) {
+    alert(event.detail.reason); // Replace with toast/snackbar if desired
+  }
+  window.location.href = "/admin/login";
+});
+
+// 🔐 On every page load, check for localStorage/cookie desync (extra safety)
+if (
+  typeof window !== "undefined" &&
+  localStorage.getItem(ACCESS_TOKEN_KEY) &&
+  !document.cookie.includes("refreshToken")
+) {
+  localStorage.clear();
+  window.location.href = "/admin/login";
+}
 
 export { tokenRefreshInterceptor };

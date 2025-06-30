@@ -32,7 +32,7 @@ export const loginStaff = createAsyncThunk(
       const { accessToken, user } = response.data;
       if (!accessToken || !user) throw new Error("Invalid server response");
 
-      localStorage.setItem("token", accessToken);
+      localStorage.setItem("accessToken", accessToken); // <-- updated
       localStorage.setItem("user", JSON.stringify(user));
       localStorage.setItem("role", user.role);
       localStorage.setItem("permissions", JSON.stringify(user.permissions || []));
@@ -42,7 +42,14 @@ export const loginStaff = createAsyncThunk(
     } catch (error) {
       const message = error.response?.data?.message || "Login failed";
       console.warn("🛑 Login error:", message);
-      if (error.response?.status === 401) localStorage.clear();
+      if (error.response?.status === 401) {
+        // Only clear relevant keys, not the entire storage
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("user");
+        localStorage.removeItem("role");
+        localStorage.removeItem("permissions");
+        localStorage.removeItem("companyId");
+      }
       return thunkAPI.rejectWithValue(message);
     }
   }
@@ -50,20 +57,21 @@ export const loginStaff = createAsyncThunk(
 
 // 🔓 Logout Staff
 export const logoutStaff = createAsyncThunk("staffAuth/logoutStaff", async () => {
-  localStorage.removeItem("token");
+  // Only clear relevant keys, not the entire storage
+  localStorage.removeItem("accessToken");
   localStorage.removeItem("user");
   localStorage.removeItem("role");
   localStorage.removeItem("permissions");
   localStorage.removeItem("companyId");
 
-  disconnectChatSocket(); // ✅ WebSocket cleanup
+  disconnectChatSocket();
   return null;
 });
 
 // 🔹 Initial State
 const initialState = {
   user: safeParse("user", null),
-  token: localStorage.getItem("token") || null,
+  token: localStorage.getItem("accessToken") || null, // <-- updated
   role: localStorage.getItem("role") || null,
   permissions: safeParse("permissions", []),
   loading: false,
@@ -82,7 +90,11 @@ const staffAuthSlice = createSlice({
       state.permissions = [];
       state.loading = false;
       state.error = null;
-      localStorage.clear();
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("user");
+      localStorage.removeItem("role");
+      localStorage.removeItem("permissions");
+      localStorage.removeItem("companyId");
       disconnectChatSocket();
     },
   },

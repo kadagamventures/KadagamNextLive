@@ -4,6 +4,9 @@ const { redisClient } = require("../config/redisConfig");
 const tokenUtils = require("../utils/tokenUtils");
 require("dotenv").config();
 
+/**
+ * Extract token from Authorization header or cookies
+ */
 const extractToken = (req) => {
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith("Bearer ")) {
@@ -12,6 +15,9 @@ const extractToken = (req) => {
   return req.cookies?.accessToken;
 };
 
+/**
+ * Middleware to verify access token
+ */
 const verifyToken = async (req, res, next) => {
   try {
     let token = extractToken(req);
@@ -36,12 +42,11 @@ const verifyToken = async (req, res, next) => {
     if (!user) return res.status(404).json({ message: "User not found." });
     if (!user.isActive) return res.status(403).json({ message: "Account inactive. Contact admin." });
 
-    // ✅ Only this line updated:
     req.user = {
       id: user._id,
       role: user.role,
       permissions: user.permissions || [],
-      companyId: user.companyId || null, // ✅ Inject company context
+      companyId: user.companyId || null,
     };
 
     next();
@@ -51,17 +56,24 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
+/**
+ * Middleware or standalone route handler to refresh token
+ */
 const attemptTokenRefresh = async (req, res, next) => {
   try {
     const refreshToken = req.cookies?.refreshToken;
-    if (!refreshToken) return res.status(401).json({ message: "Session expired. Please log in again." });
+    if (!refreshToken) {
+      return res.status(401).json({ message: "Session expired. Please log in again." });
+    }
 
     if (await tokenUtils.isTokenBlacklisted(refreshToken)) {
       return res.status(403).json({ message: "Refresh token blacklisted. Please log in again." });
     }
 
     const decoded = tokenUtils.verifyRefreshToken(refreshToken);
-    if (!decoded) return res.status(403).json({ message: "Invalid refresh token." });
+    if (!decoded) {
+      return res.status(403).json({ message: "Invalid refresh token." });
+    }
 
     const user = await User.findById(decoded.id).select("role permissions isActive");
     if (!user) return res.status(404).json({ message: "User not found." });
@@ -75,6 +87,12 @@ const attemptTokenRefresh = async (req, res, next) => {
       sameSite: "Strict",
     });
 
+    // If this is a middleware call (from verifyToken), continue the request
+    if (next) {
+      req.headers.authorization = `Bearer ${newAccessToken}`;
+      return verifyToken(req, res, next); // Re-verify with new token
+    }
+
     return res.status(200).json({ accessToken: newAccessToken });
   } catch (error) {
     console.error("[Auth] Error Refreshing Token:", error);
@@ -82,6 +100,9 @@ const attemptTokenRefresh = async (req, res, next) => {
   }
 };
 
+/**
+ * Middleware to verify refresh token
+ */
 const verifyRefreshToken = async (req, res, next) => {
   try {
     const refreshToken = req.cookies?.refreshToken;
@@ -102,6 +123,9 @@ const verifyRefreshToken = async (req, res, next) => {
   }
 };
 
+/**
+ * Middleware to enforce admin access
+ */
 const requireAdmin = (req, res, next) => {
   if (!req.user || req.user.role !== "admin") {
     return res.status(403).json({ message: "Admin access required." });
@@ -109,4 +133,10 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
-module.exports = { verifyToken, verifyRefreshToken, requireAdmin };
+// ✅ Export all middleware
+module.exports = {
+  verifyToken,
+  verifyRefreshToken,
+  requireAdmin,
+  attemptTokenRefresh,
+};

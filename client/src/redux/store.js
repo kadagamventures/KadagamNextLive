@@ -8,12 +8,12 @@ import projectReducer from "./slices/projectSlice";
 import staffReducer from "./slices/staffSlice";
 import taskReducer from "./slices/taskSlice";
 import staffAuthReducer from "./slices/staffAuthslice";
-import staffSidebarReducer from "./slices/staffAuthslice";
+import staffSidebarReducer from "./slices/staffSidebarslice";
 import leaveRequestReducer from "./slices/leaveRequestSlice";
 import chatReducer from "./slices/chatSlice";
 import roomChatReducer from "./slices/roomChatSlice";
 import presenceReducer from "./slices/presenceSlice";
-import notificationReducer from "./slices/notificationSlice"; // ✅ NEW
+import notificationReducer from "./slices/notificationSlice";
 
 const safeParse = (key, defaultValue = null) => {
   try {
@@ -35,13 +35,13 @@ const chatPersistConfig = {
 const authPersistConfig = {
   key: "auth",
   storage,
-  whitelist: ["user", "token"],
+  whitelist: ["user", "accessToken"], // <-- CHANGED from "token" to "accessToken"
 };
 
 const rootPersistConfig = {
   key: "root",
   storage,
-  whitelist: ["auth", "chat"], // ✅ DO NOT persist notifications (expires in 4 days)
+  whitelist: ["auth", "chat"], // ✅ Do not persist notifications (expires in 4 days)
 };
 
 // ✅ Combine reducers
@@ -56,7 +56,7 @@ const rootReducer = combineReducers({
   chat: persistReducer(chatPersistConfig, chatReducer),
   roomChat: roomChatReducer,
   presence: presenceReducer,
-  notifications: notificationReducer, // ✅ Added here
+  notifications: notificationReducer,
 });
 
 // ✅ Create persisted root reducer
@@ -66,13 +66,13 @@ const persistedReducer = persistReducer(rootPersistConfig, rootReducer);
 const preloadedState = {
   auth: {
     user: safeParse("user", null),
-    isAuthenticated: !!localStorage.getItem("token"),
+    isAuthenticated: !!localStorage.getItem("accessToken"), // <-- CHANGED
     status: "idle",
     error: null,
   },
   staffAuth: {
     user: safeParse("user", null),
-    token: localStorage.getItem("token") || null,
+    token: localStorage.getItem("accessToken") || null,     // <-- CHANGED
     role: localStorage.getItem("role") || null,
     permissions: safeParse("permissions", []),
     loading: false,

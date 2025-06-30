@@ -1,4 +1,6 @@
-const redis = require("redis");
+// server/config/redisConfig.js
+
+const { createClient } = require("redis");
 
 let redisClient;
 let redisReady = false;
@@ -8,16 +10,12 @@ let redisReady = false;
  */
 const getRedisClient = () => {
   if (!redisClient) {
-    redisClient = redis.createClient({
+    redisClient = createClient({
       socket: {
         host: process.env.REDIS_HOST || "127.0.0.1",
         port: Number(process.env.REDIS_PORT) || 6379,
-        reconnectStrategy: (retries) =>
-          retries > 5 ? false : Math.min(retries * 200, 5000),
       },
-      ...(process.env.REDIS_PASSWORD
-        ? { password: process.env.REDIS_PASSWORD }
-        : {}),
+      password: process.env.REDIS_PASSWORD || undefined,
     });
 
     redisClient.on("error", (err) => {
@@ -29,14 +27,8 @@ const getRedisClient = () => {
       console.log("🟢 [Redis] Connected.");
     });
 
-    redisClient.on("ready", async () => {
+    redisClient.on("ready", () => {
       redisReady = true;
-      try {
-        // Use sendCommand instead of .client() for Redis v4+
-        await redisClient.sendCommand(["CLIENT", "SETNAME", "KadagamRedisClient"]);
-      } catch (err) {
-        console.warn("⚠️ [Redis] Could not set client name:", err.message);
-      }
       console.log("✅ [Redis] Ready.");
     });
 
@@ -112,7 +104,9 @@ process.on("SIGINT", closeRedis);
 process.on("SIGTERM", closeRedis);
 
 // Auto-connect Redis on load
-connectRedis();
+connectRedis().catch((err) => {
+  console.error("❌ [Redis] Failed to connect on startup:", err.message);
+});
 
 module.exports = {
   redisClient: getRedisClient(),

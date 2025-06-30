@@ -17,7 +17,7 @@ const safeGetItem = (key, isJSON = false) => {
 };
 
 const user = safeGetItem("user", true);
-const token = safeGetItem("token");
+const token = safeGetItem("accessToken"); // <-- UPDATED
 
 const initialState = {
   user,
@@ -55,7 +55,7 @@ export const loginUser = createAsyncThunk(
       // Save all auth details in localStorage
       localStorage.setItem("user", JSON.stringify(data.user));
       localStorage.setItem("role", data.user.role);
-      localStorage.setItem("token", data.accessToken);
+      localStorage.setItem("accessToken", data.accessToken); // <-- UPDATED
       localStorage.setItem("subscriptionStatus", data.subscriptionStatus);
       localStorage.setItem("nextBillingDate", data.nextBillingDate ?? "");
 
@@ -83,7 +83,7 @@ export const logoutUser = createAsyncThunk("auth/logoutUser", async () => {
   // Clear all relevant auth data from localStorage
   localStorage.removeItem("user");
   localStorage.removeItem("role");
-  localStorage.removeItem("token");
+  localStorage.removeItem("accessToken"); // <-- UPDATED
   localStorage.removeItem("subscriptionStatus");
   localStorage.removeItem("nextBillingDate");
 
@@ -164,7 +164,7 @@ const authSlice = createSlice({
 
       localStorage.removeItem("user");
       localStorage.removeItem("role");
-      localStorage.removeItem("token");
+      localStorage.removeItem("accessToken"); // <-- UPDATED
       localStorage.removeItem("subscriptionStatus");
       localStorage.removeItem("nextBillingDate");
 

@@ -63,19 +63,24 @@ router.get(
       { expiresIn: "1h" }
     );
 
+    // Use JWT_SECRET for refreshToken as well for consistency!
     const refreshToken = jwt.sign(
-      { id: req.user._id },
-      process.env.JWT_REFRESH_SECRET,
+      {
+        id: req.user._id,
+        role: req.user.role,
+        companyId: req.user.companyId,
+      },
+      process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    // Set refresh token cookie
+    // Set refresh token cookie (path option is optional)
     res.cookie("refreshToken", refreshToken, {
       ...cookieOptions,
-      path: "/api/auth/refresh",
+      path: "/",
     });
 
-    // Redirect to frontend with accessToken in URL (if needed, you can send via cookie or secure storage alternative)
+    // Redirect to frontend with accessToken in URL (or use cookie)
     res.redirect(`${FRONTEND_URL}/google-auth-success?token=${accessToken}`);
   }
 );
