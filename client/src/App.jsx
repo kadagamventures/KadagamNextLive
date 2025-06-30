@@ -48,7 +48,8 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    // 🚩 UPDATED: Use "accessToken" instead of "token"
+    const token = localStorage.getItem("accessToken");
     const user = auth?.user || staffAuth?.user;
 
     if (user && token) {

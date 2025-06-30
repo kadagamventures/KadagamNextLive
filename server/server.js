@@ -11,12 +11,11 @@ const session = require("express-session");
 const cookieParser = require("cookie-parser");
 const { body } = require("express-validator");
 
-const cookieOptions = require("./config/cookieOptions"); // ✅ import cookie options
+const cookieOptions = require("./config/cookieOptions");
 require("./config/passport");
 
 const {
   verifyToken,
-  attemptTokenRefresh,
 } = require("./middlewares/authMiddleware");
 const enforceActiveSubscription = require("./middlewares/enforceActiveSubscription");
 const ensureVerifiedTenant = require("./middlewares/ensureVerifiedTenant");
@@ -29,7 +28,7 @@ const {
 } = require("./middlewares/validationMiddleware");
 
 const connectDB = require("./config/dbConfig");
-const { connectRedis, redisClient } = require("./config/redisConfig");
+const { connectRedis } = require("./config/redisConfig");
 
 // Routes
 const authRoutes             = require("./routes/authRoutes");
@@ -61,10 +60,9 @@ const { registerCompany } = require("./controllers/companyController");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
 const isProd = process.env.NODE_ENV === "production";
 
-// ─── SESSION SETUP ──────────────────────────────
+// ─── SESSION CONFIG ─────────────────────────────
 const SESSION_SECRET = isProd
   ? process.env.SESSION_SECRET || (() => { throw new Error("SESSION_SECRET required"); })()
   : "dev_secret_change_me";
@@ -85,7 +83,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.use(cookieParser());
 
-// ─── CORS SETUP ────────────────────────────────
+// ─── CORS ───────────────────────────────────────
 const CLIENT_URLS = [
   "https://www.kadagamnext.com",
   "https://kadagamnext.com",
@@ -113,9 +111,17 @@ app.use(express.urlencoded({ extended: true }));
 app.use(helmet());
 app.use(morgan("combined"));
 
-// ─── HEALTH CHECK ───────────────────────────────
+// ─── HEALTH CHECK & VERSION ─────────────────────
 app.get("/health", (req, res) => res.json({ status: "UP" }));
 app.get("/",       (req, res) => res.json({ message: "🟢 Welcome to KadagamNext API. Use /api" }));
+
+// Version endpoint (manually bump or automate with build tools)
+app.get("/version", (req, res) => {
+  res.json({
+    version: process.env.APP_VERSION || "1.0.0",
+    lastUpdated: process.env.BUILD_TIME || new Date().toISOString()
+  });
+});
 
 // ─── DB + REDIS INIT ────────────────────────────
 (async () => {
@@ -156,12 +162,12 @@ app.post(
   registerCompany
 );
 
-// Protected company & tenant routes
+// Tenant Protected Routes
 app.use("/api/company",       companyRoutes);
 app.use("/api/admin",         verifyToken, ensureVerifiedTenant, adminLimiter, adminRoutes);
 app.use("/api/staff",         verifyToken, ensureVerifiedTenant, adminLimiter, userRoutes);
 
-// Subscription-protected routes
+// Subscription-protected Routes
 const subMware = [verifyToken, ensureVerifiedTenant, enforceActiveSubscription];
 app.use("/api/projects",      ...subMware, projectRoutes);
 app.use("/api/tasks",         ...subMware, taskRoutes);
@@ -179,10 +185,10 @@ app.use("/api/delete-file",   ...subMware, deleteFileRoute);
 app.use("/api/office-timing", ...subMware, officeTimingRoutes);
 app.use("/api/payment-status",...subMware, paymentStatusRoutes);
 
-// Super Admin
+// Super Admin Routes
 app.use("/api/super-admin", superAdminRoutes);
 
-// ─── ERROR HANDLERS ─────────────────────────────
+// ─── ERROR HANDLING ─────────────────────────────
 app.use(notFoundHandler);
 app.use(errorHandler);
 
@@ -197,3 +203,18 @@ server.listen(PORT, () => {
   console.log(`🚀 Server listening on http://localhost:${PORT}`);
   console.log(`📡 WebSocket available at ws://localhost:${PORT}`);
 });
+
+// ─── GRACEFUL SHUTDOWN ─────────────────────────
+function gracefulShutdown(signal) {
+  console.log(`\n${signal} received. Shutting down HTTP server...`);
+  server.close(() => {
+    console.log("✅ HTTP server closed.");
+    mongoose.disconnect().then(() => {
+      console.log("✅ MongoDB connection closed.");
+      process.exit(0);
+    });
+  });
+}
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));

@@ -9,15 +9,9 @@ let redisReady = false;
 const getRedisClient = () => {
   if (!redisClient) {
     redisClient = redis.createClient({
-      socket: {
-        host: process.env.REDIS_HOST || "127.0.0.1",
-        port: Number(process.env.REDIS_PORT) || 6379,
-        reconnectStrategy: (retries) =>
-          retries > 5 ? false : Math.min(retries * 200, 5000),
-      },
-      ...(process.env.REDIS_PASSWORD
-        ? { password: process.env.REDIS_PASSWORD }
-        : {}),
+      host: process.env.REDIS_HOST || "127.0.0.1",
+      port: Number(process.env.REDIS_PORT) || 6379,
+      password: process.env.REDIS_PASSWORD || undefined,
     });
 
     redisClient.on("error", (err) => {
@@ -29,14 +23,8 @@ const getRedisClient = () => {
       console.log("🟢 [Redis] Connected.");
     });
 
-    redisClient.on("ready", async () => {
+    redisClient.on("ready", () => {
       redisReady = true;
-      try {
-        // Use sendCommand instead of .client() for Redis v4+
-        await redisClient.sendCommand(["CLIENT", "SETNAME", "KadagamRedisClient"]);
-      } catch (err) {
-        console.warn("⚠️ [Redis] Could not set client name:", err.message);
-      }
       console.log("✅ [Redis] Ready.");
     });
 
@@ -52,22 +40,26 @@ const getRedisClient = () => {
 /**
  * Connect to Redis (used on startup)
  */
-const connectRedis = async () => {
+const connectRedis = () => {
   const client = getRedisClient();
 
-  if (client.isOpen || client.status === "connecting") {
-    console.log("🟡 [Redis] Already connecting or connected. Skipping...");
-    return;
-  }
+  return new Promise((resolve, reject) => {
+    if (redisReady) {
+      console.log("🟡 [Redis] Already ready. Skipping connect.");
+      return resolve();
+    }
 
-  try {
-    console.log("⏳ [Redis] Connecting...");
-    await client.connect();
-  } catch (error) {
-    redisReady = false;
-    console.error("❌ [Redis] Connection failed:", error.message);
-    setTimeout(connectRedis, 5000); // Retry after 5s
-  }
+    client.once("ready", () => {
+      redisReady = true;
+      resolve();
+    });
+
+    client.once("error", (err) => {
+      redisReady = false;
+      console.error("❌ [Redis] Connection failed:", err.message);
+      reject(err);
+    });
+  });
 };
 
 /**
@@ -94,17 +86,16 @@ const isRedisReady = () => redisReady;
 /**
  * Gracefully close Redis on shutdown
  */
-const closeRedis = async () => {
+const closeRedis = () => {
   const client = getRedisClient();
-  if (client.isOpen) {
-    try {
-      await client.quit();
+  if (client.connected) {
+    client.quit(() => {
       console.log("✅ [Redis] Connection closed gracefully.");
-    } catch (error) {
-      console.error("❌ [Redis] Error during shutdown:", error.message);
-    }
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
   }
-  process.exit(0);
 };
 
 // Graceful process termination hooks
@@ -112,7 +103,9 @@ process.on("SIGINT", closeRedis);
 process.on("SIGTERM", closeRedis);
 
 // Auto-connect Redis on load
-connectRedis();
+connectRedis().catch((err) => {
+  console.error("❌ [Redis] Failed to connect on startup:", err.message);
+});
 
 module.exports = {
   redisClient: getRedisClient(),

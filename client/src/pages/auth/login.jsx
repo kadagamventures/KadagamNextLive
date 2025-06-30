@@ -96,10 +96,17 @@ const AdminLogin = () => {
         });
       } else {
         // Show generic or server-provided error
-        setFormError(res.message || res || "Login failed.");
+        setFormError(res?.message || res || "Login failed.");
       }
     }
   };
+
+  // Cleanup on component unmount (optional best practice)
+  useEffect(() => {
+    return () => {
+      setFormError(null);
+    };
+  }, []);
 
   return (
     <div
@@ -146,6 +153,7 @@ const AdminLogin = () => {
                 onChange={handleChange}
                 className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 disabled={status === "loading"}
+                autoComplete="username"
               />
             </div>
 
@@ -161,6 +169,7 @@ const AdminLogin = () => {
                 onChange={handleChange}
                 className="w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 disabled={status === "loading"}
+                autoComplete="current-password"
               />
               <button
                 type="button"

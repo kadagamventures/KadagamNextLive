@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { loginStaff } from "../../redux/slices/staffAuthslice";
+import { loginStaff } from "../../redux/slices/staffAuthSlice"; // <-- fixed typo in file name
 import { Eye, EyeOff } from "lucide-react";
 import backgroundImg from "../../assets/backimage.png";
 import kadagamLogo from "../../assets/kadagamlogo.png";
@@ -44,10 +44,12 @@ const StaffLogin = () => {
         console.log("✅ Login successful:", resultAction.payload.user);
 
         localStorage.setItem("role", role);
-        localStorage.setItem(
-          "permissions",
-          JSON.stringify(permissions || [])
-        );
+        localStorage.setItem("permissions", JSON.stringify(permissions || []));
+
+        // Use "accessToken" instead of "token" for full consistency
+        if (resultAction.payload.token) {
+          localStorage.setItem("accessToken", resultAction.payload.token);
+        }
 
         navigate("/staff/dashboard");
       } else {
@@ -55,6 +57,12 @@ const StaffLogin = () => {
           "❌ Login rejected by server:",
           resultAction.payload
         );
+        // Clear only relevant keys if login fails
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("user");
+        localStorage.removeItem("role");
+        localStorage.removeItem("permissions");
+        localStorage.removeItem("companyId");
       }
     } catch (err) {
       console.error("❌ Login failed (exception):", err);
@@ -117,7 +125,6 @@ const StaffLogin = () => {
               <FiMail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
             </div>
 
-
             {/* Password Field with Icon and Toggle */}
             <div className="relative">
               <input
@@ -134,6 +141,7 @@ const StaffLogin = () => {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
+                tabIndex={-1}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>

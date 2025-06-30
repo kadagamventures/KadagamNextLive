@@ -1,37 +1,39 @@
 const rateLimit = require("express-rate-limit");
-const RedisStore = require("rate-limit-redis").RedisStore; // ✅ Correct import
+const RedisStore = require("rate-limit-redis"); // ✅ Correct default import
 const { redisClient } = require("../config/redisConfig");
 
-// ✅ General API Rate Limiter (For Normal Users)
+// ✅ General API Rate Limiter
 const generalLimiter = rateLimit({
-    store: new RedisStore({
-        sendCommand: (...args) => redisClient.sendCommand(args), // ✅ Fixed syntax
-    }),
-    windowMs: 15 * 60 * 1000, // 15-minute window
-    max: 100, // Limit each IP to 100 requests
-    message: {
-        status: 429,
-        message: "Too many requests. Please try again later.",
-    },
-    headers: true,
-    keyGenerator: (req) => req.ip,
-    skipSuccessfulRequests: true, // ✅ Prevents blocking valid requests
+  store: new RedisStore({
+    client: redisClient,
+    expiry: 15 * 60,
+  }),
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: {
+    status: 429,
+    message: "Too many requests. Please try again later.",
+  },
+  headers: true,
+  keyGenerator: (req) => req.ip,
+  skipSuccessfulRequests: true,
 });
 
-// ✅ Higher Rate Limit for Admin Routes
+// ✅ Admin Rate Limiter
 const adminLimiter = rateLimit({
-    store: new RedisStore({
-        sendCommand: (...args) => redisClient.sendCommand(args), // ✅ Fixed syntax
-    }),
-    windowMs: 15 * 60 * 1000,
-    max: 500, // Higher limit for admins
-    message: {
-        status: 429,
-        message: "Too many requests from this admin IP. Please slow down.",
-    },
-    headers: true,
-    keyGenerator: (req) => req.ip,
-    skipSuccessfulRequests: true,
+  store: new RedisStore({
+    client: redisClient,
+    expiry: 15 * 60,
+  }),
+  windowMs: 15 * 60 * 1000,
+  max: 500,
+  message: {
+    status: 429,
+    message: "Too many requests from this admin IP. Please slow down.",
+  },
+  headers: true,
+  keyGenerator: (req) => req.ip,
+  skipSuccessfulRequests: true,
 });
 
 module.exports = { generalLimiter, adminLimiter };

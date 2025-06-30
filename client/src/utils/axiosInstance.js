@@ -2,18 +2,18 @@ import axios from "axios";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-// Centralized Token Manager
+// Centralized Token Manager with consistent key
 const tokenManager = {
   get: () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("accessToken");
       return token && token !== "null" && token !== "undefined" ? token : null;
     } catch {
       return null;
     }
   },
-  set: (token) => localStorage.setItem("token", token),
-  clear: () => localStorage.removeItem("token"),
+  set: (token) => localStorage.setItem("accessToken", token),
+  clear: () => localStorage.removeItem("accessToken"),
 };
 
 // Axios instance
@@ -106,16 +106,27 @@ tokenRefreshInterceptor.interceptors.response.use(
       isRefreshing = false;
       refreshSubscribers = [];
 
-      console.error("🔴 Token refresh failed:", refreshError);
-      if (refreshError.response?.status === 403) {
-        console.warn("🚫 Likely invalid or expired refresh token. Logging out.");
-      }
-
+      // Session Expiry UX: Clear token and show user message/redirect
       tokenManager.clear();
-      window.dispatchEvent(new CustomEvent("auth:logout"));
+      window.dispatchEvent(
+        new CustomEvent("auth:logout", {
+          detail: { reason: "Session expired. Please log in again." },
+        })
+      );
       return Promise.reject(refreshError);
     }
   }
 );
+
+// Global logout handler
+window.addEventListener("auth:logout", (event) => {
+  // Optional: clear all app state, redux, react-query caches here
+  // Customize the redirect as per your routing setup
+  if (event?.detail?.reason) {
+    alert(event.detail.reason); // Or use your UI snackbar/toast
+  }
+  // You might want to use a router: window.location = "/login"
+  window.location.href = "/login";
+});
 
 export { tokenRefreshInterceptor };
