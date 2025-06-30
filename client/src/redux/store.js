@@ -18,7 +18,7 @@ import notificationReducer from "./slices/notificationSlice";
 const safeParse = (key, defaultValue = null) => {
   try {
     const item = localStorage.getItem(key);
-    if (!item || item === "undefined") return defaultValue;
+    if (!item || item === "undefined" || item === "null") return defaultValue;
     return JSON.parse(item);
   } catch {
     return defaultValue;
@@ -35,13 +35,13 @@ const chatPersistConfig = {
 const authPersistConfig = {
   key: "auth",
   storage,
-  whitelist: ["user", "accessToken"], // <-- CHANGED from "token" to "accessToken"
+  whitelist: ["user", "accessToken"], // Only persist these fields
 };
 
 const rootPersistConfig = {
   key: "root",
   storage,
-  whitelist: ["auth", "chat"], // ✅ Do not persist notifications (expires in 4 days)
+  whitelist: ["auth", "chat"], // Do not persist notifications (expires in 4 days)
 };
 
 // ✅ Combine reducers
@@ -66,15 +66,16 @@ const persistedReducer = persistReducer(rootPersistConfig, rootReducer);
 const preloadedState = {
   auth: {
     user: safeParse("user", null),
-    isAuthenticated: !!localStorage.getItem("accessToken"), // <-- CHANGED
+    isAuthenticated: !!localStorage.getItem("accessToken"),
     status: "idle",
     error: null,
   },
   staffAuth: {
     user: safeParse("user", null),
-    token: localStorage.getItem("accessToken") || null,     // <-- CHANGED
+    accessToken: localStorage.getItem("accessToken") || null, // <--- UPDATED
     role: localStorage.getItem("role") || null,
     permissions: safeParse("permissions", []),
+    isAuthenticated: !!localStorage.getItem("user") && !!localStorage.getItem("accessToken"), // <--- NEW
     loading: false,
     error: null,
   },

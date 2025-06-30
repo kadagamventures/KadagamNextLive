@@ -17,13 +17,13 @@ const safeGetItem = (key, isJSON = false) => {
 };
 
 const user = safeGetItem("user", true);
-const token = safeGetItem("accessToken"); // <-- UPDATED
+const accessToken = safeGetItem("accessToken"); // <-- Consistent key
 
 const initialState = {
   user,
   role: safeGetItem("role"),
-  token,
-  isAuthenticated: !!user && !!token,
+  accessToken, // <-- Consistent property name
+  isAuthenticated: !!user && !!accessToken, // <-- Checks accessToken only
   status: "idle",
   error: null,
   resetStatus: null,
@@ -44,10 +44,6 @@ export const loginUser = createAsyncThunk(
         { loginId, password }
       );
 
-      // DEBUG: Log the response
-      console.log("LOGIN RESPONSE:", data);
-
-      // Validate presence of required fields
       if (!data?.user || !data?.accessToken) {
         return thunkAPI.rejectWithValue({ message: "Invalid response from server." });
       }
@@ -55,14 +51,14 @@ export const loginUser = createAsyncThunk(
       // Save all auth details in localStorage
       localStorage.setItem("user", JSON.stringify(data.user));
       localStorage.setItem("role", data.user.role);
-      localStorage.setItem("accessToken", data.accessToken); // <-- UPDATED
+      localStorage.setItem("accessToken", data.accessToken);
       localStorage.setItem("subscriptionStatus", data.subscriptionStatus);
       localStorage.setItem("nextBillingDate", data.nextBillingDate ?? "");
 
       return {
         user: data.user,
         role: data.user.role,
-        token: data.accessToken,
+        accessToken: data.accessToken, // <-- Key!
         subscriptionStatus: data.subscriptionStatus,
         nextBillingDate: data.nextBillingDate,
       };
@@ -79,18 +75,16 @@ export const loginUser = createAsyncThunk(
 
 export const logoutUser = createAsyncThunk("auth/logoutUser", async () => {
   await tokenRefreshInterceptor.post("/auth/logout");
-
   // Clear all relevant auth data from localStorage
   localStorage.removeItem("user");
   localStorage.removeItem("role");
-  localStorage.removeItem("accessToken"); // <-- UPDATED
+  localStorage.removeItem("accessToken");
   localStorage.removeItem("subscriptionStatus");
   localStorage.removeItem("nextBillingDate");
 
   return null;
 });
 
-// Password reset thunks remain the same as your previous code
 export const forgotPassword = createAsyncThunk(
   "auth/forgotPassword",
   async ({ email, remember }, thunkAPI) => {
@@ -155,7 +149,7 @@ const authSlice = createSlice({
     resetAuthState: (state) => {
       state.user = null;
       state.role = null;
-      state.token = null;
+      state.accessToken = null; // <-- Consistent key
       state.isAuthenticated = false;
       state.status = "idle";
       state.error = null;
@@ -164,7 +158,7 @@ const authSlice = createSlice({
 
       localStorage.removeItem("user");
       localStorage.removeItem("role");
-      localStorage.removeItem("accessToken"); // <-- UPDATED
+      localStorage.removeItem("accessToken");
       localStorage.removeItem("subscriptionStatus");
       localStorage.removeItem("nextBillingDate");
 
@@ -179,12 +173,12 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
-        const { user, role, token, subscriptionStatus, nextBillingDate } =
+        const { user, role, accessToken, subscriptionStatus, nextBillingDate } =
           action.payload;
         state.status = "success";
         state.user = user;
         state.role = role;
-        state.token = token;
+        state.accessToken = accessToken;
         state.isAuthenticated = true;
         state.subscriptionStatus = subscriptionStatus;
         state.nextBillingDate = nextBillingDate;
@@ -202,12 +196,11 @@ const authSlice = createSlice({
       .addCase(logoutUser.fulfilled, (state) => {
         state.user = null;
         state.role = null;
-        state.token = null;
+        state.accessToken = null;
         state.isAuthenticated = false;
         state.status = "idle";
         state.subscriptionStatus = null;
         state.nextBillingDate = null;
-
         disconnectChatSocket();
       })
 
@@ -242,9 +235,7 @@ const authSlice = createSlice({
         state.subscriptionStatus = action.payload.subscriptionStatus;
         state.nextBillingDate = action.payload.nextBillingDate;
       })
-      .addCase(refreshSubscription.rejected, (state) => {
-        // handle or ignore
-      });
+      .addCase(refreshSubscription.rejected, (state) => {});
   },
 });
 

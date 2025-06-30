@@ -1,13 +1,8 @@
-// src/utils/axiosInstance.js
-
 import axios from "axios";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-
-// Use a consistent key everywhere
 const ACCESS_TOKEN_KEY = "accessToken";
 
-// Centralized Token Manager (now always uses 'accessToken')
 const tokenManager = {
   get: () => {
     try {
@@ -21,14 +16,12 @@ const tokenManager = {
   clear: () => localStorage.removeItem(ACCESS_TOKEN_KEY),
 };
 
-// Axios instance for all API calls
 const tokenRefreshInterceptor = axios.create({
   baseURL: BASE_URL,
   withCredentials: true,
   timeout: 30000,
 });
 
-// Token refresh state
 let isRefreshing = false;
 let refreshSubscribers = [];
 
@@ -49,7 +42,6 @@ const retryFailedRequest = (error) => {
   });
 };
 
-// Request Interceptor: Attach token to all requests
 tokenRefreshInterceptor.interceptors.request.use(
   (config) => {
     const token = tokenManager.get();
@@ -61,7 +53,6 @@ tokenRefreshInterceptor.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Handles 401 and token refresh
 tokenRefreshInterceptor.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -74,7 +65,6 @@ tokenRefreshInterceptor.interceptors.response.use(
 
     const { status } = error.response;
 
-    // Only intercept *first* 401 error per request
     if (status !== 401 || originalRequest._retry) {
       return Promise.reject(error);
     }
@@ -89,7 +79,6 @@ tokenRefreshInterceptor.interceptors.response.use(
     console.info("🔄 Attempting token refresh...");
 
     try {
-      // Try to get a new access token via refresh endpoint (must be HTTP-only cookie in browser)
       const refreshResponse = await axios.post(
         `${BASE_URL}/auth/refresh`,
         null,
@@ -112,8 +101,6 @@ tokenRefreshInterceptor.interceptors.response.use(
     } catch (refreshError) {
       isRefreshing = false;
       refreshSubscribers = [];
-
-      // Session expired: clear tokens, notify user, and redirect
       tokenManager.clear();
       window.dispatchEvent(
         new CustomEvent("auth:logout", {
@@ -125,25 +112,12 @@ tokenRefreshInterceptor.interceptors.response.use(
   }
 );
 
-// Global logout handler - applies everywhere
 window.addEventListener("auth:logout", (event) => {
-  // Remove all user data and tokens
   localStorage.clear();
-  // Optionally: clear Redux, React Query, etc.
   if (event?.detail?.reason) {
-    alert(event.detail.reason); // Replace with toast/snackbar if desired
+    alert(event.detail.reason);
   }
   window.location.href = "/admin/login";
 });
-
-// 🔐 On every page load, check for localStorage/cookie desync (extra safety)
-if (
-  typeof window !== "undefined" &&
-  localStorage.getItem(ACCESS_TOKEN_KEY) &&
-  !document.cookie.includes("refreshToken")
-) {
-  localStorage.clear();
-  window.location.href = "/admin/login";
-}
 
 export { tokenRefreshInterceptor };
