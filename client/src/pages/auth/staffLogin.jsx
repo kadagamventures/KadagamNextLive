@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { loginStaff } from "../../redux/slices/staffAuthSlice"; // <-- fixed typo in file name
+import { loginStaff } from "../../redux/slices/staffAuthslice"; // <-- fixed typo in file name
 import { Eye, EyeOff } from "lucide-react";
 import backgroundImg from "../../assets/backimage.png";
 import kadagamLogo from "../../assets/kadagamlogo.png";
