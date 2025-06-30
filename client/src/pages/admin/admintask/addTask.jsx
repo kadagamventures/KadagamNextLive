@@ -14,7 +14,7 @@ const TaskForm = () => {
   const isEditMode = Boolean(id);
   const dispatch = useDispatch();
 
-  const { items: tasks } = useSelector((state) => state.tasks);
+  // const { items: tasks } = useSelector((state) => state.tasks);
   const { items: projects, status: projectStatus } = useSelector((state) => state.projects);
   const { items: staffList, status: staffStatus } = useSelector((state) => state.staff);
 
@@ -27,7 +27,7 @@ const TaskForm = () => {
     description: "",
     attachment: null,
     attachmentName: "",
-    existingAttachments: [], // Explicitly add this
+    existingAttachments: [],
   });
 
   const [showPopup, setShowPopup] = useState(false);
@@ -39,7 +39,7 @@ const TaskForm = () => {
     setTimeout(() => {
       setShowPopup(false);
       setPopupMessage("");
-    }, 3000); // Popup disappears after 3 seconds
+    }, 3000);
   };
 
   const projectOptions = projects.map((proj) => ({ value: proj._id, label: proj.name }));
@@ -78,7 +78,6 @@ const TaskForm = () => {
     if (isEditMode) fetchTask();
   }, [id, isEditMode, navigate]);
 
-
   useEffect(() => {
     if (projects.length === 0 && projectStatus === "idle") {
       dispatch(fetchProjects());
@@ -111,7 +110,7 @@ const TaskForm = () => {
         }
       }
     }
-  }, [task.dueDate, task.priority]); // Added task.priority to dependency array
+  }, [task.dueDate, task.priority]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -148,7 +147,6 @@ const TaskForm = () => {
     }
   };
 
-
   const handleRemoveAttachment = () => {
     setTask((prevTask) => ({
       ...prevTask,
@@ -162,6 +160,7 @@ const TaskForm = () => {
       window.open(URL.createObjectURL(task.attachment));
     }
   };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -186,7 +185,7 @@ const TaskForm = () => {
     formData.append("assignedTo", task.assignedTo);
 
     if (task.attachment) {
-      formData.append("attachments", task.attachment, task.attachment.name); // ✅ explicitly set filename here
+      formData.append("attachments", task.attachment, task.attachment.name);
     }
 
     try {
@@ -197,14 +196,14 @@ const TaskForm = () => {
         await axiosInstance.post("/tasks", formData);
         handleShowPopup("Task added successfully!");
       }
+      // Dispatch fetchTasks to update the list immediately
+      dispatch(fetchTasks());
       navigate("/admin/tasks/list");
     } catch (error) {
       console.error("❌ Error:", error);
       handleShowPopup(error.response?.data?.message || "Something went wrong.");
     }
   };
-
-
 
   const allowedPriorities = task.dueDate ? calculateAllowedPriorities(task.dueDate) : ["High", "Medium", "Low"];
   const handleDeleteExistingAttachment = async (fileUrl) => {
@@ -240,7 +239,6 @@ const TaskForm = () => {
       handleShowPopup("Failed to access the attachment.");
     }
   };
-
 
   return (
     <div className="min-h-screen bg-[#F7F8FB] p-6">
@@ -431,6 +429,6 @@ const TaskForm = () => {
       </div>
     </div>
   );
-
 };
+
 export default TaskForm;

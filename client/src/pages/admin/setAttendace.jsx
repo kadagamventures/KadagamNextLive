@@ -25,27 +25,81 @@ const Attendance = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // State for popup notification
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState("");
+
+  const handleShowPopup = (message) => {
+    setPopupMessage(message);
+    setShowPopup(true);
+    setTimeout(() => {
+      setShowPopup(false);
+      setPopupMessage("");
+    }, 3000); // Popup disappears after 3 seconds
+  };
+
+  // Helper function to save timing to localStorage
+  const saveTimingToLocalStorage = (sTime, sPeriod, eTime, ePeriod) => {
+    localStorage.setItem("officeStartTime", sTime);
+    localStorage.setItem("officeStartPeriod", sPeriod);
+    localStorage.setItem("officeEndTime", eTime);
+    localStorage.setItem("officeEndPeriod", ePeriod);
+  };
+
+  // Helper function to load timing from localStorage
+  const loadTimingFromLocalStorage = () => {
+    const storedStartTime = localStorage.getItem("officeStartTime");
+    const storedStartPeriod = localStorage.getItem("officeStartPeriod");
+    const storedEndTime = localStorage.getItem("officeEndTime");
+    const storedEndPeriod = localStorage.getItem("officeEndPeriod");
+
+    if (storedStartTime) setStartTime(storedStartTime);
+    if (storedStartPeriod) setStartPeriod(storedStartPeriod);
+    if (storedEndTime) setEndTime(storedEndTime);
+    if (storedEndPeriod) setEndPeriod(storedEndPeriod);
+
+    return !!storedStartTime; // Return true if any stored data was found
+  };
+
   // Fetch existing office timing on mount
   useEffect(() => {
-    axios
-      .get("/api/office-timing")
-      .then(({ data }) => {
-        const { startTime: s, endTime: e } = data.data || data;
-        if (s) {
-          const [st, sp] = s.split(" ");
-          setStartTime(st);
-          setStartPeriod(sp);
-        }
-        if (e) {
-          const [et, ep] = e.split(" ");
-          setEndTime(et);
-          setEndPeriod(ep);
-        }
-      })
-      .catch(() => {
-        // ignore if not configured yet
-      });
-  }, []);
+    // First, try to load from localStorage
+    const loadedFromLocalStorage = loadTimingFromLocalStorage();
+
+    // If nothing was loaded from localStorage, then fetch from API
+    if (!loadedFromLocalStorage) {
+      axios
+        .get("/api/office-timing")
+        .then(({ data }) => {
+          const { startTime: s, endTime: e } = data.data || data;
+          if (s) {
+            const [st, sp] = s.split(" ");
+            setStartTime(st);
+            setStartPeriod(sp);
+            // Save fetched data to localStorage
+            saveTimingToLocalStorage(st, sp, endTime, endPeriod); // Note: endTime/Period might be old if only startTime is present
+          }
+          if (e) {
+            const [et, ep] = e.split(" ");
+            setEndTime(et);
+            setEndPeriod(ep);
+            // Save fetched data to localStorage
+            saveTimingToLocalStorage(startTime, startPeriod, et, ep); // Note: startTime/Period might be old if only endTime is present
+          }
+          // If both are present, save both
+          if (s && e) {
+            saveTimingToLocalStorage(
+              s.split(" ")[0], s.split(" ")[1],
+              e.split(" ")[0], e.split(" ")[1]
+            );
+          }
+        })
+        .catch(() => {
+          // ignore if not configured yet or API error, localStorage will serve as fallback
+          console.log("No office timing found on server or API error, checking local storage.");
+        });
+    }
+  }, []); // Empty dependency array means this runs once on mount
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -67,7 +121,11 @@ const Attendance = () => {
         fullDayHours: 8,
       };
       await axios.post("/office-timing/admin", payload);
-      alert("Office timing updated successfully.");
+      handleShowPopup("Office timing updated successfully.");
+
+      // Save the newly set values to localStorage
+      saveTimingToLocalStorage(startTime, startPeriod, endTime, endPeriod);
+
     } catch (err) {
       setError(err.response?.data?.message || "Update failed.");
     } finally {
@@ -88,6 +146,15 @@ const Attendance = () => {
               {error}
             </div>
           )}
+
+          {/* Popup Notification */}
+          {showPopup && (
+            <div className="fixed top-4 right-4 z-50 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg flex items-center justify-between animate-fade-in-down">
+              <span>{popupMessage}</span>
+              <button onClick={() => setShowPopup(false)} className="ml-4 text-white font-bold text-xl">&times;</button>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Start Time */}
             <div>
