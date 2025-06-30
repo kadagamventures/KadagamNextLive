@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import { motion } from "framer-motion";
-import axios from "axios";
+// IMPORTANT: Import your configured axios instance with interceptors
+// In src/pages/admin/reportLayout/reports.jsx
+import { tokenRefreshInterceptor as axiosInstance } from '../../../utils/axiosInstance'; // <--- Make sure this path is correct
+
 import {
   FaProjectDiagram,
   FaUsers,
@@ -11,7 +14,6 @@ import {
 } from "react-icons/fa";
 import CountUp from "react-countup";
 
-// Import Bar chart specific elements, as we are still using the Bar chart
 import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -23,7 +25,6 @@ import {
   Legend,
 } from "chart.js";
 
-// Register only what's needed for the Bar chart
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -38,7 +39,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api"
 const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 28, gapDegrees = 2 }) => {
   const cx = chartSize / 2;
   const cy = chartSize / 2;
-  const radius = (chartSize / 2) - (strokeThickness / 2); // Calculate radius based on size and stroke
+  const radius = (chartSize / 2) - (strokeThickness / 2);
 
   const total = data.reduce((sum, d) => sum + (d.value || 0), 0);
 
@@ -60,14 +61,13 @@ const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 
     const val = d.value || 0;
     let ang = total ? (val / total) * 360 : 0;
 
-    // Apply gap: reduce angle by half the gap on each side
     if (ang > 0 && total > 0) {
-      ang = Math.max(0, ang - gapDegrees); // Ensure angle doesn't go negative
+      ang = Math.max(0, ang - gapDegrees);
     }
 
-    const path = describeArc(cx, cy, radius, angleAcc + gapDegrees / 2, angleAcc + ang + gapDegrees / 2); // Start after half gap, end before half gap
+    const path = describeArc(cx, cy, radius, angleAcc + gapDegrees / 2, angleAcc + ang + gapDegrees / 2);
 
-    angleAcc += (total ? (val / total) * 360 : 0); // Accumulate full angle for next segment's start
+    angleAcc += (total ? (val / total) * 360 : 0);
     return { path, color: colors[i % colors.length], label: val, name: d.name };
   });
 
@@ -81,7 +81,7 @@ const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 
             fill="none"
             stroke={s.color}
             strokeWidth={strokeThickness}
-            strokeLinecap="round" // This gives the rounded ends on both sides
+            strokeLinecap="round"
           />
         ))}
       </svg>
@@ -101,8 +101,6 @@ CustomDoughnutChart.propTypes = {
   strokeThickness: PropTypes.number,
   gapDegrees: PropTypes.number,
 };
-// --- END CustomDoughnutChart Component ---
-
 
 const Reports = () => {
   const [overviewData, setOverviewData] = useState({
@@ -115,14 +113,29 @@ const Reports = () => {
   });
 
   useEffect(() => {
-    (async () => {
+    const fetchOverviewData = async () => {
       try {
-        const token = localStorage.getItem("token");
-        const res = await axios.get(`${API_BASE_URL}/reports/overview`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        // *** THE FIX IS HERE: Use "accessToken" consistently ***
+        const token = localStorage.getItem("accessToken"); // <--- CHANGED FROM "token" to "accessToken"
+
+        if (!token) {
+          console.warn("🚫 No authentication token found in localStorage. Please ensure user is logged in.");
+          // Optionally, redirect to login or show a message to the user
+          // window.location.href = "/admin/login"; // Uncomment if you want immediate redirect
+          return; // Crucial: Exit if no token
+        }
+
+        console.log("Fetching overview data from:", `${API_BASE_URL}/reports/overview`);
+        console.log("Using token:", token ? "Token present" : "No token");
+
+        // Use the imported axiosInstance (tokenRefreshInterceptor) here
+        const res = await axiosInstance.get(`${API_BASE_URL}/reports/overview`); // <--- Using axiosInstance
+
+        console.log("API Response:", res.data);
+
         if (res.data.success) {
           const d = res.data.data;
+          console.log("Received data (d):", d);
           setOverviewData({
             totalProjects: d.totalProjects || 0,
             totalStaff: d.totalStaff || 0,
@@ -131,11 +144,37 @@ const Reports = () => {
             completedTasks: d.completedTasks || 0,
             toDoTasks: d.toDoTasks || 0,
           });
+          console.log("Overview data updated:", {
+            totalProjects: d.totalProjects || 0,
+            totalStaff: d.totalStaff || 0,
+            totalTasks: d.totalTasks || 0,
+            ongoingTasks: d.ongoingTasks || 0,
+            completedTasks: d.completedTasks || 0,
+            toDoTasks: d.toDoTasks || 0,
+          });
+        } else {
+          console.error("API call was successful but 'success' flag is false:", res.data.message);
         }
       } catch (err) {
-        console.error("Failed to fetch overview data:", err);
+        console.error("❌ Failed to fetch overview data:", err);
+        if (err.response) {
+          console.error("Error Response Data:", err.response.data);
+          console.error("Error Response Status:", err.response.status);
+          if (err.response.status === 401 || err.response.status === 403) {
+            console.error("Authentication/Authorization error. Dispatching logout event.");
+            // If the interceptor didn't handle it (e.g., if token was just missing, not expired),
+            // manually dispatch logout to ensure clean state and redirect.
+            window.dispatchEvent(new CustomEvent("auth:logout", { detail: { reason: "Session expired or invalid. Please log in again." } }));
+          }
+        } else if (err.request) {
+          console.error("Error Request (No response received):", err.request);
+        } else {
+          console.error("Error Message:", err.message);
+        }
       }
-    })();
+    };
+
+    fetchOverviewData();
   }, []);
 
   const cards = [
@@ -206,10 +245,9 @@ const Reports = () => {
         max: Math.max(overviewData.ongoingTasks, overviewData.completedTasks, 5) * 1.2,
       },
     },
-    maintainAspectRatio: false, // Important for responsive charts with defined height
+    maintainAspectRatio: false,
   };
 
-  // Calculate the percentage for the center text (Higher Rate)
   const totalRelevantData = overviewData.totalProjects + overviewData.totalStaff + overviewData.totalTasks;
   const higherRateValue = overviewData.totalStaff;
   const centerPercentage = totalRelevantData
@@ -217,7 +255,7 @@ const Reports = () => {
     : "0%";
 
   return (
-    <div className="min-h-screen  p-8">
+    <div className="min-h-screen p-8">
       <motion.h2
         className="text-3xl items-center font-bold text-gray-900 mb-6 pb-6 text-center font-poppins font-weight-500 size-32px"
         initial={{ opacity: 0, y: -10 }}
@@ -226,7 +264,6 @@ const Reports = () => {
         Analytics Dashboard
       </motion.h2>
 
-      {/* Six Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         {cards.map((c) => (
           <div
@@ -244,32 +281,26 @@ const Reports = () => {
         ))}
       </div>
 
-      {/* Charts - Made Responsive */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left Doughnut (now using CustomDoughnutChart) */}
         <motion.div
-          className="bg-white p-6 shadow-md flex flex-col justify-between" // Changed to flex-col and justify-between
+          className="bg-white p-6 shadow-md flex flex-col justify-between"
           style={{
             borderRadius: '16.46px',
-            // Removed fixed width and height for responsiveness
           }}
           whileHover={{ scale: 1.02 }}
         >
-          {/* Main content area (title + chart) */}
-          <div className="flex-1 flex flex-col items-center justify-center"> {/* Use flex-1 to take available space, center items */}
+          <div className="flex-1 flex flex-col items-center justify-center">
             <h3 className="text-lg font-medium text-gray-700 mb-4 text-center">
               Project, Staff, Task
             </h3>
-            {/* Chart container with aspect ratio */}
-            <div className="relative flex items-center justify-center w-full max-w-[200px] aspect-square"> {/* Added max-w for chart size */}
+            <div className="relative flex items-center justify-center w-full max-w-[200px] aspect-square">
               <CustomDoughnutChart
                 data={customDoughnutChartData}
                 colors={customDoughnutColors}
-                chartSize={200} // This is the SVG viewBox size, it will scale to its container
+                chartSize={200}
                 strokeThickness={28}
                 gapDegrees={2}
               />
-              {/* Center text for percentage */}
               <div
                 className="absolute flex flex-col items-center justify-center pointer-events-none"
                 style={{
@@ -287,11 +318,10 @@ const Reports = () => {
             </div>
           </div>
 
-          {/* Legend at the bottom, now as a separate flex item */}
-          <div className="mt-6"> {/* Added top margin to separate from chart */}
-            <ul className="space-y-2 flex flex-wrap justify-center"> {/* Use flex-wrap and justify-center for legend items */}
+          <div className="mt-6">
+            <ul className="space-y-2 flex flex-wrap justify-center">
               {customDoughnutChartData.map((item, i) => (
-                <li key={item.name} className="flex items-center text-gray-600 px-2 py-1"> {/* Added px-2 py-1 for spacing between inline items */}
+                <li key={item.name} className="flex items-center text-gray-600 px-2 py-1">
                   <span
                     className="w-4 h-4 rounded-sm mr-2"
                     style={{ backgroundColor: customDoughnutColors[i % customDoughnutColors.length] }}
@@ -303,17 +333,14 @@ const Reports = () => {
           </div>
         </motion.div>
 
-        {/* Right Bar Chart - Responsive */}
         <motion.div
           className="bg-white p-6 shadow-md"
           style={{
             borderRadius: '14.3px',
-            // Removed fixed width and height for responsiveness
           }}
           whileHover={{ scale: 1.02 }}
         >
           <h3 className="text-lg font-medium text-gray-700 mb-4">Task</h3>
-          {/* Chart.js requires a container with defined dimensions for responsiveness */}
           <div className="relative h-[250px] w-full">
             <Bar data={barData} options={barOptions} />
           </div>

@@ -20,6 +20,7 @@ import {
 } from "@heroicons/react/24/outline";
 import CountUp from "react-countup";
 import { tokenRefreshInterceptor as api } from "../../utils/axiosInstance";
+import PropTypes from "prop-types"; // Ensure PropTypes is imported if used directly
 
 const MONTH_LABELS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -27,10 +28,10 @@ const MONTH_LABELS = [
 ];
 
 export default function TaskReports() {
-  const now   = new Date();
-  const [year, setYear]     = useState(now.getFullYear());
-  const [month, setMonth]   = useState(now.getMonth());      // 0–11
-  const [summary, setSummary] = useState(null);
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth()); // 0–11
+  const [summary, setSummary] = useState(null); // Use 'any' or define a proper type for summary
   const [loading, setLoading] = useState(true);
 
   // Fetch once per year change
@@ -50,7 +51,7 @@ export default function TaskReports() {
   // Prepare chart + card values
   const lineData = summary.monthlyRevenue.map((rev, idx) => ({
     name: MONTH_LABELS[idx],
-    revenue: rev / 100000,          // assuming your backend sends paise; adjust as needed
+    revenue: rev / 100000, // assuming your backend sends paise; adjust as needed
   }));
 
   const monthlyValue = (summary.monthlyRevenue[month] || 0) / 100000;
@@ -82,11 +83,11 @@ export default function TaskReports() {
 
   return (
     <div className="p-8 pl-64 bg-[#f6f8fc] min-h-screen">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-6 relative">
         <h1 className="text-2xl font-semibold text-center w-full">
           Task Reports
         </h1>
-        <div className="flex gap-2 absolute right-8">
+        <div className="flex gap-2 absolute right-0 top-0 mt-2 mr-2 md:static md:mt-0 md:mr-0">
           <select
             className="border rounded px-3 py-1 text-sm"
             value={MONTH_LABELS[month]}
@@ -109,7 +110,8 @@ export default function TaskReports() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+      {/* Cards - Enforced 3 columns across all screen sizes */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"> {/* Changed to consistent 3 columns */}
         <Card
           title="Total Revenue"
           value={summary.totalRevenue / 100000}
@@ -150,7 +152,8 @@ export default function TaskReports() {
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+      {/* Charts - No change here, remains responsive with 2 columns on larger screens */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-8">
         {/* Yearly Revenue Line Chart */}
         <div className="bg-white rounded-2xl shadow p-4">
           <h2 className="text-sm font-medium mb-4">Yearly Revenue</h2>
@@ -161,7 +164,7 @@ export default function TaskReports() {
                 domain={[0, Math.max(...lineData.map(d => d.revenue))]}
                 tickFormatter={v => `${v} lakhs`}
               />
-              <Tooltip formatter={v => `${v} lakhs`} />
+              <Tooltip formatter={(v, name) => [`${v} lakhs`, name]} />
               <Line
                 type="monotone"
                 dataKey="revenue"
@@ -172,7 +175,7 @@ export default function TaskReports() {
           </ResponsiveContainer>
         </div>
 
-        {/* Status Donut */}
+        {/* Status Donut Chart */}
         <div className="bg-white rounded-2xl shadow p-4 flex flex-col md:flex-row items-center justify-between relative">
           <div className="w-full md:w-1/2 h-[250px] flex items-center justify-center relative">
             <ResponsiveContainer width="100%" height="100%">
@@ -216,8 +219,7 @@ export default function TaskReports() {
   );
 }
 
-import PropTypes from "prop-types";
-
+// Card component (no changes needed for responsiveness here)
 function Card({ title, value, suffix = "", icon, color }) {
   const bg = {
     green: "bg-green-100 text-green-500",

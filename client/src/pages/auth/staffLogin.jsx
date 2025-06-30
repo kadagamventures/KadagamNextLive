@@ -15,39 +15,22 @@ const StaffLogin = () => {
   const [password, setPassword] = useState("");
   const [companyId, setCompanyId] = useState(storedCompanyId);
   const [showPassword, setShowPassword] = useState(false);
-  const [localError, setLocalError] = useState(""); // New state for local error messages
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  // We'll primarily use the Redux 'error' state for server-side errors
-  // but keep 'loading' for UI feedback.
-  const { loading, error: reduxError } = useSelector((state) => state.staffAuth);
+  const { loading, error } = useSelector((state) => state.staffAuth);
 
   useEffect(() => {
-    if (reduxError) {
-      console.warn("🔴 Redux error state:", reduxError);
-      // Set the local error state to display the Redux error
-      setLocalError(typeof reduxError === "string" ? reduxError : "Login failed. Please check your credentials.");
-    } else {
-      // Clear local error if Redux error is cleared (e.g., on successful login attempt or component re-render without error)
-      setLocalError("");
+    if (error) {
+      console.warn("🔴 Redux error state:", error);
     }
-  }, [reduxError]); // Watch for changes in the Redux error state
+  }, [error]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     console.log("🔐 Attempting login with:", { email, password, companyId });
 
-    // Clear any previous local errors
-    setLocalError("");
-
-    // Basic client-side validation
-    if (!email || !password || !companyId) {
-      setLocalError("All fields are required.");
-      return;
-    }
-
-    // Save companyId for future convenience (do this BEFORE the API call attempt)
+    // Save companyId for future convenience
     localStorage.setItem("companyId", companyId);
 
     try {
@@ -61,7 +44,6 @@ const StaffLogin = () => {
         console.log("✅ Login successful:", resultAction.payload.user);
 
         localStorage.setItem("role", role);
-        // Ensure permissions is an array before stringifying
         localStorage.setItem("permissions", JSON.stringify(permissions || []));
 
         // Use "accessToken" instead of "token" for full consistency
@@ -71,20 +53,19 @@ const StaffLogin = () => {
 
         navigate("/staff/dashboard");
       } else {
-        // This block will be hit if the thunk was rejected but didn't throw an error
-        // (e.g., if it used rejectWithValue and was handled by createAsyncThunk's error handling)
         console.error(
-          "❌ Login rejected by server (resultAction.payload):",
+          "❌ Login rejected by server:",
           resultAction.payload
         );
-        // The error message should already be in reduxError via the `createAsyncThunk`'s `rejected` case.
-        // We set localError based on reduxError in the useEffect hook.
+        // Clear only relevant keys if login fails
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("user");
+        localStorage.removeItem("role");
+        localStorage.removeItem("permissions");
+        localStorage.removeItem("companyId");
       }
     } catch (err) {
-      // This catch block will only be hit if the dispatch itself throws an unexpected error
-      // (e.g., network error before server response, or an unhandled error in the thunk)
       console.error("❌ Login failed (exception):", err);
-      setLocalError(err.message || "An unexpected error occurred during login.");
     }
   };
 
@@ -97,6 +78,7 @@ const StaffLogin = () => {
         backgroundPosition: "center",
       }}
     >
+
       {/* Left Branding */}
       <div className="hidden md:flex w-1/2 bg-opacity-50 items-center justify-center">
         <div className="text-white text-center p-8">
@@ -121,12 +103,11 @@ const StaffLogin = () => {
             Staff Login
           </h2>
 
-          {/* Display error messages from either local state or Redux state */}
-          {(localError || reduxError) && (
+          {error && (
             <p className="text-sm text-red-600 bg-red-100 p-2 rounded mb-4 text-center">
-              {localError || (typeof reduxError === "string"
-                ? reduxError
-                : "Login failed. Please check your credentials.")}
+              {typeof error === "string"
+                ? error
+                : "Login failed. Please try again."}
             </p>
           )}
 
