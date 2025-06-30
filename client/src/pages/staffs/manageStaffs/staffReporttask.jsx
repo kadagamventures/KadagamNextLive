@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bar } from "react-chartjs-2"; // Removed Doughnut
+import { Bar } from "react-chartjs-2";
 import { tokenRefreshInterceptor as axiosInstance } from "../../../utils/axiosInstance";
 import {
   Chart as ChartJS,
@@ -10,7 +10,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import ChartDataLabels from "chartjs-plugin-datalabels"; // Re-added since Bar chart might still use it
+import ChartDataLabels from "chartjs-plugin-datalabels";
 import { motion } from "framer-motion";
 import CountUp from "react-countup";
 import {
@@ -22,10 +22,10 @@ import {
   FaStar,
   FaDownload,
 } from "react-icons/fa";
-import PropTypes from "prop-types"; // Import PropTypes for CustomDoughnutChart
+import PropTypes from "prop-types";
 
 
-// --- CustomDoughnutChart Component (Copied from previous tasks) ---
+// --- CustomDoughnutChart Component ---
 const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 28, gapDegrees = 2 }) => {
   const cx = chartSize / 2;
   const cy = chartSize / 2;
@@ -112,21 +112,17 @@ const Task = () => {
       try {
         const { data } = await axiosInstance.get("/reports/tasks/live-stats");
         setTaskStats(data.stats);
+
+        // Prepare data for CustomDoughnutChart and Bar Chart based on fetched stats
         setChartData({
-          distribution: {
-            // Data for CustomDoughnutChart
-            labels: ["High Priority", "Other Tasks"], // Kept for reference but not directly used by CustomDoughnutChart data prop
-            datasets: [
-              {
-                data: [
-                  data.stats.highPriorityTasks,
-                  data.stats.totalTasks - data.stats.highPriorityTasks,
-                ],
-                backgroundColor: ["#EF4444", "#10B981"], // Kept for reference
-              },
-            ],
-          },
-          overview: {
+          // Data for CustomDoughnutChart (High Priority vs Other Tasks)
+          distributionDoughnut: [
+            { name: "High Priority", value: data.stats.highPriorityTasks || 0 },
+            { name: "Other Tasks", value: (data.stats.totalTasks - data.stats.highPriorityTasks) || 0 },
+          ].filter(d => d.value > 0), // Filter out zero values for better doughnut display
+
+          // Data for Bar Chart (Task Overview)
+          overviewBar: {
             labels: ["Total", "Completed", "Ongoing", "Overdue", "To Do"],
             datasets: [
               {
@@ -138,18 +134,19 @@ const Task = () => {
                   data.stats.toDoTasks,
                 ],
                 backgroundColor: [
-                  "#6366F1",
-                  "#10B981",
-                  "#F59E0B",
-                  "#EF4444",
-                  "#EAB308",
+                  "#6366F1", // Total (Blue)
+                  "#10B981", // Completed (Green)
+                  "#F59E0B", // Ongoing (Orange)
+                  "#EF4444", // Overdue (Red)
+                  "#EAB308", // To Do (Amber/Yellow)
                 ],
               },
             ],
           },
         });
       } catch (err) {
-        console.error(err);
+        console.error("Error fetching task stats:", err);
+        // Optionally set an error state to display to the user
       }
     })();
   }, []);
@@ -171,8 +168,10 @@ const Task = () => {
       document.body.appendChild(link);
       link.click();
       link.remove();
-    } catch {
-      alert("Error downloading report.");
+      window.URL.revokeObjectURL(url); // Clean up the URL object
+    } catch (err) {
+      console.error("Error downloading report:", err); // Log for debugging
+      alert("Error downloading report. Please try again.");
     }
   };
 
@@ -217,37 +216,64 @@ const Task = () => {
     ]
     : [];
 
-  const chartOptions = { // These options are primarily for the Bar chart now
+  const doughnutColors = ["#EF4444", "#10B981"]; // Colors for High Priority and Other Tasks
+
+  const highPriorityPercentage = taskStats && taskStats.totalTasks > 0
+    ? `${Math.round((taskStats.highPriorityTasks / taskStats.totalTasks) * 100)}%`
+    : "0%";
+
+  const barChartOptions = { // Separate options for Bar chart for clarity
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
-        display: true,
-        position: "top",
+        display: false, // Usually turned off for simple overview bar charts if labels are on X-axis
       },
-      datalabels: { // Keeping if desired for Bar chart
-        display: false, // Set to false for Bar chart, unless specifically needed
+      tooltip: {
+        callbacks: {
+          label: function (context) {
+            let label = context.dataset.label || '';
+            if (context.parsed.y !== null) {
+              label += ': ' + context.parsed.y;
+            }
+            return label;
+          }
+        }
       },
+      datalabels: { // Enable datalabels for Bar chart
+        anchor: 'end',
+        align: 'top',
+        formatter: (value) => value,
+        color: '#6B7280',
+        font: {
+          weight: 'bold'
+        }
+      }
     },
     scales: {
       x: {
         grid: {
-          display: false,
+          display: false, // No vertical grid lines
         },
+        ticks: { color: "#6B7280" },
       },
       y: {
         beginAtZero: true,
+        ticks: { stepSize: 1, precision: 0, color: "#6B7280" }, // Ensure whole numbers, set tick color
+        grid: {
+          color: 'rgba(0, 0, 0, 0.05)', // Lighter horizontal grid lines
+        },
       },
     },
-    maintainAspectRatio: false,
   };
 
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-6 py-10">
+    <div className="min-h-screen  p-6">
+      <div className="mx-auto w-full">
         {/* Header */}
         <motion.h2
-          className="text-3xl items-center font-bold text-gray-900 mb-6 pb-6  font-poppins font-weight-500 size-32px"
+          className="text-3xl font-bold text-gray-900 mb-6 text-center font-poppins"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -255,21 +281,22 @@ const Task = () => {
         </motion.h2>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-8">
           {stats.map((s, i) => (
             <motion.div
               key={i}
-              className="bg-white rounded-2xl p-6 shadow-md flex flex-col items-center"
+              className="bg-white rounded-2xl p-6 shadow-md flex flex-col items-center text-center"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
+              whileHover={{ scale: 1.03 }}
             >
               <div
                 className={`${s.circleBg} p-3 rounded-full mb-3 flex items-center justify-center`}
               >
                 {s.icon}
               </div>
-              <p className="text-base text-gray-500 mb-2">{s.label}</p>
+              <p className="text-sm text-gray-500 mb-2">{s.label}</p>
               <p className="text-3xl font-bold text-gray-900">
                 <CountUp end={s.value} duration={1.5} separator="," />
               </p>
@@ -277,93 +304,76 @@ const Task = () => {
           ))}
         </div>
 
-        {/* Task Distribution & Overview */}
+        {/* Task Distribution & Overview Charts */}
         {chartData && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            {/* Distribution Doughnut */}
+            {/* Distribution Doughnut Chart */}
             <motion.div
-              className="bg-white p-6 rounded-2xl shadow-lg flex flex-col items-center justify-center relative"
+              className="bg-white p-6 rounded-2xl shadow-lg flex flex-col items-center justify-center relative w-full h-[300px]"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              style={{
-                width: '448px',
-                height: '280px',
-                borderRadius: '16.46px',
-              }}
+              whileHover={{ scale: 1.02 }}
             >
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">
-                Task Distribution
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                Task Distribution by Priority
               </h3>
-              <div className="flex w-full justify-center items-center h-full">
-                <CustomDoughnutChart
-                  data={[
-                    { name: "High Priority", value: taskStats.highPriorityTasks || 0 },
-                    { name: "Other Tasks", value: (taskStats.totalTasks - taskStats.highPriorityTasks) || 0 },
-                  ]}
-                  colors={["#EF4444", "#10B981"]} // Corresponding colors
-                  chartSize={180}
-                  strokeThickness={28}
-                  gapDegrees={3}
-                />
-                <div
-                  className="absolute flex flex-col items-center justify-center pointer-events-none"
-                  style={{
-                    top: "56%", // Adjusted top for vertical centering
-                    left: "34%", // Adjusted left to compensate for legend
-                    transform: "translate(-50%, -50%)",
-                    width: "fit-content",
-                  }}
-                >
-                  <span className="text-sm text-gray-500">High Priority</span>
-                  <span className="text-2xl font-bold text-gray-900">
-                    {Math.round(
-                      (taskStats.highPriorityTasks / (taskStats.totalTasks || 1)) * 100
-                    ) + "%"}
-                  </span>
+              <div className="flex w-full justify-center items-center h-full"> {/* Changed to flex, removed sm:flex-row */}
+                <div className="relative flex items-center justify-center"> {/* Added relative positioning for text overlay */}
+                  <CustomDoughnutChart
+                    data={chartData.distributionDoughnut}
+                    colors={doughnutColors}
+                    chartSize={220}
+                strokeThickness={32}
+                gapDegrees={3}
+                  />
+                  {/* Centered High Priority Text */}
+                  <div
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center pointer-events-none"
+                  >
+                    <span className="text-sm text-gray-500">High Priority</span>
+                    <span className="text-2xl font-bold text-gray-900">
+                      {highPriorityPercentage}
+                    </span>
+                  </div>
                 </div>
-                {/* Legend for CustomDoughnutChart */}
-                <div className="flex-shrink-0 flex flex-col justify-center pl-4 pr-4">
+
+                {/* Legend for CustomDoughnutChart - now positioned separately */}
+                <div className="flex-shrink-0 flex flex-col justify-center pl-4 pr-4 ml-8"> {/* Adjusted spacing and removed sm:mt-0 */}
                   <ul className="space-y-2">
-                    <li className="flex items-center text-gray-600 text-sm">
-                      <span className="w-4 h-4 rounded-sm mr-2" style={{ backgroundColor: "#EF4444" }}></span>
-                      High Priority: {taskStats.highPriorityTasks || 0}
-                    </li>
-                    <li className="flex items-center text-gray-600 text-sm">
-                      <span className="w-4 h-4 rounded-sm mr-2" style={{ backgroundColor: "#10B981" }}></span>
-                      Other Tasks: {(taskStats.totalTasks - taskStats.highPriorityTasks) || 0}
-                    </li>
+                    {chartData.distributionDoughnut.map((item, i) => (
+                      <li key={item.name} className="flex items-center text-gray-600 text-sm">
+                        <span className="w-4 h-4 rounded-sm mr-2" style={{ backgroundColor: doughnutColors[i % doughnutColors.length] }}></span>
+                        {item.name}: {item.value}
+                      </li>
+                    ))}
                   </ul>
                 </div>
               </div>
             </motion.div>
 
-            {/* Overview Bar */}
+            {/* Task Overview Bar Chart */}
             <motion.div
-              className="bg-white p-6 rounded-2xl shadow-lg flex flex-col"
+              className="bg-white p-6 rounded-2xl shadow-lg flex flex-col w-full h-[300px]"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              style={{
-                width: '446px',
-                height: '280px',
-                borderRadius: '14.3px',
-              }}
+              whileHover={{ scale: 1.02 }}
             >
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">
-                Task Overview
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                Task Status Overview
               </h3>
-              <div className="h-full"> {/* Changed to h-full to fill parent height */}
-                <Bar data={chartData.overview} options={chartOptions} />
+              <div className="relative h-[calc(100%-2rem)]">
+                <Bar data={chartData.overviewBar} options={barChartOptions} />
               </div>
             </motion.div>
           </div>
         )}
 
         {/* Bottom Controls */}
-        <div className="flex justify-end items-center space-x-4">
+        <div className="flex flex-col sm:flex-row justify-end items-center space-y-3 sm:space-y-0 sm:space-x-4 mt-6">
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="border border-gray-300 rounded-full px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="border border-gray-300 rounded-full p-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto"
           >
             <option value="">Select Month</option>
             {[...Array(12)].map((_, i) => (
@@ -374,13 +384,14 @@ const Task = () => {
               </option>
             ))}
           </select>
-          <button
+          <motion.button
             onClick={handleDownloadReport}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-full shadow transition"
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-full shadow w-full sm:w-auto"
+            whileHover={{ scale: 1.05 }}
           >
             <FaDownload />
             Download PDF
-          </button>
+          </motion.button>
         </div>
       </div>
     </div>

@@ -10,7 +10,7 @@ const LeaveApproval = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [setProcessingId] = useState(null);
+  const [setProcessingId] = useState(null); // This useState setter is unused, consider removing or using it.
   const [activeTab, setActiveTab] = useState("approval");
 
   // Modal state
@@ -42,11 +42,14 @@ const LeaveApproval = () => {
   }, [activeTab]);
 
   const handleApproval = async (id, status, reason) => {
-    setProcessingId(id);
+    // If setProcessingId is intended to be used, use it here, e.g., setLoading(true) for this specific ID.
+    // For now, I'll keep it as it is in your original code but mark it for review.
+    setProcessingId(id); // <--- Unused state setter, consider removing or integrating its logic
     try {
       const url = status === "approved" ? `/leave/approve/${id}` : `/leave/reject/${id}`;
       await axiosInstance.patch(url, { adminReason: reason });
-      setLeaveRequests((prev) => prev.map((r) => (r._id === id ? { ...r, status } : r)));
+      // Filter out the approved/rejected request instead of mapping to avoid showing it in 'pending' list
+      setLeaveRequests((prev) => prev.filter((r) => r._id !== id));
       setMessage(`Request ${status} successfully!`);
       setError("");
     } catch (err) {
@@ -61,12 +64,12 @@ const LeaveApproval = () => {
   const filtered =
     activeTab === "approval"
       ? leaveRequests.filter((r) => {
-        if (!searchTerm) return true;
-        return (
-          r.staff.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          r._id.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      })
+          if (!searchTerm) return true;
+          return (
+            r.staff.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            r._id.toLowerCase().includes(searchTerm.toLowerCase())
+          );
+        })
       : [];
 
   const handleTabChange = (tab) => {
@@ -74,6 +77,7 @@ const LeaveApproval = () => {
     setSearchTerm("");
     setMessage("");
     setError("");
+    // When switching tabs, reset loading and then let the useEffect handle loading for the new tab.
     setLoading(true);
   };
 
@@ -82,12 +86,15 @@ const LeaveApproval = () => {
     setModalType(type);
     setModalReason("");
     setIsModalOpen(true);
+    setError(""); // Clear previous errors when opening modal
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
     setModalReason("");
-    setError("");
+    setModalId(null);
+    setModalType(null);
+    setError(""); // Clear error when closing modal
   };
 
   const confirmModal = () => {
@@ -102,9 +109,12 @@ const LeaveApproval = () => {
     <div className="flex min-h-screen bg-white">
       <AdminSidebar />
       <div className="flex-grow p-6 ml-64">
-        <div className="max-w-6xl mx-auto">
+        {/* Remove max-w-6xl from here if you want the table to span wider than 6xl on zoom out */}
+        {/* If you remove it, the table will take the full available width of the main content area */}
+        {/* You might consider adding a max-width to the container of the table specifically if needed. */}
+        <div className="w-full"> {/* Changed from max-w-6xl mx-auto to w-full */}
           {/* Tabs */}
-          <div className="bg-white rounded-lg  mb-6">
+          <div className="bg-white rounded-lg mb-6">
             <nav className="flex justify-center h-20 space-x-8">
               {["approval", "list"].map((tab) => {
                 const isActive = activeTab === tab;
@@ -129,7 +139,6 @@ const LeaveApproval = () => {
               })}
             </nav>
           </div>
-
 
           {activeTab === "approval" && (
             <>
@@ -157,7 +166,7 @@ const LeaveApproval = () => {
                   {filtered.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">No matching leave requests.</div>
                   ) : (
-                    <table className="w-full table-auto">
+                    <table className="w-full table-auto"> {/* w-full and table-auto are good here */}
                       <thead>
                         <tr className="text-left text-gray-600 uppercase text-sm">
                           <th className="px-4 py-3">Staff</th>

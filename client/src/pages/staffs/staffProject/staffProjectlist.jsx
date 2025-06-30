@@ -10,7 +10,6 @@ const ProjectList = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-
   const fetchProjects = useCallback(async () => {
     setLoading(true);
     try {
@@ -31,8 +30,6 @@ const ProjectList = () => {
     navigate(`/staff/projects/edit/${id}`);
   };
 
-  ;
-
   const filteredProjects = useMemo(() => {
     const query = searchQuery.toLowerCase();
     return projects.filter(
@@ -43,7 +40,7 @@ const ProjectList = () => {
   }, [projects, searchQuery]);
 
   return (
-    <div className="pl-0 md:pl-64 min-h-screen  p-6 md:p-8">
+    <div className="pl-0 md:pl-64 min-h-screen p-6 md:p-8">
       {/* Top Bar */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         {/* Title */}
@@ -51,7 +48,6 @@ const ProjectList = () => {
           <h2 className="text-2xl md:text-3xl font-bold text-gray-800">
             Project List
           </h2>
-
         </div>
 
         {/* Search & Add Project */}
@@ -60,7 +56,7 @@ const ProjectList = () => {
             onClick={() => navigate("/staff/projects/add")}
             className="px-4 py-2 hover:text-black text-gray-600 bg-white font-semibold rounded-full shadow transition-all"
           >
-            <span className="text-violet-600 text-2xl">+</span>  Add New Project
+            <span className="text-violet-600 text-2xl">+</span> Add New Project
           </button>
           <div className="relative">
             <input
@@ -69,7 +65,6 @@ const ProjectList = () => {
               className="block w-full pl-3 pr-3 py-2 bg-white text-sm md:text-base border border-gray-300 rounded-full focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-
             />
             <FaSearch className="absolute right-3 top-2.5 text-violet-600" />
           </div>
@@ -97,16 +92,17 @@ const ProjectList = () => {
             <table className="w-full text-left border-collapse">
               <thead className="bg-gray-100 text-gray-700">
                 <tr>
-                  <th className="p-3 md:p-4 text-sm md:text-base font-semibold">
+                  {/* Apply text-center to each <th> */}
+                  <th className="p-3 md:p-4 text-sm md:text-base font-semibold text-center">
                     Project Name
                   </th>
-                  <th className="p-3 md:p-4 text-sm md:text-base font-semibold">
+                  <th className="p-3 md:p-4 text-sm md:text-base font-semibold text-center">
                     Related To
                   </th>
-                  <th className="p-3 md:p-4 text-sm md:text-base font-semibold">
+                  <th className="p-3 md:p-4 text-sm md:text-base font-semibold text-center">
                     Description
                   </th>
-                  <th className="p-3 md:p-4 text-sm md:text-base font-semibold ">
+                  <th className="p-3 md:p-4 text-sm md:text-base font-semibold text-center">
                     Action
                   </th>
                 </tr>
@@ -117,27 +113,28 @@ const ProjectList = () => {
                     key={project._id}
                     className="hover:bg-gray-50 transition-colors"
                   >
-                    <td className="p-3 md:p-4 text-gray-800 text-sm md:text-base font-medium">
+                    {/* Apply text-center to each <td> */}
+                    <td className="p-3 md:p-4 text-gray-800 text-sm md:text-base font-medium text-center">
                       {project.name}
                     </td>
-                    <td className="p-3 md:p-4 text-gray-600 text-sm md:text-base">
+                    <td className="p-3 md:p-4 text-gray-600 text-sm md:text-base text-center">
                       {project.relatedTo}
                     </td>
-                    <td className="p-3 md:p-4 text-gray-600 text-sm md:text-base max-w-md truncate">
+                    {/* For description, consider if you truly want it centered if it truncates */}
+                    <td className="p-3 md:p-4 text-gray-600 text-sm md:text-base max-w-md truncate text-center">
                       {project.description}
                     </td>
+                    {/* Action column was already centered, so no change here */}
                     <td className="p-3 md:p-4 text-center">
-                      <div className="flex  gap-2 md:gap-3">
+                      <div className="flex justify-center gap-2 md:gap-3"> {/* Added justify-center here */}
                         {/* UPDATED EDIT BUTTON */}
                         <button
                           onClick={() => handleEdit(project._id)}
                           className="flex items-center gap-1 px-3 py-2 bg-white text-gray-500 border border-gray-300 rounded-full shadow transition hover:bg-green-50"
                         >
                           <FaPencilAlt className="w-6 h-5 text-green-500" />
-
                           <span>Edit</span>
                         </button>
-
                       </div>
                     </td>
                   </tr>
@@ -147,8 +144,6 @@ const ProjectList = () => {
           </div>
         )}
       </div>
-
-
     </div>
   );
 };

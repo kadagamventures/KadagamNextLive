@@ -26,7 +26,7 @@ const StaffDashboard = () => {
     task: null,
     comment: "",
     file: null,
-    previewUrl: "",
+    previewUrls: [],
   });
   const [reviewModal, setReviewModal] = useState({
     open: false,
@@ -40,6 +40,14 @@ const StaffDashboard = () => {
     photoUrl: "",
   });
   const navigate = useNavigate();
+
+  // State for the confirmation popup
+  const [confirmPopup, setConfirmPopup] = useState({
+    open: false,
+    message: "",
+    onConfirm: () => {},
+    onCancel: () => {},
+  });
 
   useEffect(() => {
     fetchProfile();
@@ -92,10 +100,25 @@ const StaffDashboard = () => {
   const handleDrop = (e, newStatus) => {
     e.preventDefault();
     const task = JSON.parse(e.dataTransfer.getData("text/plain"));
-    if (task.status === "Completed")
-      return alert("Cannot move completed task.");
-    if (newStatus === "completed")
-      return alert("Only admin can approve completion.");
+
+    if (task.status === "Completed") {
+      setConfirmPopup({
+        open: true,
+        message: "Cannot move completed tasks.",
+        onConfirm: () => setConfirmPopup({ open: false }), // Just close the popup
+        onCancel: () => setConfirmPopup({ open: false }),
+      });
+      return;
+    }
+    if (newStatus === "completed") {
+      setConfirmPopup({
+        open: true,
+        message: "Only admin can approve completion.",
+        onConfirm: () => setConfirmPopup({ open: false }), // Just close the popup
+        onCancel: () => setConfirmPopup({ open: false }),
+      });
+      return;
+    }
     if (newStatus === "review") {
       setReviewModal({
         open: true,
@@ -118,7 +141,15 @@ const StaffDashboard = () => {
       };
 
       const formattedStatus = statusMap[status.toLowerCase()];
-      if (!formattedStatus) return alert("Invalid status");
+      if (!formattedStatus) {
+        setConfirmPopup({
+          open: true,
+          message: "Invalid status.",
+          onConfirm: () => setConfirmPopup({ open: false }),
+          onCancel: () => setConfirmPopup({ open: false }),
+        });
+        return;
+      }
 
       await axiosInstance.put(`/tasks/staff/${taskId}`, {
         status: formattedStatus,
@@ -126,7 +157,12 @@ const StaffDashboard = () => {
       fetchKanbanTasks();
     } catch (err) {
       console.error(err);
-      alert("❌ Failed to update task status.");
+      setConfirmPopup({
+        open: true,
+        message: "❌ Failed to update task status.",
+        onConfirm: () => setConfirmPopup({ open: false }),
+        onCancel: () => setConfirmPopup({ open: false }),
+      });
     }
   };
   const submitMoveToReview = async () => {
@@ -139,10 +175,20 @@ const StaffDashboard = () => {
       );
       setReviewModal({ open: false, taskId: null, taskTitle: "", file: null });
       fetchKanbanTasks();
-      alert("✅ Task moved to Review!");
+      setConfirmPopup({
+        open: true,
+        message: "✅ Task moved to Review!",
+        onConfirm: () => setConfirmPopup({ open: false }),
+        onCancel: () => setConfirmPopup({ open: false }),
+      });
     } catch (err) {
       console.error(err);
-      alert("❌ Failed to move task to review.");
+      setConfirmPopup({
+        open: true,
+        message: "❌ Failed to move task to review.",
+        onConfirm: () => setConfirmPopup({ open: false }),
+        onCancel: () => setConfirmPopup({ open: false }),
+      });
     }
   };
 
@@ -199,8 +245,8 @@ const StaffDashboard = () => {
               task.priority === "High"
                 ? "text-red-600"
                 : task.priority === "Medium"
-                  ? "text-yellow-500"
-                  : "text-green-600"
+                ? "text-yellow-500"
+                : "text-green-600"
             }
           >
             {task.priority}
@@ -315,9 +361,18 @@ const StaffDashboard = () => {
                 const MAX_SIZE_MB = 5;
 
                 if (file && file.size > MAX_SIZE_MB * 1024 * 1024) {
-                  alert(
-                    `❌ File too large. Maximum allowed size is ${MAX_SIZE_MB}MB.`
-                  );
+                  setConfirmPopup({
+                    open: true,
+                    message: `❌ File too large. Maximum allowed size is ${MAX_SIZE_MB}MB.`,
+                    onConfirm: () => {
+                      setConfirmPopup({ open: false });
+                      e.target.value = null; // Clear the input
+                    },
+                    onCancel: () => {
+                      setConfirmPopup({ open: false });
+                      e.target.value = null; // Clear the input
+                    },
+                  });
                   return;
                 }
 
@@ -361,7 +416,6 @@ const StaffDashboard = () => {
             className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-4xl flex flex-col md:flex-row gap-8"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Left Side: Task Details */}
             {/* Left Side: Task Details */}
             <div className="w-full md:w-1/2">
               <h3 className="text-lg font-semibold mb-2">Task Description</h3>
@@ -434,7 +488,18 @@ const StaffDashboard = () => {
 
                     const MAX_SIZE_MB = 5;
                     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-                      alert(`❌ File too large. Max ${MAX_SIZE_MB}MB.`);
+                      setConfirmPopup({
+                        open: true,
+                        message: `❌ File too large. Max ${MAX_SIZE_MB}MB.`,
+                        onConfirm: () => {
+                          setConfirmPopup({ open: false });
+                          e.target.value = null; // Clear the input
+                        },
+                        onCancel: () => {
+                          setConfirmPopup({ open: false });
+                          e.target.value = null; // Clear the input
+                        },
+                      });
                       return;
                     }
 
@@ -502,7 +567,12 @@ const StaffDashboard = () => {
                   onClick={async () => {
                     const { task, comment, file } = dailyModal;
                     if (!comment && !file) {
-                      alert("Please add a comment or file.");
+                      setConfirmPopup({
+                        open: true,
+                        message: "Please add a comment or file.",
+                        onConfirm: () => setConfirmPopup({ open: false }),
+                        onCancel: () => setConfirmPopup({ open: false }),
+                      });
                       return;
                     }
 
@@ -529,16 +599,55 @@ const StaffDashboard = () => {
                       );
                       setDailyModal((m) => ({ ...m, open: false }));
                       fetchKanbanTasks();
-                      alert("✅ Daily update submitted!");
+                      setConfirmPopup({
+                        open: true,
+                        message: "✅ Daily update submitted!",
+                        onConfirm: () => setConfirmPopup({ open: false }),
+                        onCancel: () => setConfirmPopup({ open: false }),
+                      });
                     } catch (err) {
                       console.error("❌ Upload failed:", err);
-                      alert("❌ Update failed.");
+                      setConfirmPopup({
+                        open: true,
+                        message: "❌ Update failed.",
+                        onConfirm: () => setConfirmPopup({ open: false }),
+                        onCancel: () => setConfirmPopup({ open: false }),
+                      });
                     }
                   }}
                 >
                   Submit
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Popup */}
+      {confirmPopup.open && (
+        <div className="fixed inset-0 backdrop-blur-sm bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm text-center space-y-4">
+            <p className="text-gray-800 font-semibold text-lg">
+              {confirmPopup.message}
+            </p>
+            <div className="flex justify-center gap-4 mt-4">
+              <button
+                onClick={confirmPopup.onConfirm}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-full"
+              >
+                OK
+              </button>
+              {/* Only show "Cancel" if onCancel is provided and different from onConfirm */}
+              {confirmPopup.onCancel &&
+                confirmPopup.onCancel !== confirmPopup.onConfirm && (
+                  <button
+                    onClick={confirmPopup.onCancel}
+                    className="bg-gray-400 hover:bg-gray-500 text-white font-semibold px-6 py-2 rounded-full"
+                  >
+                    Cancel
+                  </button>
+                )}
             </div>
           </div>
         </div>

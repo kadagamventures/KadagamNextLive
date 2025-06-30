@@ -18,18 +18,29 @@ const TaskForm = () => {
   const { items: projects, status: projectStatus } = useSelector((state) => state.projects);
   const { items: staffList, status: staffStatus } = useSelector((state) => state.staff);
 
-const [task, setTask] = useState({
-  title: "",
-  projects: [],
-  assignedTo: "",
-  dueDate: "",
-  priority: "Medium",
-  description: "",
-  attachment: null,
-  attachmentName: "",
-  existingAttachments: [], // Explicitly add this
-});
+  const [task, setTask] = useState({
+    title: "",
+    projects: [],
+    assignedTo: "",
+    dueDate: "",
+    priority: "Medium",
+    description: "",
+    attachment: null,
+    attachmentName: "",
+    existingAttachments: [], // Explicitly add this
+  });
 
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState("");
+
+  const handleShowPopup = (message) => {
+    setPopupMessage(message);
+    setShowPopup(true);
+    setTimeout(() => {
+      setShowPopup(false);
+      setPopupMessage("");
+    }, 3000); // Popup disappears after 3 seconds
+  };
 
   const projectOptions = projects.map((proj) => ({ value: proj._id, label: proj.name }));
   const staffOptions = staffList.map((staff) => ({
@@ -37,35 +48,35 @@ const [task, setTask] = useState({
     label: `${staff.name} (${staff.role})`,
   }));
 
-useEffect(() => {
-  const fetchTask = async () => {
-    try {
-      const { data: existingTask } = await axiosInstance.get(`/tasks/${id}`);
-      if (existingTask) {
-        setTask({
-          title: existingTask.title,
-          projects: existingTask.projects.map((p) => p._id),
-          assignedTo: existingTask.assignedTo?._id || existingTask.assignedTo || "",
-          dueDate: existingTask.dueDate?.split("T")[0] || "",
-          priority: existingTask.priority,
-          description: existingTask.description,
-          attachment: null,
-          attachmentName: "",
-          existingAttachments: existingTask.attachments || [],
-        });
-      } else {
-        alert("Task not found.");
+  useEffect(() => {
+    const fetchTask = async () => {
+      try {
+        const { data: existingTask } = await axiosInstance.get(`/tasks/${id}`);
+        if (existingTask) {
+          setTask({
+            title: existingTask.title,
+            projects: existingTask.projects.map((p) => p._id),
+            assignedTo: existingTask.assignedTo?._id || existingTask.assignedTo || "",
+            dueDate: existingTask.dueDate?.split("T")[0] || "",
+            priority: existingTask.priority,
+            description: existingTask.description,
+            attachment: null,
+            attachmentName: "",
+            existingAttachments: existingTask.attachments || [],
+          });
+        } else {
+          handleShowPopup("Task not found.");
+          navigate("/admin/tasks/list");
+        }
+      } catch (error) {
+        console.error("Error fetching task:", error);
+        handleShowPopup("Failed to load task details.");
         navigate("/admin/tasks/list");
       }
-    } catch (error) {
-      console.error("Error fetching task:", error);
-      alert("Failed to load task details.");
-      navigate("/admin/tasks/list");
-    }
-  };
+    };
 
-  if (isEditMode) fetchTask();
-}, [id, isEditMode, navigate]);
+    if (isEditMode) fetchTask();
+  }, [id, isEditMode, navigate]);
 
 
   useEffect(() => {
@@ -96,11 +107,11 @@ useEffect(() => {
           priority: allowed[0],
         }));
         if (allowed.length === 1) {
-          alert("Low priority not allowed for near deadlines — auto-set to High.");
+          handleShowPopup("Low priority not allowed for near deadlines — auto-set to High.");
         }
       }
     }
-  }, [task.dueDate]);
+  }, [task.dueDate, task.priority]); // Added task.priority to dependency array
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -122,13 +133,13 @@ useEffect(() => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     const MAX_SIZE_MB = 5;
-  
+
     if (file) {
       if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-        alert(`❌ File too large. Max size is ${MAX_SIZE_MB}MB.`);
+        handleShowPopup(`❌ File too large. Max size is ${MAX_SIZE_MB}MB.`);
         return;
       }
-  
+
       setTask((prevTask) => ({
         ...prevTask,
         attachment: file,
@@ -136,7 +147,7 @@ useEffect(() => {
       }));
     }
   };
-  
+
 
   const handleRemoveAttachment = () => {
     setTask((prevTask) => ({
@@ -151,88 +162,96 @@ useEffect(() => {
       window.open(URL.createObjectURL(task.attachment));
     }
   };
-const handleSubmit = async (e) => {
-  e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  if (
-    !task.title ||
-    task.projects.length === 0 ||
-    !task.assignedTo ||
-    !task.dueDate ||
-    !task.priority ||
-    !task.description
-  ) {
-    alert("Please fill all required fields.");
-    return;
-  }
-
-  const formData = new FormData();
-  formData.append("title", task.title);
-  formData.append("dueDate", task.dueDate);
-  formData.append("priority", task.priority);
-  formData.append("description", task.description);
-  task.projects.forEach((projectId) => formData.append("projects[]", projectId));
-  formData.append("assignedTo", task.assignedTo);
-
-  if (task.attachment) {
-    formData.append("attachments", task.attachment, task.attachment.name); // ✅ explicitly set filename here
-  }
-
-  try {
-    if (isEditMode) {
-      await axiosInstance.put(`/tasks/${id}`, formData);
-      alert("Task updated successfully!");
-    } else {
-      await axiosInstance.post("/tasks", formData);
-      alert("Task added successfully!");
+    if (
+      !task.title ||
+      task.projects.length === 0 ||
+      !task.assignedTo ||
+      !task.dueDate ||
+      !task.priority ||
+      !task.description
+    ) {
+      handleShowPopup("Please fill all required fields.");
+      return;
     }
-    navigate("/admin/tasks/list");
-  } catch (error) {
-    console.error("❌ Error:", error);
-    alert(error.response?.data?.message || "Something went wrong.");
-  }
-};
+
+    const formData = new FormData();
+    formData.append("title", task.title);
+    formData.append("dueDate", task.dueDate);
+    formData.append("priority", task.priority);
+    formData.append("description", task.description);
+    task.projects.forEach((projectId) => formData.append("projects[]", projectId));
+    formData.append("assignedTo", task.assignedTo);
+
+    if (task.attachment) {
+      formData.append("attachments", task.attachment, task.attachment.name); // ✅ explicitly set filename here
+    }
+
+    try {
+      if (isEditMode) {
+        await axiosInstance.put(`/tasks/${id}`, formData);
+        handleShowPopup("Task updated successfully!");
+      } else {
+        await axiosInstance.post("/tasks", formData);
+        handleShowPopup("Task added successfully!");
+      }
+      navigate("/admin/tasks/list");
+    } catch (error) {
+      console.error("❌ Error:", error);
+      handleShowPopup(error.response?.data?.message || "Something went wrong.");
+    }
+  };
 
 
 
   const allowedPriorities = task.dueDate ? calculateAllowedPriorities(task.dueDate) : ["High", "Medium", "Low"];
-const handleDeleteExistingAttachment = async (fileUrl) => {
-  if (!window.confirm("Are you sure you want to delete this attachment?")) return;
+  const handleDeleteExistingAttachment = async (fileUrl) => {
+    if (!window.confirm("Are you sure you want to delete this attachment?")) return;
 
-  try {
-    await axiosInstance.delete(`/tasks/${id}/attachment`, {
-      data: { fileUrl },
-    });
+    try {
+      await axiosInstance.delete(`/tasks/${id}/attachment`, {
+        data: { fileUrl },
+      });
 
-    setTask((prevTask) => ({
-      ...prevTask,
-      existingAttachments: prevTask.existingAttachments.filter(
-        (attachment) => attachment.fileUrl !== fileUrl
-      ),
-    }));
+      setTask((prevTask) => ({
+        ...prevTask,
+        existingAttachments: prevTask.existingAttachments.filter(
+          (attachment) => attachment.fileUrl !== fileUrl
+        ),
+      }));
 
-    alert("Attachment deleted successfully!");
-  } catch (error) {
-    console.error("❌ Error deleting attachment:", error);
-    alert("Failed to delete attachment.");
-  }
-};
+      handleShowPopup("Attachment deleted successfully!");
+    } catch (error) {
+      console.error("❌ Error deleting attachment:", error);
+      handleShowPopup("Failed to delete attachment.");
+    }
+  };
 
-const handleViewExistingAttachment = async (fileUrl) => {
-  try {
-    const response = await axiosInstance.post(`/tasks/${id}/attachment/url`, { fileUrl });
-    const presignedUrl = response.data.url;
+  const handleViewExistingAttachment = async (fileUrl) => {
+    try {
+      const response = await axiosInstance.post(`/tasks/${id}/attachment/url`, { fileUrl });
+      const presignedUrl = response.data.url;
 
-    window.open(presignedUrl, "_blank");
-  } catch (error) {
-    console.error("❌ Error fetching presigned URL:", error);
-    alert("Failed to access the attachment.");
-  }
-};
+      window.open(presignedUrl, "_blank");
+    } catch (error) {
+      console.error("❌ Error fetching presigned URL:", error);
+      handleShowPopup("Failed to access the attachment.");
+    }
+  };
 
 
   return (
     <div className="min-h-screen bg-[#F7F8FB] p-6">
+      {/* Popup Notification */}
+      {showPopup && (
+        <div className="fixed top-4 right-4 z-50 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg flex items-center justify-between animate-fade-in-down">
+          <span>{popupMessage}</span>
+          <button onClick={() => setShowPopup(false)} className="ml-4 text-white font-bold text-xl">&times;</button>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-center mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
           {isEditMode ? "Update Task" : "Add New Task"}
@@ -252,7 +271,7 @@ const handleViewExistingAttachment = async (fileUrl) => {
           </button>
         </div>
       </div>
-  
+
       <div className="bg-white rounded-xl shadow-md p-6">
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -306,7 +325,7 @@ const handleViewExistingAttachment = async (fileUrl) => {
                 />
               </div>
             </div>
-  
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -326,73 +345,72 @@ const handleViewExistingAttachment = async (fileUrl) => {
                 </select>
               </div>
               <div>
-  <label className="block text-sm font-medium text-gray-700 mb-1">
-    Attachment (optional)
-  </label>
-  <input
-    type="file"
-    name="attachment"
-    onChange={handleFileChange}
-    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500"
-  />
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Attachment (optional)
+                </label>
+                <input
+                  type="file"
+                  name="attachment"
+                  onChange={handleFileChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500"
+                />
 
-  {/* Clearly show existing attachments */}
-{/* Display existing attachments clearly with delete functionality */}
-{task.existingAttachments && task.existingAttachments.length > 0 && (
-  <div className="mt-2 bg-gray-50 p-2 rounded flex flex-col gap-2">
-    {task.existingAttachments.map((attachment, index) => (
-      <div key={index} className="flex justify-between items-center">
-        <span className="text-sm text-gray-700 truncate">
-          {attachment.fileUrl.split("/").pop()}
-        </span>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            className="text-blue-500 hover:text-blue-700"
-            aria-label="View attachment"
-            onClick={() => handleViewExistingAttachment(attachment.fileUrl)} // ✅ Use this handler explicitly
-          >
-            <FaEye />
-          </button>
-          <button
-            type="button"
-            className="text-red-500 hover:text-red-700"
-            aria-label="Delete attachment"
-            onClick={() => handleDeleteExistingAttachment(attachment.fileUrl)}
-          >
-            <FaTrash />
-          </button>
-        </div>
-      </div>
-    ))}
-  </div>
-)}
+                {/* Display existing attachments clearly with delete functionality */}
+                {task.existingAttachments && task.existingAttachments.length > 0 && (
+                  <div className="mt-2 bg-gray-50 p-2 rounded flex flex-col gap-2">
+                    {task.existingAttachments.map((attachment, index) => (
+                      <div key={index} className="flex justify-between items-center">
+                        <span className="text-sm text-gray-700 truncate">
+                          {attachment.fileUrl.split("/").pop()}
+                        </span>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className="text-blue-500 hover:text-blue-700"
+                            aria-label="View attachment"
+                            onClick={() => handleViewExistingAttachment(attachment.fileUrl)}
+                          >
+                            <FaEye />
+                          </button>
+                          <button
+                            type="button"
+                            className="text-red-500 hover:text-red-700"
+                            aria-label="Delete attachment"
+                            onClick={() => handleDeleteExistingAttachment(attachment.fileUrl)}
+                          >
+                            <FaTrash />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-  {/* Newly selected attachment preview */}
-  {task.attachment && (
-    <div className="mt-2 flex items-center justify-between bg-gray-50 p-2 rounded">
-      <span className="text-sm text-gray-700 truncate">{task.attachmentName}</span>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={handleViewAttachment}
-          className="text-blue-500 hover:text-blue-700"
-          aria-label="View attachment"
-        >
-          <FaEye />
-        </button>
-        <button
-          type="button"
-          onClick={handleRemoveAttachment}
-          className="text-red-500 hover:text-red-700"
-          aria-label="Delete attachment"
-        >
-          <FaTrash />
-        </button>
-      </div>
-    </div>
-  )}
-</div>
+                {/* Newly selected attachment preview */}
+                {task.attachment && (
+                  <div className="mt-2 flex items-center justify-between bg-gray-50 p-2 rounded">
+                    <span className="text-sm text-gray-700 truncate">{task.attachmentName}</span>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleViewAttachment}
+                        className="text-blue-500 hover:text-blue-700"
+                        aria-label="View attachment"
+                      >
+                        <FaEye />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRemoveAttachment}
+                        className="text-red-500 hover:text-red-700"
+                        aria-label="Delete attachment"
+                      >
+                        <FaTrash />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -402,6 +420,7 @@ const handleViewExistingAttachment = async (fileUrl) => {
                   name="description"
                   value={task.description}
                   onChange={handleChange}
+                  rows={4}
                   placeholder="Enter task details"
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500"
                 />
@@ -412,6 +431,6 @@ const handleViewExistingAttachment = async (fileUrl) => {
       </div>
     </div>
   );
-    
+
 };
 export default TaskForm;

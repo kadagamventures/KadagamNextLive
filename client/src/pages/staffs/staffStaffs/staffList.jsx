@@ -2,27 +2,23 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FaSearch, FaPencilAlt } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchStaffs} from "../../../redux/slices/staffSlice";
+import { fetchStaffs } from "../../../redux/slices/staffSlice";
 
 const StaffList = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
   const { items: staff, status, error } = useSelector((state) => state.staff);
-  const { role, permissions } = useSelector((state) => state.auth.user) || {};
 
-  // Only admins can delete staff.
-  const canDeleteStaff = role === "admin";
+  const user = useSelector((state) => state.auth.user);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredStaff, setFilteredStaff] = useState([]);
 
-  // Fetch staff data when component mounts
   useEffect(() => {
     dispatch(fetchStaffs());
   }, [dispatch]);
 
-  // Handle search filtering
   useEffect(() => {
     setFilteredStaff(
       staff.filter((member) => {
@@ -43,7 +39,8 @@ const StaffList = () => {
     );
   }, [searchQuery, staff]);
 
-  
+  // Debug log to see current auth state
+  console.log("AUTH USER:", user);
 
   return (
     <div className="pl-0 md:pl-64 min-h-screen p-6 md:p-8">
@@ -53,17 +50,15 @@ const StaffList = () => {
           Staff Members
         </h1>
 
-        {/* Top Right Actions: Search + Add Staff */}
+        {/* Search + Add Staff */}
         <div className="flex items-center gap-3 mt-4 md:mt-0">
-
-          {(role === "admin" || permissions?.includes("manage_staff")) && (
-            <Link
-              to="/staff/staffs/add"
-              className="px-4 py-2 hover:text-black text-gray-600 bg-white font-semibold rounded-full shadow transition-all"
-            >
-              <span className="text-violet-600 text-2xl">+</span>  Add New Staff
-            </Link>
-          )}
+          {/* TEMP: Always show button for testing */}
+          <Link
+            to="/staff/staffs/add"
+            className="px-4 py-2 hover:text-black text-gray-600 bg-white font-semibold rounded-full shadow transition-all"
+          >
+            <span className="text-violet-600 text-2xl">+</span> Add New Staff
+          </Link>
           <div className="relative">
             <input
               type="text"
@@ -74,11 +69,10 @@ const StaffList = () => {
             />
             <FaSearch className="absolute right-3 top-2.5 text-violet-600" />
           </div>
-
         </div>
       </div>
 
-      {/* Table Container */}
+      {/* Table */}
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
         {status === "loading" ? (
           <div className="p-8 text-center text-gray-500 animate-pulse">
@@ -91,19 +85,19 @@ const StaffList = () => {
             <table className="w-full text-left">
               <thead className="bg-gray-100 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-700">
+                  <th className="px-6 py-4 text-sm font-semibold text-gray-700 text-center">
                     Staff ID
                   </th>
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-700">
+                  <th className="px-6 py-4 text-sm font-semibold text-gray-700 text-center">
                     Name
                   </th>
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-700">
+                  <th className="px-6 py-4 text-sm font-semibold text-gray-700 text-center">
                     Role
                   </th>
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-700">
+                  <th className="px-6 py-4 text-sm font-semibold text-gray-700 text-center">
                     Email
                   </th>
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-700">
+                  <th className="px-6 py-4 text-sm font-semibold text-gray-700 text-center">
                     Action
                   </th>
                 </tr>
@@ -115,33 +109,30 @@ const StaffList = () => {
                       key={member._id || index}
                       className="hover:bg-gray-50 transition-colors"
                     >
-                      <td className="px-6 py-4 text-sm font-medium text-gray-800">
+                      <td className="px-6 py-4 text-sm font-medium text-gray-800 text-center">
                         {member.staffId || "N/A"}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-6 py-4 text-sm text-gray-700 text-center">
                         {member.name}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-6 py-4 text-sm text-gray-700 text-center">
                         {member.role}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-6 py-4 text-sm text-gray-700 text-center">
                         {member.email}
                       </td>
-                      <td className="px-6 py-4 text-left">
-                        <div className="flex justify-start gap-2">
-                          {(role === "admin" ||
-                            permissions?.includes("manage_staff")) && (
-                              <button
-                                onClick={() =>
-                                  navigate(`/staff/staffs/edit/${member._id}`)
-                                }
-                                className="px-3 py-2 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md text-xs font-medium flex items-center gap-1 transition-all hover:bg-green-50"
-                              >
-                                <FaPencilAlt className="w-6 h-5 text-green-500" />
-                                Edit
-                              </button>
-                            )}
-                          
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex justify-center gap-2">
+                          {/* TEMP: Always show edit for testing */}
+                          <button
+                            onClick={() =>
+                              navigate(`/staff/staffs/edit/${member._id}`)
+                            }
+                            className="px-3 py-2 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md text-xs font-medium flex items-center gap-1 transition-all hover:bg-green-50"
+                          >
+                            <FaPencilAlt className="w-6 h-5 text-green-500" />
+                            Edit
+                          </button>
                         </div>
                       </td>
                     </tr>

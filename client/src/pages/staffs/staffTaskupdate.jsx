@@ -6,10 +6,10 @@ import { FaDownload, FaSearch } from "react-icons/fa";
 
 // 🔹 Popup Component
 const DetailedDescriptionPopup = ({ update, onClose, onDownload }) => (
-  <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex justify-center items-center z-50">
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
     <div className="bg-white rounded-lg p-6 shadow-xl w-full max-w-md">
       <h2 className="text-lg font-semibold mb-4">Daily Update Details</h2>
-      <div className="mb-4">
+      <div className="mb-4 text-gray-700">
         <p className="mb-2">
           <span className="font-semibold">Staff Name:</span> {update?.staffName || "N/A"}
         </p>
@@ -27,7 +27,7 @@ const DetailedDescriptionPopup = ({ update, onClose, onDownload }) => (
           </div>
         )}
       </div>
-      <p className="mb-4">
+      <p className="mb-4 text-gray-700">
         <span className="font-semibold">Date & Time:</span>{" "}
         {update?.date
           ? new Date(update.date).toLocaleString("en-GB", {
@@ -72,37 +72,44 @@ const DailyStatusDashboard = () => {
   const [error, setError] = useState(null);
   const [selectedUpdate, setSelectedUpdate] = useState(null);
 
-useEffect(() => {
-  const fetchDailyComments = async () => {
-    setLoading(true);
-    try {
-      console.log("⚡ Frontend: calling /tasks/my-daily-comments");
-      const { data } = await axiosInstance.get("/tasks/my-daily-comments");
-      setDailyUpdates(data);
-    } catch (err) {
-      console.error("❌ Frontend fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    const fetchDailyComments = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        console.log("⚡ Frontend: calling /tasks/my-daily-comments");
+        const { data } = await axiosInstance.get("/tasks/my-daily-comments");
+        if (Array.isArray(data)) {
+          setDailyUpdates(data);
+        } else {
+          console.warn("Received non-array data for daily updates:", data);
+          setDailyUpdates([]);
+        }
+      } catch (err) {
+        console.error("❌ Frontend fetch error:", err);
+        setError("Failed to load daily updates. Please try again.");
+        setDailyUpdates([]);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  fetchDailyComments();
-}, []);
-
+    fetchDailyComments();
+  }, []);
 
   const filteredUpdates = dailyUpdates.filter((u) => {
     const search = searchTerm.toLowerCase();
     return (
-      u.staffName.toLowerCase().includes(search) ||
-      u.taskTitle.toLowerCase().includes(search) ||
-      u.comment.toLowerCase().includes(search)
+      (u.staffName?.toLowerCase().includes(search) || false) ||
+      (u.taskTitle?.toLowerCase().includes(search) || false) ||
+      (u.comment?.toLowerCase().includes(search) || false)
     );
   });
 
   const openDescriptionPopup = (update) => setSelectedUpdate(update);
   const closeDescriptionPopup = useCallback(() => setSelectedUpdate(null), []);
 
-  const shortenComment = (text, len = 25) => text.length > len ? `${text.slice(0, len)}...` : text;
+  const shortenComment = (text, len = 25) => text && text.length > len ? `${text.slice(0, len)}...` : text || "N/A";
 
   const handleDownload = useCallback(async (fileKey) => {
     if (!fileKey) return alert("No attachment available.");
@@ -122,22 +129,21 @@ useEffect(() => {
   const handlePopupDownload = useCallback(() => {
     if (selectedUpdate?.fileKey) {
       handleDownload(selectedUpdate.fileKey);
-      closeDescriptionPopup();
     }
-  }, [selectedUpdate, handleDownload, closeDescriptionPopup]);
+  }, [selectedUpdate, handleDownload]);
 
   return (
     <div className="flex min-h-screen bg-gray-50">
       <AdminSidebar />
       <div className="flex-grow p-6 ml-64">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex justify-between items-center mb-6">
+        <div className="w-full">
+          <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
             <h1 className="text-2xl font-semibold text-gray-800">Daily Task Updates</h1>
-            <div className="relative">
+            <div className="relative w-full sm:w-auto">
               <input
                 type="text"
                 placeholder="Search Staff, Task, or Comment..."
-                className="w-64 px-3 py-2 pr-10 rounded-full border border-gray-300 hover:border-violet-600 focus:outline-none focus:ring-1 focus:ring-purple-700"
+                className="w-full sm:w-64 px-3 py-2 pr-10 rounded-full border border-gray-300 hover:border-violet-600 focus:outline-none focus:ring-1 focus:ring-purple-700"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -150,61 +156,67 @@ useEffect(() => {
 
           {!loading && !error && (
             <div className="bg-white rounded-lg shadow overflow-hidden">
-              <table className="w-full table-auto border-collapse">
+              <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
+                    {/* Apply text-center to each <th> */}
                     {["Staff Name", "Task Name", "Comment", "Date & Time", "Actions"].map((h) => (
                       <th
                         key={h}
-                        className={`px-6 py-4 text-left text-sm font-medium text-gray-700 ${h === "Actions" ? "text-right" : ""}`}
+                        className={`px-6 py-4 text-center text-xs font-medium text-gray-700 uppercase tracking-wider`} // Changed text-left to text-center
                       >
                         {h}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredUpdates.map((update) => (
-                    <tr key={`${update.taskId}-${update.date}`} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-500">{update.staffName}</td>
-                      <td className="px-6 py-4 text-sm text-gray-500">{update.taskTitle}</td>
-                      <td
-                        className="px-6 py-4 text-sm text-gray-500 cursor-pointer"
-                        onClick={() => openDescriptionPopup(update)}
-                        title={update.comment}
-                      >
-                        {shortenComment(update.comment)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
-                        {new Date(update.date).toLocaleString("en-GB", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: false,
-                        }).replace(",", " ")}
-                      </td>
-                      <td className="px-6 py-4 text-right text-sm font-medium">
-                        <button
-                          disabled={!update.fileKey}
-                          onClick={() => handleDownload(update.fileKey)}
-                          className={`text-purple-600 hover:text-purple-800 ${!update.fileKey ? "opacity-30 cursor-not-allowed" : ""}`}
-                          title={update.fileKey ? "Download attachment" : "No attachment"}
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredUpdates.length > 0 ? (
+                    filteredUpdates.map((update, index) => (
+                      <tr key={`${update.taskId}-${update.date || index}`} className="hover:bg-gray-50">
+                        {/* Apply text-center to each <td> */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-center">{update.staffName || "N/A"}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-center">{update.taskTitle || "N/A"}</td>
+                        <td
+                          className="px-6 py-4 text-sm text-gray-700 cursor-pointer max-w-xs overflow-hidden text-ellipsis text-center"
+                          onClick={() => openDescriptionPopup(update)}
+                          title={update.comment}
                         >
-                          <FaDownload className="h-5 w-5 inline" />
-                        </button>
+                          {shortenComment(update.comment)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                          {update.date
+                            ? new Date(update.date).toLocaleString("en-GB", {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: false,
+                              }).replace(",", " ")
+                            : "N/A"}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center"> {/* Changed text-right to text-center */}
+                          <button
+                            disabled={!update.fileKey}
+                            onClick={() => handleDownload(update.fileKey)}
+                            className={`text-purple-600 hover:text-purple-800 ${!update.fileKey ? "opacity-30 cursor-not-allowed" : ""}`}
+                            title={update.fileKey ? "Download attachment" : "No attachment"}
+                          >
+                            <FaDownload className="h-5 w-5 inline" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="5" className="text-center py-8 text-gray-500">
+                        No updates found. Try adjusting your search terms.
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
-
-              {filteredUpdates.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  No updates found. Try adjusting your search terms.
-                </div>
-              )}
             </div>
           )}
         </div>

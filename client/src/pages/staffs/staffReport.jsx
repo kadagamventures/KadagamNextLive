@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { motion } from "framer-motion";
 import StaffSidebar from "../../components/staffSidebar";
-// Removed Doughnut from react-chartjs-2 as we are now using a custom one
 import { Bar } from "react-chartjs-2";
 import { tokenRefreshInterceptor as axiosInstance } from "../../utils/axiosInstance";
 import "chart.js/auto";
@@ -24,10 +23,8 @@ import {
 
 import PropTypes from "prop-types";
 
-// --- CustomDoughnutChart Component (New/Replaced) ---
-// This is the new custom doughnut chart you provided previously.
-// I'm embedding it directly here for self-containment as requested.
-const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 28, gapDegrees = 2 }) => {
+// --- CustomDoughnutChart Component ---
+const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 28, gapDegrees = 2, children }) => {
   const cx = chartSize / 2;
   const cy = chartSize / 2;
   const radius = (chartSize / 2) - (strokeThickness / 2);
@@ -61,8 +58,13 @@ const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 
     angleAcc += (total ? (val / total) * 360 : 0);
     return { path, color: colors[i % colors.length], label: val, name: d.name };
   });
+
   return (
-    <div className="flex-1 flex items-center justify-center">
+    // Make this container relative and set its fixed size for the chart
+    <div
+      className="relative flex items-center justify-center" // Added relative here
+      style={{ width: chartSize, height: chartSize }}
+    >
       <svg width={chartSize} height={chartSize} viewBox={`0 0 ${chartSize} ${chartSize}`}>
         {slices.map((s, i) => (
           <path
@@ -75,6 +77,8 @@ const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 
           />
         ))}
       </svg>
+      {/* Render children (your center text) inside this component */}
+      {children}
     </div>
   );
 };
@@ -90,9 +94,9 @@ CustomDoughnutChart.propTypes = {
   chartSize: PropTypes.number,
   strokeThickness: PropTypes.number,
   gapDegrees: PropTypes.number,
+  children: PropTypes.node, // Added children to propTypes
 };
 // --- END CustomDoughnutChart Component ---
-
 
 const InfoBox = ({ Icon, iconBg, iconColor, label, value }) => (
   <motion.div
@@ -100,7 +104,7 @@ const InfoBox = ({ Icon, iconBg, iconColor, label, value }) => (
     animate={{ opacity: 1, y: 0 }}
     whileHover={{ scale: 1.03 }}
     transition={{ duration: 0.3 }}
-    className="bg-white p-4 rounded-xl shadow-md flex flex-col items-center w-full max-w-xs"
+    className="bg-white p-4 rounded-xl shadow-md flex flex-col items-center w-full"
   >
     <div className={`w-12 h-12 flex items-center justify-center rounded-full ${iconBg}`}>
       <Icon className={`text-2xl ${iconColor}`} />
@@ -109,6 +113,14 @@ const InfoBox = ({ Icon, iconBg, iconColor, label, value }) => (
     <p className="text-gray-800 text-2xl font-semibold mt-1">{value}</p>
   </motion.div>
 );
+
+InfoBox.propTypes = {
+  Icon: PropTypes.elementType.isRequired,
+  iconBg: PropTypes.string.isRequired,
+  iconColor: PropTypes.string.isRequired,
+  label: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+};
 
 const StaffReport = () => {
   const user = useSelector((state) => state.staffAuth.user);
@@ -143,26 +155,20 @@ const StaffReport = () => {
   if (loading) return <div className="text-center p-4 text-lg font-semibold">Loading...</div>;
   if (!performance) return <div className="text-center p-4 text-red-600 text-lg font-semibold">No Data Found</div>;
 
-  // --- Data for CustomDoughnutChart (Updated) ---
-  // Using performance.totalTasksAssigned, performance.ongoingTasks, performance.totalTasksCompleted
+  // --- Data for CustomDoughnutChart ---
   const customDoughnutData = [
     { name: "Total Assigned", value: performance.totalTasksAssigned || 0 },
     { name: "Ongoing Tasks", value: performance.ongoingTasks || 0 },
     { name: "Completed Tasks", value: performance.totalTasksCompleted || 0 },
   ];
 
-  // Colors for the custom doughnut chart (keeping original)
   const customDoughnutColors = ["#752BdF", "#41B6FF", "#FF0200"];
 
-  // Calculate percentage for center text based on completion rate
-  // This can be changed if a different central metric is desired.
   const centerTextPercentage = performance.totalTasksAssigned > 0
     ? `${Math.round((performance.totalTasksCompleted / performance.totalTasksAssigned) * 100)}%`
     : "0%";
 
-
-  // Bar chart data and options (remain unchanged as per request)
-  // Ensure the bar chart still uses 'performance' data directly if it's available.
+  // Bar chart data and options
   const barData = {
     labels: ["Completion %", "On-Time %", "Attendance %", "Success %", "Overall %"],
     datasets: [{
@@ -183,11 +189,10 @@ const StaffReport = () => {
     scales: { y: { beginAtZero: true, max: 100 } }
   };
 
-
   return (
     <div className="flex min-h-screen pl-64 bg-gray-50">
       <StaffSidebar />
-      <div className="flex-grow px-6 py-8 mx-auto max-w-screen-xl">
+      <div className="flex-grow px-6 py-8">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -200,7 +205,7 @@ const StaffReport = () => {
               type="number"
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
-              className="p-2 border rounded-full w-[100px]  text-center border-gray-500 shadow-sm bg-white hover:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-600"
+              className="p-2 border rounded-full w-[100px] text-center border-gray-500 shadow-sm bg-white hover:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-600"
               placeholder="Year"
             />
             <select
@@ -218,7 +223,7 @@ const StaffReport = () => {
           initial="hidden"
           animate="visible"
           variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6 justify-items-center"
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-5 mb-6 justify-items-stretch"
         >
           <InfoBox Icon={FaTasks} iconBg="bg-pink-100" iconColor="text-pink-500" label="Total Tasks Assigned" value={performance.totalTasksAssigned} />
           <InfoBox Icon={FaCheckCircle} iconBg="bg-green-100" iconColor="text-green-500" label="Tasks Completed" value={performance.totalTasksCompleted} />
@@ -239,42 +244,33 @@ const StaffReport = () => {
           initial="hidden"
           animate="visible"
           variants={{ visible: { transition: { staggerChildren: 0.2 } } }}
-          className="grid grid-cols-1 md:grid-cols-2 gap-6 justify-items-center"
+          className="grid grid-cols-1 md:grid-cols-2 gap-6"
         >
           {/* Custom Doughnut Chart */}
           <motion.div
-            className="bg-white p-6 rounded-2xl shadow-lg   flex flex-col items-center justify-center relative"
+            className="bg-white p-6 rounded-2xl shadow-lg flex flex-col items-center justify-center relative w-full h-[300px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            style={{
-              width: '494px',
-              height: '300px',
-              borderRadius: '16.46px',
-            }}
           >
             <h2 className="text-xl font-medium text-gray-700 mb-4">Task Overview</h2>
-            <div className="flex w-full justify-center items-center">
+            <div className="flex w-full justify-center items-center h-full"> {/* Removed 'relative' from here as CustomDoughnutChart is now relative */}
               <CustomDoughnutChart
                 data={customDoughnutData}
                 colors={customDoughnutColors}
-                chartSize={200} // Adjust size to fit well within the card, maybe slightly smaller
-                strokeThickness={30} // Adjust for desired thickness
-                gapDegrees={3} // Adjust for desired gap between segments
-              />
-              <div
-                className="absolute flex flex-col items-center justify-center pointer-events-none"
-                style={{
-                  top: "58%",
-                  left: "30%", // Adjust this based on legend position and chart size
-                  transform: "translate(-50%, -50%)",
-                  width: "fit-content",
-                }}
+                chartSize={220}
+                strokeThickness={32}
+                gapDegrees={3}
               >
-                <span className="text-sm text-gray-500">Completed</span>
-                <span className="text-2xl font-bold text-gray-900">
-                  {centerTextPercentage}
-                </span>
-              </div>
+                {/* The center text is now a child of CustomDoughnutChart */}
+                <div
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center pointer-events-none"
+                >
+                  <span className="text-sm text-gray-500">Completed</span>
+                  <span className="text-2xl font-bold text-gray-900">
+                    {centerTextPercentage}
+                  </span>
+                </div>
+              </CustomDoughnutChart>
               {/* Legend for CustomDoughnutChart */}
               <div className="flex-shrink-0 flex flex-col justify-center pl-4 pr-4">
                 <ul className="space-y-2">
@@ -292,17 +288,12 @@ const StaffReport = () => {
             </div>
           </motion.div>
 
-          {/* Bar Chart (remains unchanged) */}
+          {/* Bar Chart */}
           <motion.div
-            className="bg-white p-6 rounded-2xl shadow-lg "
+            className="bg-white p-6 rounded-2xl shadow-lg w-full h-[300px]"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
-            style={{
-              width: '485px',
-              height: '300px',
-              borderRadius: '14.3px',
-            }}
           >
             <h2 className="text-xl font-semibold text-gray-700 mb-4">Performance Metrics</h2>
             <Bar
@@ -314,14 +305,6 @@ const StaffReport = () => {
       </div>
     </div>
   );
-};
-
-InfoBox.propTypes = {
-  Icon: PropTypes.elementType.isRequired,
-  iconBg: PropTypes.string.isRequired,
-  iconColor: PropTypes.string.isRequired,
-  label: PropTypes.string.isRequired,
-  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
 };
 
 export default StaffReport;

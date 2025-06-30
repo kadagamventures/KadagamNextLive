@@ -16,7 +16,6 @@ const TaskForm = () => {
 
   const userId = useSelector((state) => state.staffAuth?.user?._id);
 
-
   const { items: tasks } = useSelector((state) => state.tasks);
   const { items: projects, status: projectStatus } = useSelector((state) => state.projects);
   const { items: staffList, status: staffStatus } = useSelector((state) => state.staff);
@@ -34,6 +33,17 @@ const TaskForm = () => {
   });
 
   const [allowedPriorities, setAllowedPriorities] = useState(["High", "Medium", "Low"]);
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState("");
+
+  const handleShowPopup = (message) => {
+    setPopupMessage(message);
+    setShowPopup(true);
+    setTimeout(() => {
+      setShowPopup(false);
+      setPopupMessage("");
+    }, 3000); // Popup disappears after 3 seconds
+  };
 
   const projectOptions = projects.map((proj) => ({ value: proj._id, label: proj.name }));
   const staffOptions = staffList.map((staff) => ({
@@ -41,41 +51,39 @@ const TaskForm = () => {
     label: `${staff.name} (${staff.role})`,
   }));
 
-useEffect(() => {
-  if (isEditMode) {
-    if (tasks.length === 0) {
-      dispatch(fetchTasks());
-    } else {
-      const existingTask = tasks.find((t) => t._id === id);
-      if (existingTask) {
-        const assignedId = existingTask.assignedTo?._id || existingTask.assignedTo;
-
-        // ✅ Prevent staff from editing their own assigned task
-        if (String(assignedId) === String(userId)) {
-          alert("⛔ You are not allowed to update your own assigned task.");
-          return navigate("/staff/tasks/list");
-        }
-
-        setTask({
-          title: existingTask.title,
-          projects: existingTask.projects.map((p) => p._id),
-          assignedTo: assignedId || "",
-          dueDate: existingTask.dueDate?.split("T")[0] || "",
-          priority: existingTask.priority,
-          description: existingTask.description,
-          attachment: null,
-          attachmentName: "",
-          existingAttachments: existingTask.attachments || [],
-        });
+  useEffect(() => {
+    if (isEditMode) {
+      if (tasks.length === 0) {
+        dispatch(fetchTasks());
       } else {
-        alert("Task not found.");
-        navigate("/staff/tasks/list");
+        const existingTask = tasks.find((t) => t._id === id);
+        if (existingTask) {
+          const assignedId = existingTask.assignedTo?._id || existingTask.assignedTo;
+
+          // ✅ Prevent staff from editing their own assigned task
+          if (String(assignedId) === String(userId)) {
+            handleShowPopup("⛔ You are not allowed to update your own assigned task.");
+            return navigate("/staff/tasks/list");
+          }
+
+          setTask({
+            title: existingTask.title,
+            projects: existingTask.projects.map((p) => p._id),
+            assignedTo: assignedId || "",
+            dueDate: existingTask.dueDate?.split("T")[0] || "",
+            priority: existingTask.priority,
+            description: existingTask.description,
+            attachment: null,
+            attachmentName: "",
+            existingAttachments: existingTask.attachments || [],
+          });
+        } else {
+          handleShowPopup("Task not found.");
+          navigate("/staff/tasks/list");
+        }
       }
     }
-  }
-}, [dispatch, id, isEditMode, tasks, navigate, userId]);
-
-
+  }, [dispatch, id, isEditMode, tasks, navigate, userId]);
 
   useEffect(() => {
     if (projects.length === 0 && projectStatus === "idle") dispatch(fetchProjects());
@@ -95,19 +103,19 @@ useEffect(() => {
         setAllowedPriorities(["High"]);
         if (task.priority !== "High") {
           setTask((prev) => ({ ...prev, priority: "High" }));
-          alert("⚠️ Low priority not allowed for near deadlines — auto-set to High.");
+          handleShowPopup("⚠️ Low priority not allowed for near deadlines — auto-set to High.");
         }
       } else if (daysLeft <= 5) {
         setAllowedPriorities(["High", "Medium"]);
         if (task.priority === "Low") {
           setTask((prev) => ({ ...prev, priority: "Medium" }));
-          alert("⚠️ Low priority not allowed for deadlines within 5 days — auto-set to Medium.");
+          handleShowPopup("⚠️ Low priority not allowed for deadlines within 5 days — auto-set to Medium.");
         }
       } else {
         setAllowedPriorities(["High", "Medium", "Low"]);
       }
     }
-  }, [task.dueDate]);
+  }, [task.dueDate, task.priority]); // Added task.priority to dependency array
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -129,7 +137,7 @@ useEffect(() => {
 
     if (file) {
       if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-        alert(`❌ File too large. Max size is ${MAX_SIZE_MB}MB.`);
+        handleShowPopup(`❌ File too large. Max size is ${MAX_SIZE_MB}MB.`);
         return;
       }
 
@@ -158,7 +166,7 @@ useEffect(() => {
       window.open(presignedUrl, "_blank");
     } catch (error) {
       console.error("❌ Error fetching presigned URL:", error);
-      alert("Failed to access the attachment.");
+      handleShowPopup("Failed to access the attachment.");
     }
   };
 
@@ -174,10 +182,10 @@ useEffect(() => {
           (attachment) => attachment.fileUrl !== fileUrl
         ),
       }));
-      alert("Attachment deleted successfully!");
+      handleShowPopup("Attachment deleted successfully!");
     } catch (error) {
       console.error("❌ Error deleting attachment:", error);
-      alert("Failed to delete attachment.");
+      handleShowPopup("Failed to delete attachment.");
     }
   };
 
@@ -186,7 +194,7 @@ useEffect(() => {
     const { title, projects, assignedTo, dueDate, priority, description, attachment } = task;
 
     if (!title || !projects.length || !assignedTo || !dueDate || !priority || !description) {
-      alert("Please fill all required fields.");
+      handleShowPopup("Please fill all required fields.");
       return;
     }
 
@@ -205,17 +213,25 @@ useEffect(() => {
       const res = await method(endpoint, formData);
 
       if (res.status === 200 || res.status === 201) {
-        alert(`✅ Task ${isEditMode ? "updated" : "created"}!`);
+        handleShowPopup(`✅ Task ${isEditMode ? "updated" : "created"}!`);
         navigate("/staff/tasks/list");
       }
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Something went wrong.");
+      handleShowPopup(err.response?.data?.message || "Something went wrong.");
     }
   };
 
   return (
     <div className="min-h-screen bg-[#F7F8FB] p-6 pl-64">
+      {/* Popup Notification */}
+      {showPopup && (
+        <div className="fixed top-4 right-4 z-50 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg flex items-center justify-between animate-fade-in-down">
+          <span>{popupMessage}</span>
+          <button onClick={() => setShowPopup(false)} className="ml-4 text-white font-bold text-xl">&times;</button>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-center mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
           {isEditMode ? "Update Task" : "Add New Task"}
@@ -353,6 +369,7 @@ useEffect(() => {
                         type="button"
                         onClick={handleRemoveAttachment}
                         className="text-red-500 hover:text-red-700"
+                        
                       >
                         <FaTrash />
                       </button>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bar } from "react-chartjs-2"; // Removed Doughnut
+import { Bar } from "react-chartjs-2";
 import { tokenRefreshInterceptor as axiosInstance } from "../../../utils/axiosInstance";
 import { motion } from "framer-motion";
 import CountUp from "react-countup";
@@ -21,9 +21,9 @@ import {
   FaClock,
   FaDownload,
 } from "react-icons/fa";
-import PropTypes from "prop-types"; // Import PropTypes for CustomDoughnutChart
+import PropTypes from "prop-types";
 
-// --- CustomDoughnutChart Component (Copied from previous tasks) ---
+// --- CustomDoughnutChart Component ---
 const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 28, gapDegrees = 2 }) => {
   const cx = chartSize / 2;
   const cy = chartSize / 2;
@@ -58,8 +58,14 @@ const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 
     angleAcc += (total ? (val / total) * 360 : 0);
     return { path, color: colors[i % colors.length], label: val, name: d.name };
   });
+
   return (
-    <div className="flex-1 flex items-center justify-center">
+    // Removed flex-1 here. The chart's size is determined by chartSize prop.
+    // The parent div in ProjectReports will manage overall flexibility.
+    <div
+      className="flex items-center justify-center"
+      style={{ width: chartSize, height: chartSize }}
+    >
       <svg width={chartSize} height={chartSize} viewBox={`0 0 ${chartSize} ${chartSize}`}>
         {slices.map((s, i) => (
           <path
@@ -111,14 +117,12 @@ const ProjectReports = () => {
         const data = response.data.data;
         setProjectStats(data);
 
-        // Data for CustomDoughnutChart: "Ongoing" and "Pending"
         const customDoughnutData = [
           { name: "Ongoing", value: data.ongoingProjects },
           { name: "Pending", value: data.pendingProjects },
         ];
-        const customDoughnutColors = ["#F59E0B", "#34D399"]; // Corresponding colors
+        const customDoughnutColors = ["#F59E0B", "#34D399"];
 
-        // Right Bar chart: "Total Projects", "Cancelled", "Completed"
         const barData = {
           labels: ["Total Projects", "Cancelled", "Completed"],
           datasets: [
@@ -131,8 +135,8 @@ const ProjectReports = () => {
         };
 
         setChartData({
-          statusBreakdown: customDoughnutData, // Use customDoughnutData here
-          statusColors: customDoughnutColors, // Pass colors separately for custom chart
+          statusBreakdown: customDoughnutData,
+          statusColors: customDoughnutColors,
           completionTrend: barData,
         });
       } catch (error) {
@@ -143,7 +147,6 @@ const ProjectReports = () => {
     fetchProjectStats();
   }, []);
 
-  // Download Monthly Report
   const handleDownloadPDF = async () => {
     if (!selectedMonth) {
       alert("Please select a month first.");
@@ -154,30 +157,50 @@ const ProjectReports = () => {
         `/reports/projects/monthly-report/download?year=${new Date().getFullYear()}&month=${selectedMonth}`
       );
       if (response.data.success) {
+        // Assuming downloadUrl is directly a file link
         window.open(response.data.downloadUrl, "_blank");
       }
     } catch (error) {
       console.error("Error downloading report:", error);
+      alert("Error downloading report. Please try again.");
     }
   };
 
-  // Bar chart options (Right Side) - kept largely same, but adjusted for no legend.
   const barOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
-    plugins: { legend: { display: false } },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: { stepSize: 1 },
+        grid: {
+          color: 'rgba(0,0,0,0.05)', // Lighter grid lines
+        },
+      },
+      x: {
+        grid: {
+          display: false, // No vertical grid lines
+        },
+      },
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: function (context) {
+            return `${context.label}: ${context.parsed.y}`;
+          }
+        }
+      }
+    },
   };
 
-  // Calculate center percentage for "Ongoing" for the custom doughnut chart
   const ongoingProjects = projectStats?.ongoingProjects || 0;
   const totalDoughnutProjects = (projectStats?.ongoingProjects || 0) + (projectStats?.pendingProjects || 0);
   const ongoingPercentage = totalDoughnutProjects > 0 ?
     Math.round((ongoingProjects / totalDoughnutProjects) * 100) : 0;
   const centerPercentageText = `${ongoingPercentage}%`;
 
-
-  // Stats cards data
   const stats = projectStats
     ? [
       {
@@ -220,11 +243,12 @@ const ProjectReports = () => {
     : [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-6 py-10">
+    <div className="min-h-screen ">
+      {/* Removed max-w-7xl to allow width to increase on zoom out */}
+      <div className="mx-auto w-full px-6 py-10"> {/* Added w-full for consistent behavior */}
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">Project Reports</h1>
+        <div className="mb-8 text-center"> {/* Added text-center for better aesthetics */}
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Project Reports</h1>
           <p className="text-gray-700 text-lg">
             Live project status and progress insights
           </p>
@@ -236,7 +260,7 @@ const ProjectReports = () => {
             {stats.map((s, i) => (
               <motion.div
                 key={i}
-                className="bg-white rounded-2xl p-6 shadow-md flex flex-col items-center"
+                className="bg-white rounded-2xl p-6 shadow-md flex flex-col items-center text-center"
                 whileHover={{ scale: 1.03 }}
               >
                 <div className={`${s.iconBg} p-3 rounded-full mb-3`}>{s.icon}</div>
@@ -254,33 +278,22 @@ const ProjectReports = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             {/* Left: Custom Doughnut Chart (Ongoing & Pending) */}
             <motion.div
-              className="bg-white p-6 rounded-2xl shadow-lg flex flex-col items-center justify-center relative"
+              className="bg-white p-6 rounded-2xl shadow-lg flex flex-col items-center relative"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              style={{
-                width: '449px',
-                height: '280px',
-                borderRadius: '16.46px',
-              }}
             >
               <h2 className="text-lg font-medium text-gray-700 mb-4">Project Overview</h2>
-              <div className="flex w-full justify-center items-center h-full">
+              <div className="flex w-full justify-center items-center h-full relative"> {/* Added relative here for proper absolute positioning context */}
                 <CustomDoughnutChart
                   data={chartData.statusBreakdown}
                   colors={chartData.statusColors}
-                  chartSize={180}
-                  strokeThickness={28}
-                  gapDegrees={3}
+                  chartSize={220}
+                strokeThickness={32}
+                gapDegrees={3}
                 />
                 {/* Center Text for Ongoing Percentage */}
                 <div
-                  className="absolute flex flex-col items-center justify-center pointer-events-none"
-                  style={{
-                    top: "55%", // Adjusted top for vertical centering
-                    left: "28%", // Adjusted left to compensate for legend
-                    transform: "translate(-50%, -50%)",
-                    width: "fit-content",
-                  }}
+                  className="absolute top-1/2 left-1/2  -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center pointer-events-none"
                 >
                   <span className="text-sm text-gray-500">Ongoing</span>
                   <span className="text-2xl font-bold text-gray-900">
@@ -288,7 +301,7 @@ const ProjectReports = () => {
                   </span>
                 </div>
                 {/* Manual Legend for CustomDoughnutChart */}
-                <div className="flex-shrink-0 flex flex-col justify-center pl-4 pr-4">
+                <div className="flex-shrink-0 flex flex-col justify-center pl-4 pr-4 ml-8">
                   <ul className="space-y-2">
                     {chartData.statusBreakdown.map((item, i) => (
                       <li key={item.name} className="flex items-center text-gray-600 text-sm">
@@ -306,16 +319,11 @@ const ProjectReports = () => {
 
             {/* Right: Bar Chart (Total, Cancelled, Completed) */}
             <motion.div
-              className="bg-white rounded-2xl p-6 pb-12 shadow-md"
+              className="bg-white rounded-2xl p-6 shadow-md flex flex-col"
               whileHover={{ scale: 1.02 }}
-              style={{
-                width: '445px',
-                height: '280px',
-                borderRadius: '14.3px',
-              }}
             >
               <h3 className="text-lg font-medium text-gray-700 mb-4">Project Breakdown</h3>
-              <div className="relative h-full">
+              <div className="relative h-full min-h-[200px]"> {/* Added min-h for charts */}
                 <Bar data={chartData.completionTrend} options={barOptions} />
               </div>
             </motion.div>
@@ -323,11 +331,11 @@ const ProjectReports = () => {
         )}
 
         {/* Bottom Controls */}
-        <div className="flex justify-end items-center space-x-4">
+        <div className="flex flex-col sm:flex-row justify-end items-center space-y-3 sm:space-y-0 sm:space-x-4 mt-6">
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="border border-gray-300 rounded-full p-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="border border-gray-300 rounded-full p-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto"
           >
             <option value="">Select Month</option>
             {[...Array(12)].map((_, idx) => (
@@ -338,7 +346,7 @@ const ProjectReports = () => {
           </select>
           <motion.button
             onClick={handleDownloadPDF}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-full shadow"
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-full shadow w-full sm:w-auto"
             whileHover={{ scale: 1.05 }}
           >
             <FaDownload />

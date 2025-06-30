@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bar } from "react-chartjs-2"; // Removed Doughnut as we're using CustomDoughnutChart
+import { Bar } from "react-chartjs-2";
 import { tokenRefreshInterceptor as axiosInstance } from "../../../utils/axiosInstance";
 import { motion } from "framer-motion";
 import CountUp from "react-countup";
@@ -20,11 +20,12 @@ import {
   FaSignOutAlt,
   FaUserSlash,
 } from "react-icons/fa";
-import PropTypes from "prop-types"; // Import PropTypes for the CustomDoughnutChart
+import PropTypes from "prop-types";
 
 
-// --- CustomDoughnutChart Component (Copied from previous tasks) ---
-const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 28, gapDegrees = 2 }) => {
+// --- CustomDoughnutChart Component ---
+// Modified to accept 'children' and provide a relative positioning context
+const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 28, gapDegrees = 2, children }) => {
   const cx = chartSize / 2;
   const cy = chartSize / 2;
   const radius = (chartSize / 2) - (strokeThickness / 2);
@@ -58,8 +59,11 @@ const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 
     angleAcc += (total ? (val / total) * 360 : 0);
     return { path, color: colors[i % colors.length], label: val, name: d.name };
   });
+
   return (
-    <div className="flex-1 flex items-center justify-center">
+    // This div serves as the relative container for both the SVG and the absolutely positioned children (your text).
+    // It's explicitly sized to match the chart, ensuring accurate centering.
+    <div className="relative flex items-center justify-center" style={{ width: chartSize, height: chartSize }}>
       <svg width={chartSize} height={chartSize} viewBox={`0 0 ${chartSize} ${chartSize}`}>
         {slices.map((s, i) => (
           <path
@@ -72,6 +76,8 @@ const CustomDoughnutChart = ({ data, colors, chartSize = 240, strokeThickness = 
           />
         ))}
       </svg>
+      {/* Render children passed to this component, which will be centered over the SVG */}
+      {children}
     </div>
   );
 };
@@ -87,6 +93,7 @@ CustomDoughnutChart.propTypes = {
   chartSize: PropTypes.number,
   strokeThickness: PropTypes.number,
   gapDegrees: PropTypes.number,
+  children: PropTypes.node, // Added propType for children
 };
 // --- END CustomDoughnutChart Component ---
 
@@ -124,7 +131,8 @@ const Attendance = () => {
       } else {
         setError("Failed to fetch attendance data.");
       }
-    } catch {
+    } catch (err) {
+      console.error("Error fetching attendance data:", err);
       setError("Error fetching attendance data. Please try again.");
     } finally {
       setLoading(false);
@@ -132,20 +140,36 @@ const Attendance = () => {
   };
 
   const handleDownloadPDF = async () => {
-    if (!month) return alert("Please select a month.");
+    if (!month) {
+      alert("Please select a month.");
+      return;
+    }
     try {
       const res = await axiosInstance.get(
         `/reports/attendance/monthly/download`,
-        { params: { month, year: new Date().getFullYear() } }
+        {
+          params: { month, year: new Date().getFullYear() },
+          responseType: 'blob'
+        }
       );
-      if (res.data.success) window.open(res.data.downloadUrl, "_blank");
-      else alert("Error generating PDF.");
-    } catch {
-      alert("Failed to download report.");
+      if (res.status === 200) {
+        const fileURL = window.URL.createObjectURL(new Blob([res.data]));
+        const fileLink = document.createElement('a');
+        fileLink.href = fileURL;
+        fileLink.setAttribute('download', `Attendance_Report_Month_${month}_${new Date().getFullYear()}.pdf`);
+        document.body.appendChild(fileLink);
+        fileLink.click();
+        fileLink.remove();
+        window.URL.revokeObjectURL(fileURL);
+      } else {
+        alert("Error generating PDF.");
+      }
+    } catch (err) {
+      console.error("Failed to download report:", err);
+      alert("Failed to download report. Please try again.");
     }
   };
 
-  // --- Data for CustomDoughnutChart (Updated) ---
   const customDoughnutData = attendanceData
     ? [
       { name: "Total Staff", value: attendanceData.totalStaff },
@@ -158,14 +182,12 @@ const Attendance = () => {
       { name: "Absent", value: 0 },
     ];
 
-  const customDoughnutColors = ["#752BdF", "#41B6FF", "#FF0200"]; // Keeping original colors
+  const customDoughnutColors = ["#752BdF", "#41B6FF", "#FF0200"];
 
-  // Calculate center percentage based on the number of present staff out of total staff
   const centerPercentage = attendanceData && attendanceData.totalStaff > 0
     ? `${Math.round((attendanceData.presentStaff / attendanceData.totalStaff) * 100)}%`
     : "0%";
 
-  // Bar chart: Late Arrivals vs Early Departures
   const barData = {
     labels: ["Late Arrivals", "Early Departures"],
     datasets: [
@@ -174,16 +196,47 @@ const Attendance = () => {
           ? [attendanceData.lateArrivals, attendanceData.earlyDepartures]
           : [0, 0],
         backgroundColor: ["#FBBF24", "#34D399"],
+        barPercentage: 0.5,
+        categoryPercentage: 0.6,
       },
     ],
   };
   const barOptions = {
     responsive: true,
-    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
-    plugins: { legend: { display: false } },
+    maintainAspectRatio: false,
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: { stepSize: 1, precision: 0 },
+        grid: {
+          color: 'rgba(0, 0, 0, 0.05)',
+        }
+      },
+      x: {
+        grid: {
+          display: false
+        }
+      }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: function (context) {
+            let label = context.dataset.label || '';
+            if (label) {
+              label += ': ';
+            }
+            if (context.parsed.y !== null) {
+              label += context.parsed.y;
+            }
+            return label;
+          }
+        }
+      }
+    },
   };
 
-  // Stats cards
   const stats = attendanceData
     ? [
       {
@@ -226,11 +279,11 @@ const Attendance = () => {
     : [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-6 py-10">
+    <div className="min-h-screen  p-6">
+      <div className="w-full">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl items-center font-bold text-gray-900 mb-6 pb-6  font-poppins font-weight-500 size-32px">
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
+          <h1 className="text-3xl font-bold text-gray-900 font-poppins">
             Attendance Dashboard
           </h1>
           <div className="flex items-center space-x-3">
@@ -246,22 +299,22 @@ const Attendance = () => {
         </div>
 
         {/* Loading / Error */}
-        {loading && <p className="text-indigo-600">Loading data...</p>}
-        {error && <p className="text-red-600">{error}</p>}
+        {loading && <p className="text-center text-indigo-600 py-4">Loading data...</p>}
+        {error && <p className="text-center text-red-600 py-4">{error}</p>}
 
         {/* Stats Cards */}
         {attendanceData && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-6">
             {stats.map((s, i) => (
               <motion.div
                 key={i}
-                className="bg-white rounded-2xl p-6 shadow-md flex flex-col items-center"
+                className="bg-white rounded-2xl p-6 shadow-md flex flex-col items-center justify-center text-center"
                 whileHover={{ scale: 1.03 }}
               >
                 <div className={`${s.iconBg} p-3 rounded-full mb-3`}>
                   {s.icon}
                 </div>
-                <p className="text-gray-500 mb-2">{s.label}</p>
+                <p className="text-gray-500 mb-2 text-sm">{s.label}</p>
                 <p className="text-3xl font-bold text-gray-800">
                   <CountUp end={s.value} duration={1.5} separator="," />
                 </p>
@@ -272,16 +325,11 @@ const Attendance = () => {
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Doughnut */}
+          {/* Doughnut Chart */}
           <motion.div
-            className="bg-white p-6 rounded-2xl shadow-lg flex flex-col items-center justify-center relative"
+            className="bg-white p-6 rounded-2xl shadow-lg flex flex-col items-center justify-center relative w-full h-[300px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            style={{
-              width: '448px',
-              height: '280px',
-              borderRadius: '16.46px',
-            }}
           >
             <h2 className="text-lg font-medium text-gray-700 mb-4">
               Attendance Distribution
@@ -290,25 +338,21 @@ const Attendance = () => {
               <CustomDoughnutChart
                 data={customDoughnutData}
                 colors={customDoughnutColors}
-                chartSize={180} // Adjusted for better fit within the fixed height
-                strokeThickness={28}
+                chartSize={220}
+                strokeThickness={32}
                 gapDegrees={3}
-              />
-              <div
-                className="absolute flex flex-col items-center justify-center pointer-events-none"
-                style={{
-                  top: "55%", // Adjusted top for vertical centering
-                  left: "36%", // Adjusted left to compensate for legend
-                  transform: "translate(-50%, -50%)",
-                  width: "fit-content",
-                }}
               >
-                <span className="text-sm text-gray-500">Present</span>
-                <span className="text-2xl font-bold text-gray-900">
-                  {centerPercentage}
-                </span>
-              </div>
-              {/* Legend for CustomDoughnutChart */}
+                {/* This div is now passed as children to CustomDoughnutChart, ensuring proper centering */}
+                <div
+                  className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center pointer-events-none"
+                >
+                  <span className="text-sm text-gray-500">Present</span>
+                  <span className="text-2xl font-bold text-gray-900">
+                    {centerPercentage}
+                  </span>
+                </div>
+              </CustomDoughnutChart>
+              {/* Legend for CustomDoughnutChart - placed alongside the chart component */}
               <div className="flex-shrink-0 flex flex-col justify-center pl-4 pr-4">
                 <ul className="space-y-2">
                   {customDoughnutData.map((item, i) => (
@@ -325,29 +369,24 @@ const Attendance = () => {
             </div>
           </motion.div>
 
-          {/* Bar */}
+          {/* Bar Chart */}
           <motion.div
-            className="bg-white rounded-2xl p-6 shadow-md"
+            className="bg-white rounded-2xl p-6 shadow-md w-full h-[300px]"
             whileHover={{ scale: 1.02 }}
-            style={{
-              width: '445px',
-              height: '280px',
-              borderRadius: '14.3px',
-            }}
           >
             <h3 className="text-lg font-medium text-gray-700 mb-4">Late Arrivals And Early Departures</h3>
-            <div className="relative h-full">
+            <div className="relative h-[calc(100%-2rem)]">
               <Bar data={barData} options={barOptions} />
             </div>
           </motion.div>
         </div>
 
         {/* Bottom Controls */}
-        <div className="flex justify-end items-center space-x-4">
+        <div className="flex flex-col sm:flex-row justify-end items-center space-y-3 sm:space-y-0 sm:space-x-4 mt-6">
           <select
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            className="border border-gray-300 rounded-full p-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="border border-gray-300 rounded-full p-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto"
           >
             <option value="">Select Month</option>
             {[...Array(12)].map((_, idx) => (
@@ -360,7 +399,7 @@ const Attendance = () => {
           </select>
           <motion.button
             onClick={handleDownloadPDF}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-full shadow"
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-full shadow w-full sm:w-auto"
             whileHover={{ scale: 1.05 }}
           >
             <FaDownload />

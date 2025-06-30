@@ -269,7 +269,7 @@ const StaffSidebar = () => {
                   ? "bg-blue-600 text-white"
                   : "hover:text-blue-600"
               }`}
-              style={{ fontFamily: "Poppins", fontWeight: 500, fontSize: 18 }}
+              style={{ fontFamily: "Poppins !important", fontWeight: 500, fontSize: 18 }}
             >
               <FaChartPie className="mr-3" />
               <span className="hidden md:inline">Dashboard</span>
@@ -283,7 +283,7 @@ const StaffSidebar = () => {
                   ? "bg-blue-600 text-white"
                   : "hover:text-blue-600"
               }`}
-              style={{ fontFamily: "Poppins", fontWeight: 500, fontSize: 18 }}
+              style={{ fontFamily: "Poppins !important", fontWeight: 500, fontSize: 18,  }}
             >
               <FaRegFolderOpen className="mr-3" />
               <span className="hidden md:inline">Reports</span>
@@ -298,7 +298,7 @@ const StaffSidebar = () => {
                     ? "bg-blue-600 text-white"
                     : "hover:text-blue-600"
                 }`}
-                style={{ fontFamily: "Poppins", fontWeight: 500, fontSize: 18 }}
+                style={{ fontFamily: "Poppins !important", fontWeight: 500, fontSize: 18 }}
               >
                 {link.icon}
                 <span className="hidden md:inline ml-3">{link.label}</span>
