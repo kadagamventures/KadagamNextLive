@@ -1,15 +1,11 @@
-// server/models/Company.js
-
 const mongoose = require("mongoose");
 
-// Utility for generating a unique 6-digit company code
 async function generateUniqueCompanyCode() {
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   const exists = await mongoose.models.Company.exists({ _id: code });
   return exists ? await generateUniqueCompanyCode() : code;
 }
 
-// Subdocument for each payment entry
 const paymentSchema = new mongoose.Schema(
   {
     planName: { type: String, required: true },
@@ -116,7 +112,7 @@ const companySchema = new mongoose.Schema(
         "Corporation (C-Corp)",
         "Nonprofit Corporation",
         "Others",
-        "Google-Auth", // ✅ Added for OAuth
+        "Google-Auth", 
       ],
       default: "Private Limited",
     },
@@ -153,9 +149,7 @@ const companySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Full-text index for super-admin searches
 companySchema.index({ name: "text", email: "text" });
-// Index payments by date
 companySchema.index({ "subscription.paymentHistory.date": 1 });
 
 companySchema.pre("validate", async function (next) {

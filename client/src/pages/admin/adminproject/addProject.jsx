@@ -9,7 +9,7 @@ const AddProject = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const { items: projects, error } = useSelector((state) => state.projects);
+  const { items: projects, error: projectsError } = useSelector((state) => state.projects);
   const { user } = useSelector((state) => state.auth);
 
   const [newProject, setNewProject] = useState({
@@ -19,13 +19,14 @@ const AddProject = () => {
   });
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState("");
+  const [formSuccess, setFormSuccess] = useState("");
 
   useEffect(() => {
     dispatch(fetchProjects());
   }, [dispatch]);
 
   useEffect(() => {
-    if (isEditMode) {
+    if (isEditMode && projects.length > 0) {
       const existing = projects.find((proj) => proj._id === id);
       if (existing) {
         setNewProject({
@@ -33,6 +34,8 @@ const AddProject = () => {
           relatedTo: existing.relatedTo,
           description: existing.description,
         });
+      } else {
+        setFormError("Project not found.");
       }
     }
   }, [id, isEditMode, projects]);
@@ -40,10 +43,12 @@ const AddProject = () => {
   const validateForm = () => {
     if (!newProject.name.trim() || !newProject.relatedTo.trim() || !newProject.description.trim()) {
       setFormError("⚠️ All fields are required!");
+      setFormSuccess("");
       return false;
     }
     if (newProject.name.length > 100) {
       setFormError("⚠️ Project name cannot exceed 100 characters.");
+      setFormSuccess("");
       return false;
     }
     setFormError("");
@@ -51,29 +56,38 @@ const AddProject = () => {
   };
 
   const handleInputChange = (e) => {
-    setNewProject({ ...newProject, [e.target.name]: e.target.value });
+    setNewProject((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const getCurrentDate = () => new Date().toISOString().split("T")[0];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!validateForm()) return;
+
+    if (!user || !user.id) {
+      setFormError("⚠️ User not authenticated. Please log in.");
+      setFormSuccess("");
+      return;
+    }
+
     setLoading(true);
-
-    const projectPayload = {
-      ...newProject,
-      startDate: getCurrentDate(),
-      createdBy: user.id,
-    };
-
     try {
+      const payload = {
+        ...newProject,
+        startDate: getCurrentDate(),
+        createdBy: user.id,
+      };
+
       if (isEditMode) {
-        await dispatch(updateProject({ id, ...projectPayload })).unwrap();
-        setFormError("✅ Project updated successfully!");
+        await dispatch(updateProject({ id, ...payload })).unwrap();
+        setFormSuccess("✅ Project updated successfully!");
+        setFormError("");
       } else {
-        await dispatch(addProject(projectPayload)).unwrap();
-        setFormError("✅ Project added successfully!");
+        await dispatch(addProject(payload)).unwrap();
+        setFormSuccess("✅ Project added successfully!");
+        setFormError("");
         setNewProject({ name: "", relatedTo: "", description: "" });
       }
 
@@ -81,6 +95,7 @@ const AddProject = () => {
       navigate("/admin/projects/list");
     } catch (err) {
       setFormError(err.message || "Failed to save project.");
+      setFormSuccess("");
     } finally {
       setLoading(false);
     }
@@ -95,15 +110,12 @@ const AddProject = () => {
   }
 
   return (
-    <div className="p-4 pl-64 min-h-screen">
-      {/* Header + Action Buttons */}
-      <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
-            {isEditMode ? "Edit Project" : "Add New Project"}
-          </h1>
-
-        </div>
+    <div className="p-6 pl-64 min-h-screen bg-[#F7F8FB]">
+      {/* Header + Actions */}
+      <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+          {isEditMode ? "Edit Project" : "Add New Project"}
+        </h1>
         <div className="flex gap-4 mt-4 md:mt-0">
           <button
             type="button"
@@ -115,10 +127,9 @@ const AddProject = () => {
           </button>
           <button
             onClick={handleSubmit}
-            className={`px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-700 text-white font-semibold rounded-full shadow-lg hover:shadow-xl transition duration-300 ease-in-out transform hover:scale-105 ${loading
-              ? "bg-blue-400 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700"
-              }`}
+            className={`px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-700 text-white font-semibold rounded-full shadow-lg hover:shadow-xl transition duration-300 ease-in-out transform hover:scale-105 ${
+              loading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+            }`}
             disabled={loading}
           >
             {isEditMode ? "Update Project" : "Save Project"}
@@ -126,25 +137,18 @@ const AddProject = () => {
         </div>
       </div>
 
-      {/* Form Card */}
-      <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-md p-6 md:p-8">
-        {/* Error / Success Messages */}
-        {formError && (
-          <p
-            className={`mb-4 ${formError.includes("✅") ? "text-green-500" : "text-red-500"
-              }`}
-          >
-            {formError}
-          </p>
-        )}
-        {error && <p className="text-red-500 mb-4">{error}</p>}
+      {/* Feedback */}
+      {formError && <p className="mb-6 text-red-600 font-semibold">{formError}</p>}
+      {formSuccess && <p className="mb-6 text-green-600 font-semibold">{formSuccess}</p>}
+      {projectsError && <p className="mb-6 text-red-600 font-semibold">{projectsError}</p>}
 
+      {/* Form */}
+      <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-md p-6 md:p-8">
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Project Name */}
-            <div className="space-y-2">
+            <div className="space-y-4">
               <label className="block text-sm font-medium text-gray-700">
-                Project Name<span className="text-red-500 ml-1">*</span>
+                Project Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -158,10 +162,9 @@ const AddProject = () => {
               />
             </div>
 
-            {/* Project Related To */}
-            <div className="space-y-2">
+            <div className="space-y-4">
               <label className="block text-sm font-medium text-gray-700">
-                Project Related to<span className="text-red-500 ml-1">*</span>
+                Project Related to <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -174,10 +177,9 @@ const AddProject = () => {
               />
             </div>
 
-            {/* Project Description */}
-            <div className="md:col-span-2 space-y-2">
+            <div className="md:col-span-2 space-y-4">
               <label className="block text-sm font-medium text-gray-700">
-                Project Description<span className="text-red-500 ml-1">*</span>
+                Project Description <span className="text-red-500">*</span>
               </label>
               <textarea
                 name="description"
@@ -185,7 +187,8 @@ const AddProject = () => {
                 onChange={handleInputChange}
                 placeholder="Describe the project scope, goals, and key details..."
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-y min-h-[120px]"
+                rows={5}
+                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-y"
               />
             </div>
           </div>

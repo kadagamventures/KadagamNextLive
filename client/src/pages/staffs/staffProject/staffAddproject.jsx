@@ -9,78 +9,100 @@ const AddProject = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const { items: projects, error } = useSelector((state) => state.projects);
-  const { user } = useSelector((state) => state.auth);
+  const { items: projects, error: projectsError } = useSelector((state) => state.projects);
+  const user = useSelector((state) => state.staffAuth?.user);
 
   const [newProject, setNewProject] = useState({
     name: "",
     relatedTo: "",
     description: "",
   });
+
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState("");
+  const [formSuccess, setFormSuccess] = useState("");
+  const [showPopup, setShowPopup] = useState(false);
 
   useEffect(() => {
     dispatch(fetchProjects());
   }, [dispatch]);
 
   useEffect(() => {
-    if (isEditMode) {
-      const existing = projects.find((proj) => proj._id === id);
+    if (isEditMode && projects.length > 0) {
+      const existing = projects.find((p) => p._id === id);
       if (existing) {
         setNewProject({
           name: existing.name,
           relatedTo: existing.relatedTo,
           description: existing.description,
         });
+      } else {
+        setFormError("Project not found.");
       }
     }
   }, [id, isEditMode, projects]);
 
+  const handleShowPopup = (message, success = false) => {
+    if (success) {
+      setFormSuccess(message);
+      setFormError("");
+    } else {
+      setFormError(message);
+      setFormSuccess("");
+    }
+    setShowPopup(true);
+    setTimeout(() => setShowPopup(false), 3500);
+  };
+
   const validateForm = () => {
     if (!newProject.name.trim() || !newProject.relatedTo.trim() || !newProject.description.trim()) {
-      setFormError("⚠️ All fields are required!");
+      handleShowPopup("⚠️ All fields are required!");
       return false;
     }
     if (newProject.name.length > 100) {
-      setFormError("⚠️ Project name cannot exceed 100 characters.");
+      handleShowPopup("⚠️ Project name cannot exceed 100 characters.");
       return false;
     }
-    setFormError("");
     return true;
   };
 
   const handleInputChange = (e) => {
-    setNewProject({ ...newProject, [e.target.name]: e.target.value });
+    setNewProject((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const getCurrentDate = () => new Date().toISOString().split("T")[0];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!validateForm()) return;
+
+    if (!user || !user.id) {
+      handleShowPopup("⚠️ User not authenticated. Please log in.");
+      return;
+    }
+
     setLoading(true);
-
-    const projectPayload = {
-      ...newProject,
-      startDate: getCurrentDate(),
-      createdBy: user.id,
-    };
-
     try {
+      const payload = {
+        ...newProject,
+        startDate: getCurrentDate(),
+        createdBy: user.id,
+      };
+
       if (isEditMode) {
-        await dispatch(updateProject({ id, ...projectPayload })).unwrap();
-        setFormError("✅ Project updated successfully!");
+        await dispatch(updateProject({ id, ...payload })).unwrap();
+        handleShowPopup("✅ Project updated successfully!", true);
       } else {
-        await dispatch(addProject(projectPayload)).unwrap();
-        setFormError("✅ Project added successfully!");
+        await dispatch(addProject(payload)).unwrap();
+        handleShowPopup("✅ Project added successfully!", true);
         setNewProject({ name: "", relatedTo: "", description: "" });
       }
 
-      await dispatch(fetchProjects());
+      dispatch(fetchProjects());
       navigate("/staff/projects/list");
     } catch (err) {
-      setFormError(err.message || "Failed to save project.");
+      handleShowPopup(err.message || "Failed to save project.");
     } finally {
       setLoading(false);
     }
@@ -95,15 +117,30 @@ const AddProject = () => {
   }
 
   return (
-    <div className="p-4 pl-64 min-h-screen">
-      {/* Header + Action Buttons */}
-      <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
-            {isEditMode ? "Edit Project" : "Add New Project"}
-          </h1>
-
+    <div className="p-6 pl-64 min-h-screen bg-[#F7F8FB]">
+      {/* Popup Notification */}
+      {showPopup && (
+        <div
+          className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg ${
+            formSuccess ? "bg-green-600 text-white" : "bg-red-600 text-white"
+          } animate-fade-in-down`}
+        >
+          {formSuccess || formError}
+          <button
+            onClick={() => setShowPopup(false)}
+            className="ml-4 font-bold text-xl"
+            aria-label="Close notification"
+          >
+            &times;
+          </button>
         </div>
+      )}
+
+      {/* Header and Actions */}
+      <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+          {isEditMode ? "Edit Project" : "Add New Project"}
+        </h1>
         <div className="flex gap-4 mt-4 md:mt-0">
           <button
             type="button"
@@ -115,10 +152,9 @@ const AddProject = () => {
           </button>
           <button
             onClick={handleSubmit}
-            className={`px-6 py-3 bg-blue-700 text-white font-semibold rounded-full shadow-lg hover:shadow-xl ${loading
-              ? "bg-blue-400 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-800"
-              }`}
+            className={`px-6 py-3 bg-blue-700 text-white font-semibold rounded-full shadow-lg hover:shadow-xl ${
+              loading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-800"
+            }`}
             disabled={loading}
           >
             {isEditMode ? "Update Project" : "Save Project"}
@@ -128,23 +164,11 @@ const AddProject = () => {
 
       {/* Form Card */}
       <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-md p-6 md:p-8">
-        {/* Error / Success Messages */}
-        {formError && (
-          <p
-            className={`mb-4 ${formError.includes("✅") ? "text-green-500" : "text-red-500"
-              }`}
-          >
-            {formError}
-          </p>
-        )}
-        {error && <p className="text-red-500 mb-4">{error}</p>}
-
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Project Name */}
-            <div className="space-y-2">
+            <div className="space-y-4">
               <label className="block text-sm font-medium text-gray-700">
-                Project Name<span className="text-red-500 ml-1">*</span>
+                Project Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -158,10 +182,9 @@ const AddProject = () => {
               />
             </div>
 
-            {/* Project Related To */}
-            <div className="space-y-2">
+            <div className="space-y-4">
               <label className="block text-sm font-medium text-gray-700">
-                Project Related to<span className="text-red-500 ml-1">*</span>
+                Project Related to <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -174,10 +197,9 @@ const AddProject = () => {
               />
             </div>
 
-            {/* Project Description */}
-            <div className="md:col-span-2 space-y-2">
+            <div className="md:col-span-2 space-y-4">
               <label className="block text-sm font-medium text-gray-700">
-                Project Description<span className="text-red-500 ml-1">*</span>
+                Project Description <span className="text-red-500">*</span>
               </label>
               <textarea
                 name="description"
@@ -185,7 +207,8 @@ const AddProject = () => {
                 onChange={handleInputChange}
                 placeholder="Describe the project scope, goals, and key details..."
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-1 focus:ring-violet-500 focus:border-violet-700 outline-none resize-y min-h-[120px]"
+                rows={5}
+                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-1 focus:ring-violet-500 focus:border-violet-700 outline-none resize-y"
               />
             </div>
           </div>

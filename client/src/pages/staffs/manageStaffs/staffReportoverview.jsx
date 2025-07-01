@@ -9,7 +9,6 @@ import {
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import axios from "axios";
 import {
   FaProjectDiagram,
   FaUsers,
@@ -20,12 +19,14 @@ import {
 import CountUp from "react-countup";
 import PropTypes from "prop-types";
 
-// --- CustomDoughnutChart Component (unchanged from previous iterations) ---
+import { tokenRefreshInterceptor } from "../../../utils/axiosInstance"; // Adjust relative path accordingly
+
+// --- CustomDoughnutChart Component (unchanged) ---
 const CustomDoughnutChart = ({
   data,
   colors,
-  chartSize = 220, // Remains slightly larger for better visibility
-  strokeThickness = 32, // Remains slightly thicker
+  chartSize = 220,
+  strokeThickness = 32,
   gapDegrees = 2,
   children,
 }) => {
@@ -106,11 +107,9 @@ CustomDoughnutChart.propTypes = {
   gapDegrees: PropTypes.number,
   children: PropTypes.node,
 };
-// --- END CustomDoughnutChart Component ---
+// --- END CustomDoughnutChart ---
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, ChartDataLabels);
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const Reports = () => {
   const [overviewData, setOverviewData] = useState({
@@ -125,10 +124,8 @@ const Reports = () => {
   useEffect(() => {
     (async () => {
       try {
-        const token = localStorage.getItem("token");
-        const res = await axios.get(`${API_BASE_URL}/reports/overview`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await tokenRefreshInterceptor.get("/reports/overview");
+
         if (res.data.success) {
           const d = res.data.data;
           setOverviewData({
@@ -151,44 +148,44 @@ const Reports = () => {
       label: "Total Projects",
       value: overviewData.totalProjects,
       icon: <FaProjectDiagram className="text-3xl text-blue-500" />,
-      bg: "bg-blue-100",
+      bg: "bg-white",  // Changed from bg-blue-100 to bg-white
     },
     {
       label: "Total Staff",
       value: overviewData.totalStaff,
       icon: <FaUsers className="text-3xl text-purple-500" />,
-      bg: "bg-purple-100",
+      bg: "bg-white", // Changed from bg-purple-100 to bg-white
     },
     {
       label: "Total Tasks",
       value: overviewData.totalTasks,
       icon: <FaClone className="text-3xl text-pink-500" />,
-      bg: "bg-pink-100",
+      bg: "bg-white", // Changed from bg-pink-100 to bg-white
     },
     {
       label: "Ongoing Tasks",
       value: overviewData.ongoingTasks,
       icon: <FaClipboardCheck className="text-3xl text-orange-500" />,
-      bg: "bg-orange-100",
+      bg: "bg-white", // Changed from bg-orange-100 to bg-white
     },
     {
       label: "Completed Tasks",
       value: overviewData.completedTasks,
       icon: <FaClipboardCheck className="text-3xl text-green-500" />,
-      bg: "bg-green-100",
+      bg: "bg-white", // Changed from bg-green-100 to bg-white
     },
     {
       label: "Pending Tasks",
       value: overviewData.toDoTasks,
       icon: <FaClipboardList className="text-3xl text-yellow-500" />,
-      bg: "bg-yellow-100",
+      bg: "bg-white",  // Changed from bg-yellow-100 to bg-white
     },
   ];
 
   const customDoughnutData = [
-    { name: "Ongoing Tasks", value: overviewData.ongoingTasks || 0 },
-    { name: "Completed Tasks", value: overviewData.completedTasks || 0 },
-    { name: "Pending Tasks", value: overviewData.toDoTasks || 0 },
+    { name: "Ongoing Tasks", value: overviewData.ongoingTasks },
+    { name: "Completed Tasks", value: overviewData.completedTasks },
+    { name: "Pending Tasks", value: overviewData.toDoTasks },
   ].filter((d) => d.value > 0);
 
   const customDoughnutColors = ["#41B6FF", "#752BdF", "#FBBF24"];
@@ -238,8 +235,7 @@ const Reports = () => {
   };
 
   return (
-    <div className="min-h-screen  p-6 sm:p-8">
-      {/* Changed max-w-7xl to max-w-full to allow full width expansion on zoom out */}
+    <div className="min-h-screen p-6 sm:p-8 bg-gray-50">
       <div className="w-full max-w-full mx-auto">
         <motion.h2
           className="text-3xl font-bold text-gray-900 mb-6 text-center font-poppins"
@@ -249,17 +245,14 @@ const Reports = () => {
           Analytics Dashboard
         </motion.h2>
 
-        {/* Cards: Consistent 3 columns for md screens and above, naturally expanding width */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 mb-6">
           {cards.map((c) => (
             <motion.div
               key={c.label}
-              className="bg-white rounded-2xl p-6 shadow-md flex flex-col items-center text-center"
+              className={`bg-white rounded-2xl p-6 shadow-md flex flex-col items-center text-center ${c.bg}`}
               whileHover={{ scale: 1.03 }}
             >
-              <div
-                className={`${c.bg} p-4 rounded-full mb-4 flex items-center justify-center`}
-              >
+              <div className="p-4 rounded-full mb-4 flex items-center justify-center">
                 {c.icon}
               </div>
               <p className="text-gray-500 text-sm mb-1">{c.label}</p>
@@ -270,16 +263,12 @@ const Reports = () => {
           ))}
         </div>
 
-        {/* Charts: Remain side-by-side on lg screens and above, expanding with container */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Left Doughnut */}
           <motion.div
             className="bg-white rounded-2xl p-6 shadow-md flex flex-col items-center justify-center relative w-full h-[300px]"
             whileHover={{ scale: 1.02 }}
           >
-            <h3 className="text-lg font-medium text-gray-700 mb-4">
-              Task Distribution
-            </h3>
+            <h3 className="text-lg font-medium text-gray-700 mb-4">Task Distribution</h3>
             <div className="flex w-full justify-center items-center h-full">
               <CustomDoughnutChart
                 data={customDoughnutData}
@@ -290,9 +279,7 @@ const Reports = () => {
               >
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center pointer-events-none">
                   <span className="text-sm text-gray-500">Completed</span>
-                  <span className="text-2xl font-bold text-gray-900">
-                    {centerTextPercentage}
-                  </span>
+                  <span className="text-2xl font-bold text-gray-900">{centerTextPercentage}</span>
                 </div>
               </CustomDoughnutChart>
               <div className="flex-shrink-0 flex flex-col justify-center pl-4 pr-4">
@@ -304,10 +291,7 @@ const Reports = () => {
                     >
                       <span
                         className="w-4 h-4 rounded-sm mr-2"
-                        style={{
-                          backgroundColor:
-                            customDoughnutColors[i % customDoughnutColors.length],
-                        }}
+                        style={{ backgroundColor: customDoughnutColors[i % customDoughnutColors.length] }}
                       ></span>
                       {item.name}: {item.value}
                     </li>
@@ -317,14 +301,11 @@ const Reports = () => {
             </div>
           </motion.div>
 
-          {/* Right Bar */}
           <motion.div
             className="bg-white rounded-2xl p-6 shadow-md w-full h-[300px]"
             whileHover={{ scale: 1.02 }}
           >
-            <h3 className="text-lg font-medium text-gray-700 mb-4">
-              Task Status
-            </h3>
+            <h3 className="text-lg font-medium text-gray-700 mb-4">Task Status</h3>
             <div className="relative h-[calc(100%-2rem)]">
               <Bar data={barData} options={barOptions} />
             </div>
