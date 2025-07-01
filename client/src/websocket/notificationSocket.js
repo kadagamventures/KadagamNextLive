@@ -1,26 +1,31 @@
-import { getSocket } from "./chatSocket"; // or your global socket setup
-import { addNotification } from "../redux/slices/notificationSlice"; // adjust path if needed
+import { getSocket } from "./chatSocket"; // Make sure this returns the connected socket instance
+import { addNotification } from "../redux/slices/notificationSlice";
 
 let initialized = false;
 
+/**
+ * Initialize notification socket listeners.
+ * 
+ * @param {object} store - Redux store to dispatch actions.
+ */
 export const initializeNotificationSocket = (store) => {
   if (initialized) return;
   initialized = true;
 
-  const socket = getSocket(); // should already be connected and authenticated
+  const socket = getSocket();
 
   if (!socket) {
     console.warn("[NotificationSocket] Socket not initialized yet.");
     return;
   }
 
-  // ✅ Listen for incoming notifications
+  // Listen for new notifications and dispatch to Redux store
   socket.on("notification:new", (notification) => {
     console.log("🔔 New Notification Received:", notification);
     store.dispatch(addNotification(notification));
   });
 
-  // Optional: connection feedback
+  // Log connection state
   socket.on("connect", () => {
     console.log("🟢 Notification Socket Connected");
   });

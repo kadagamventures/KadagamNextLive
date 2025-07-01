@@ -3,6 +3,7 @@ const {
   getUserNotifications,
   markAsRead,
   markAllAsRead,
+  clearNotifications,
 } = require("../services/notificationService");
 
 /**
@@ -58,6 +59,22 @@ const markAllNotificationsRead = async (req, res) => {
 };
 
 /**
+ * 🗑️ [DELETE] Clear all notifications for a user (company scoped)
+ */
+const clearAllNotifications = async (req, res) => {
+  try {
+    const staffId = req.user.id;
+    const companyId = req.user.companyId;
+
+    await clearNotifications(staffId, companyId);
+    return res.status(200).json({ success: true, message: "All notifications cleared" });
+  } catch (err) {
+    console.error("[Clear All Notifications Error]", err.message);
+    return res.status(500).json({ success: false, message: "Failed to clear notifications" });
+  }
+};
+
+/**
  * 🚀 [POST] Create a manual notification
  * - Supports single-user or admin-wide broadcast within tenant
  */
@@ -90,5 +107,6 @@ module.exports = {
   fetchMyNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  clearAllNotifications,
   createManualNotification,
 };

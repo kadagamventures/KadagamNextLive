@@ -3,6 +3,7 @@ const {
   fetchMyNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  clearAllNotifications,
   createManualNotification,
 } = require("../controllers/notificationController");
 
@@ -28,6 +29,9 @@ router.put("/:id/read", markNotificationRead);
 
 // ✅ Mark all notifications for current user as read
 router.put("/read-all", markAllNotificationsRead);
+
+// 🗑️ Clear all notifications for current user
+router.delete("/clear-all", clearAllNotifications);
 
 // 🚀 Create a notification manually (admin use, optional)
 router.post("/", createManualNotification);

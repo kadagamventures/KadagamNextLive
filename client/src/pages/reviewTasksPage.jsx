@@ -150,23 +150,17 @@ const ReviewTasksPage = () => {
                 </div>
 
                 <div>
-                  <p className="text-sm font-semibold text-gray-500 mb-1">Review Attachment</p>
+                  <p className="text-sm font-semibold text-gray-500 mb-2">Review Attachment</p>
                   {task.review?.reviewAttachments?.length > 0 ? (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        readOnly
-                        value={task.review.reviewAttachments[0].originalName || "File.pdf"}
-                        className="border rounded-lg p-2 text-sm flex-1"
-                      />
-                      <button
-                        onClick={() => downloadReviewAttachment(task.review.reviewAttachments[0].fileUrl)}
-                        className="flex items-center gap-1 px-3 py-1.5 border border-purple-500 text-purple-600 rounded-full text-sm hover:bg-purple-100"
-                      >
-                        <FaDownload className="h-4 w-4" />
-                        <span>Download</span>
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => downloadReviewAttachment(task.review.reviewAttachments[0].fileUrl)}
+                      className="inline-flex items-center gap-2 rounded-full bg-purple-100 px-4 py-2 text-purple-600 hover:bg-purple-200 transition duration-300"
+                      type="button"
+                    >
+                      <FaFileAlt className="text-lg" />
+                      <span className="truncate max-w-[14rem]">{task.review.reviewAttachments[0].originalName || "File.pdf"}</span>
+                      <FaDownload className="text-md" />
+                    </button>
                   ) : (
                     <p className="text-sm text-gray-400 italic">No attachments</p>
                   )}
@@ -209,19 +203,19 @@ const ReviewTasksPage = () => {
                 />
               </div>
 
-              <div className="flex justify-center gap-4 mt-6">
+              <div className="flex justify-end gap-6 mt-6">
                 <button
                   onClick={() => submitReviewDecision(task, "approved")}
-                  className="flex items-center gap-2 bg-green-100 border border-green-400 text-green-600 px-6 py-2 rounded-full hover:bg-green-200 text-sm"
+                  className="flex items-center gap-2 bg-green-600 text-white px-6 py-2 rounded-full shadow hover:bg-green-700 transition duration-300 ease-in-out text-sm font-semibold"
                 >
-                  Approval <FaCheck />
+                  <FaCheck /> Approve
                 </button>
 
                 <button
                   onClick={() => submitReviewDecision(task, "rejected")}
-                  className="flex items-center gap-2 bg-red-100 border border-red-400 text-red-600 px-6 py-2 rounded-full hover:bg-red-200 text-sm"
+                  className="flex items-center gap-2 bg-red-600 text-white px-6 py-2 rounded-full shadow hover:bg-red-700 transition duration-300 ease-in-out text-sm font-semibold"
                 >
-                  Rejected <FaTimes />
+                  <FaTimes /> Reject
                 </button>
               </div>
             </div>

@@ -42,10 +42,10 @@ const StaffSidebar = () => {
   const {
     permissions,
     isWorking,
-    timer = 0,              // ← default timer to 0
+    timer = 0,
     intervalId,
     scheduledEndTime,
-    officeTiming = {},      // ← default officeTiming to {}
+    officeTiming = {},
   } = useSelector((state) => state.staffSidebar);
 
   const [loading, setLoading] = useState(false);
@@ -59,7 +59,7 @@ const StaffSidebar = () => {
     dispatch(fetchOfficeTiming());
     dispatch(fetchActiveSession())
       .unwrap()
-      .catch(() => {}) // slice handles errors
+      .catch(() => {})
       .finally(() => setSessionLoaded(true));
   }, [dispatch]);
 
@@ -203,10 +203,16 @@ const StaffSidebar = () => {
     return links;
   }, [permissions, reviewCount]);
 
-  // Logout
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate("/staff/login");
+  // Updated Logout: call backend to clear refresh token cookie, then clear localStorage and navigate
+  const handleLogout = async () => {
+    try {
+      await axiosInstance.post("/auth/logout", null);
+    } catch (err) {
+      console.error("Logout API failed:", err);
+    } finally {
+      localStorage.clear();
+      navigate("/staff/login");
+    }
   };
 
   // Safe timer formatter
@@ -283,7 +289,7 @@ const StaffSidebar = () => {
                   ? "bg-blue-600 text-white"
                   : "hover:text-blue-600"
               }`}
-              style={{ fontFamily: "Poppins !important", fontWeight: 500, fontSize: 18,  }}
+              style={{ fontFamily: "Poppins !important", fontWeight: 500, fontSize: 18 }}
             >
               <FaRegFolderOpen className="mr-3" />
               <span className="hidden md:inline">Reports</span>

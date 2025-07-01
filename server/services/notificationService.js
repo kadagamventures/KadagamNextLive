@@ -120,11 +120,19 @@ const markAllAsRead = async (staffId, companyId) => {
   );
 };
 
+/**
+ * 🗑️ Clear all notifications for a user in a company
+ */
+const clearNotifications = async (staffId, companyId) => {
+  return await Notification.deleteMany({ staffId, companyId });
+};
+
 module.exports = {
   createNotification,
   getUserNotifications,
   markAsRead,
   markAllAsRead,
+  clearNotifications,
   emitToUser,
   emitToAdminRoom,
 };

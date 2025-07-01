@@ -15,6 +15,7 @@ import {
 import kadagamLogo from "../assets/kadagamlogo.png";
 import { useDispatch } from "react-redux";
 import { logoutUser, resetAuthState } from "../redux/slices/authSlice";
+import { tokenRefreshInterceptor } from "../utils/axiosInstance"; // Adjust import path accordingly
 
 const AdminSidebar = () => {
   const location = useLocation();
@@ -24,11 +25,24 @@ const AdminSidebar = () => {
 
   const handleLogout = async () => {
     try {
-      await dispatch(logoutUser()); 
-      dispatch(resetAuthState());   
-      navigate("/admin/login");     
+      // Use tokenRefreshInterceptor for API call to logout
+      await tokenRefreshInterceptor.post("/auth/logout", null);
+
+      // Clear Redux auth state
+      await dispatch(logoutUser());
+      dispatch(resetAuthState());
+
+      // Clear localStorage
+      localStorage.clear();
+
+      // Redirect to login page
+      navigate("/admin/login");
     } catch (err) {
       console.error("Logout failed", err);
+      // Even if API fails, clear local state and redirect
+      dispatch(resetAuthState());
+      localStorage.clear();
+      navigate("/admin/login");
     }
   };
 
