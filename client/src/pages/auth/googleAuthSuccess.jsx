@@ -10,12 +10,18 @@ export default function GoogleAuthSuccess() {
     const params = new URLSearchParams(search);
     const token = params.get("token");
     if (token) {
+      // Store token for API authentication
       localStorage.setItem("authToken", token);
+
       let companyId;
       try {
         const decoded = jwtDecode(token);
         companyId = decoded.companyId || decoded.companyID || decoded.company_id;
-      } catch (e) {}
+      } catch (e) {
+        // Invalid token, fallback
+        companyId = null;
+      }
+
       if (companyId) {
         navigate("/company-details", { state: { companyId } });
       } else {

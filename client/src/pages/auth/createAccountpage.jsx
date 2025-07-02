@@ -64,6 +64,7 @@ export default function CreateAccountPage() {
       });
 
       const companyId = data?.data?.companyId;
+      // Pass both for manual flow
       navigate("/company-details", {
         state: { companyId, adminPassword: password },
       });

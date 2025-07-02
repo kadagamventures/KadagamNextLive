@@ -1,5 +1,3 @@
-// src/pages/auth/CompanyDetailsPage.jsx
-
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -8,6 +6,9 @@ import {
   FiCreditCard,
   FiBriefcase,
   FiMapPin,
+  FiLock,
+  FiEye,
+  FiEyeOff,
 } from "react-icons/fi";
 import bgImage from "../../assets/backimage.png";
 import { tokenRefreshInterceptor as api } from "../../utils/axiosInstance";
@@ -15,8 +16,9 @@ import { tokenRefreshInterceptor as api } from "../../utils/axiosInstance";
 export default function CompanyDetailsPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { companyId, adminPassword } = location.state || {};
+  const { companyId, adminPassword: stateAdminPassword } = location.state || {};
 
+  // Company details fields
   const [gstin, setGstin] = useState("");
   const [pan, setPan] = useState("");
   const [cin, setCin] = useState("");
@@ -24,14 +26,25 @@ export default function CompanyDetailsPage() {
   const [address, setAddress] = useState("");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
+  // Admin password for Google flow (manual flow comes from state)
+  const [adminPassword, setAdminPassword] = useState(stateAdminPassword || "");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+
+  // UI/logic
   const [serverErrors, setServerErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!companyId || !adminPassword) {
+    if (!companyId) {
       navigate("/signin", { replace: true });
     }
-  }, [companyId, adminPassword, navigate]);
+  }, [companyId, navigate]);
+
+  // Show admin password field if it's Google OAuth flow (adminPassword not in state)
+  const isGoogleFlow = !stateAdminPassword;
 
   const isContinueEnabled =
     gstin.trim() &&
@@ -39,15 +52,33 @@ export default function CompanyDetailsPage() {
     cin.trim() &&
     companyType &&
     address.trim() &&
-    agreedToTerms;
+    agreedToTerms &&
+    adminPassword &&
+    confirmPassword &&
+    adminPassword === confirmPassword &&
+    adminPassword.length >= 8;
+
+  const validateInputs = () => {
+    if (adminPassword.length < 8) {
+      setPasswordError("Password must be at least 8 characters long.");
+      return false;
+    }
+    if (adminPassword !== confirmPassword) {
+      setPasswordError("Passwords do not match.");
+      return false;
+    }
+    setPasswordError("");
+    return true;
+  };
 
   const handleContinue = async (e) => {
     e.preventDefault();
     setServerErrors({});
+    if (!validateInputs()) return;
     setLoading(true);
 
     try {
-      // 1) Save the details + create admin user
+      // Save details and create admin user
       const resp = await api.post("/company/details", {
         companyId,
         gstin: gstin.trim().toUpperCase(),
@@ -58,11 +89,10 @@ export default function CompanyDetailsPage() {
         adminPassword,
       });
 
-      // 2) Immediately send exactly one verification code
+      // Send verification code
       await api.post("/verify/send", { companyId });
 
-      // 3) Navigate to your Verification page
-      //    Pass along companyId+email so they can confirm
+      // Navigate to Verification page
       const returnedEmail =
         resp.data.data?.email || resp.data.data?.company?.email;
       navigate("/verification", {
@@ -74,7 +104,6 @@ export default function CompanyDetailsPage() {
     } catch (err) {
       const data = err.response?.data;
       const fieldErrors = {};
-
       if (Array.isArray(data?.errors)) {
         data.errors.forEach(({ field, message }) => {
           if (field) fieldErrors[field] = message;
@@ -85,7 +114,6 @@ export default function CompanyDetailsPage() {
       } else {
         fieldErrors.form = "Failed to save details. Please try again.";
       }
-
       setServerErrors(fieldErrors);
     } finally {
       setLoading(false);
@@ -96,7 +124,16 @@ export default function CompanyDetailsPage() {
     navigate("/admin/login");
   };
 
-  const renderInput = ({ name, type, placeholder, value, onChange, Icon }) => (
+  const renderInput = ({
+    name,
+    type,
+    placeholder,
+    value,
+    onChange,
+    Icon,
+    toggle,
+    isVisible,
+  }) => (
     <div className="relative">
       <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
         <Icon size={18} />
@@ -117,6 +154,14 @@ export default function CompanyDetailsPage() {
           serverErrors[name] ? "border-red-500" : "border-gray-300"
         } text-sm text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-2`}
       />
+      {toggle && (
+        <div
+          className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 cursor-pointer"
+          onClick={toggle}
+        >
+          {isVisible ? <FiEyeOff size={18} /> : <FiEye size={18} />}
+        </div>
+      )}
       {serverErrors[name] && (
         <p className="text-red-500 text-sm mt-1">{serverErrors[name]}</p>
       )}
@@ -237,6 +282,35 @@ export default function CompanyDetailsPage() {
             onChange: (e) => setAddress(e.target.value),
             Icon: FiMapPin,
           })}
+
+          {/* Google Auth flow: Prompt for admin password */}
+          {isGoogleFlow && (
+            <>
+              {renderInput({
+                name: "adminPassword",
+                type: showPassword ? "text" : "password",
+                placeholder: "Set Admin Password",
+                value: adminPassword,
+                onChange: (e) => setAdminPassword(e.target.value),
+                Icon: FiLock,
+                toggle: () => setShowPassword((prev) => !prev),
+                isVisible: showPassword,
+              })}
+              {renderInput({
+                name: "confirmPassword",
+                type: showConfirmPassword ? "text" : "password",
+                placeholder: "Confirm Admin Password",
+                value: confirmPassword,
+                onChange: (e) => setConfirmPassword(e.target.value),
+                Icon: FiLock,
+                toggle: () => setShowConfirmPassword((prev) => !prev),
+                isVisible: showConfirmPassword,
+              })}
+              {passwordError && (
+                <p className="text-red-500 text-sm">{passwordError}</p>
+              )}
+            </>
+          )}
 
           <label className="flex items-start gap-2 text-sm text-gray-800">
             <input
