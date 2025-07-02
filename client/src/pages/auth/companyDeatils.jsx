@@ -26,8 +26,8 @@ export default function CompanyDetailsPage() {
   const [address, setAddress] = useState("");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
-  // Admin password for Google flow (manual flow comes from state)
-  const [adminPassword, setAdminPassword] = useState(stateAdminPassword || "");
+  // Admin password logic
+  const [adminPassword, setAdminPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -37,15 +37,22 @@ export default function CompanyDetailsPage() {
   const [serverErrors, setServerErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
+  // If adminPassword is passed in navigation state, it's manual signup, else Google
+  const isGoogleFlow = !stateAdminPassword;
+
   useEffect(() => {
     if (!companyId) {
       navigate("/signin", { replace: true });
     }
-  }, [companyId, navigate]);
+    // For manual flow, prefill adminPassword and confirmPassword for validation pass
+    if (!isGoogleFlow) {
+      setAdminPassword(stateAdminPassword);
+      setConfirmPassword(stateAdminPassword);
+    }
+    // eslint-disable-next-line
+  }, [companyId, stateAdminPassword, isGoogleFlow, navigate]);
 
-  // Show admin password field if it's Google OAuth flow (adminPassword not in state)
-  const isGoogleFlow = !stateAdminPassword;
-
+  // Validate only for Google flow, manual flow always passes validation
   const isContinueEnabled =
     gstin.trim() &&
     pan.trim() &&
@@ -53,19 +60,23 @@ export default function CompanyDetailsPage() {
     companyType &&
     address.trim() &&
     agreedToTerms &&
-    adminPassword &&
-    confirmPassword &&
-    adminPassword === confirmPassword &&
-    adminPassword.length >= 8;
+    (isGoogleFlow
+      ? adminPassword &&
+        confirmPassword &&
+        adminPassword === confirmPassword &&
+        adminPassword.length >= 8
+      : true);
 
   const validateInputs = () => {
-    if (adminPassword.length < 8) {
-      setPasswordError("Password must be at least 8 characters long.");
-      return false;
-    }
-    if (adminPassword !== confirmPassword) {
-      setPasswordError("Passwords do not match.");
-      return false;
+    if (isGoogleFlow) {
+      if (adminPassword.length < 8) {
+        setPasswordError("Password must be at least 8 characters long.");
+        return false;
+      }
+      if (adminPassword !== confirmPassword) {
+        setPasswordError("Passwords do not match.");
+        return false;
+      }
     }
     setPasswordError("");
     return true;
@@ -78,7 +89,7 @@ export default function CompanyDetailsPage() {
     setLoading(true);
 
     try {
-      // Save details and create admin user
+      // Always send password: for Google flow, from input; for manual, from state
       const resp = await api.post("/company/details", {
         companyId,
         gstin: gstin.trim().toUpperCase(),
@@ -86,13 +97,11 @@ export default function CompanyDetailsPage() {
         cin: cin.trim().toUpperCase(),
         companyType,
         address: address.trim(),
-        adminPassword,
+        adminPassword: isGoogleFlow ? adminPassword : stateAdminPassword,
       });
 
-      // Send verification code
       await api.post("/verify/send", { companyId });
 
-      // Navigate to Verification page
       const returnedEmail =
         resp.data.data?.email || resp.data.data?.company?.email;
       navigate("/verification", {
