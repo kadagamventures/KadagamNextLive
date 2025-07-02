@@ -4,13 +4,8 @@ const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Company = require("../models/Company");
-const {
-  registerCompany,
-  completeRegistrationAndCreateAdmin,
-} = require("../services/companyService");
+const { registerCompany } = require("../services/companyService");
 
-
-// 🔐 Ensure JWT_SECRET is available
 if (!process.env.JWT_SECRET) {
   throw new Error("❌ JWT_SECRET is not set in environment variables");
 }
@@ -32,36 +27,34 @@ passport.use(
           return done(new Error("Google profile has no email"), null);
         }
 
-        // 1) If user exists, log them in
-        let user = await User.findOne({ email, isDeleted: false });
+        // 1) If admin user exists, log them in
+        let user = await User.findOne({ email, isDeleted: false, role: "admin" });
         if (user) return done(null, user);
 
-        // 2) Otherwise, check for company using email
+        // 2) Otherwise, check for company using email (don't create user yet)
         let company = await Company.findOne({ email, isDeleted: false });
-
         if (!company) {
-          // Auto-register the company (no phone, use placeholder password)
           const { companyId } = await registerCompany({
             name: profile.displayName || "Google Company",
             email,
-            password: null, // Google ID used temporarily as password
+            companyType: "Google-Auth",
+            password: null // Google users don't need password now
           });
-
           company = await Company.findById(companyId);
         }
 
-        // 3) Complete registration & create admin user
-        const { adminUser } = await completeRegistrationAndCreateAdmin({
+        // Instead of creating admin user now, just return a minimal object
+        // Pass companyId to JWT for frontend to use
+        const googleUserObj = {
+          _id: company._id,
+          name: profile.displayName || company.name,
+          email,
+          role: "admin",
           companyId: company._id,
-          gstin: "",
-          cin: "",
-          pan: "",
-          companyType: "Google-Auth",
-          address: "",
-          adminPassword: profile.id, // Not usable directly, just placeholder
-        });
+          googleAuthOnly: true // (for clarity)
+        };
+        return done(null, googleUserObj);
 
-        return done(null, adminUser);
       } catch (err) {
         console.error("🔴 Google Strategy Error:", err);
         return done(err, null);
@@ -70,14 +63,16 @@ passport.use(
   )
 );
 
-// 🔁 Session handling
+// Session handling (unchanged)
 passport.serializeUser((user, done) => {
-  done(null, user.id);
+  done(null, user._id || user.id);
 });
 
 passport.deserializeUser(async (id, done) => {
   try {
-    const user = await User.findById(id);
+    // Try both user and company, for googleAuthOnly object
+    let user = await User.findById(id);
+    if (!user) user = await Company.findById(id);
     done(null, user);
   } catch (err) {
     done(err, null);
