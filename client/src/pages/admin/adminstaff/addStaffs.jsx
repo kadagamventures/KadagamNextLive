@@ -88,7 +88,6 @@ const StaffForm = () => {
     }
   }, [isEditMode, id, selectedStaff]);
 
-
   // Debounced staff ID validation
   const validateStaffId = useCallback(
     debounce(async (staffId) => {
@@ -150,8 +149,7 @@ const StaffForm = () => {
     setNewStaff((prev) => ({ ...prev, assignedProjects: selectedProjectIds }));
   };
 
-  // Delete file handler
-  // Add this helper inside StaffForm component
+  // Delete file handler (set to "" so backend removes, not null!)
   const handleDeleteFile = async (fieldName) => {
     try {
       // Only attempt server delete if the current field is a URL string (already uploaded)
@@ -162,8 +160,8 @@ const StaffForm = () => {
         // Call backend to delete file by key
         await axiosInstance.post("/admin/staff/file/delete", { fileKey });
       }
-      // Clear file locally
-      setNewStaff((prev) => ({ ...prev, [fieldName]: null }));
+      // Set to "" for delete; this will signal the backend to clear the field
+      setNewStaff((prev) => ({ ...prev, [fieldName]: "" }));
 
       // Reset file input to allow re-upload
       if (fieldName === "profilePic") setProfilePicKey(Date.now());
@@ -174,11 +172,8 @@ const StaffForm = () => {
     }
   };
 
-
-  const handleAddOrUpdateStaff = async () => {
-    if (!newStaff.name.trim() || !newStaff.email.trim()) return;
-    if (!newStaff.staffId.trim() || staffIdValid === false) return;
-
+  // FormData builder to always send correct info
+  const buildFormData = () => {
     const formData = new FormData();
     formData.append("name", newStaff.name);
     formData.append("email", newStaff.email);
@@ -190,17 +185,27 @@ const StaffForm = () => {
     formData.append("assignedProjects", JSON.stringify(newStaff.assignedProjects));
     formData.append("permissions", JSON.stringify(newStaff.permissions));
 
+    // Profile Pic: send File, string (S3 URL), or "" for delete
     if (newStaff.profilePic instanceof File) {
       formData.append("profilePic", newStaff.profilePic);
     } else if (typeof newStaff.profilePic === "string") {
       formData.append("profilePic", newStaff.profilePic);
     }
 
+    // Resume: send File, string (S3 URL), or "" for delete
     if (newStaff.resume instanceof File) {
       formData.append("resume", newStaff.resume);
     } else if (typeof newStaff.resume === "string") {
       formData.append("resume", newStaff.resume);
     }
+    return formData;
+  };
+
+  const handleAddOrUpdateStaff = async () => {
+    if (!newStaff.name.trim() || !newStaff.email.trim()) return;
+    if (!newStaff.staffId.trim() || staffIdValid === false) return;
+
+    const formData = buildFormData();
 
     try {
       const resultAction = await dispatch(
@@ -215,7 +220,6 @@ const StaffForm = () => {
           : "Staff created successfully! The temporary password has been sent to the staff's email.";
         setSuccessMessage(message);
 
-        // Delay briefly to show success message before navigation (optional)
         setTimeout(() => {
           navigate("/admin/staffs/list");
         }, 1000);
@@ -224,8 +228,6 @@ const StaffForm = () => {
       console.error("❌ Error saving staff:", error);
     }
   };
-
-
 
   // Open modal to preview full image
   const openImageModal = (imgSrc) => {
@@ -247,7 +249,6 @@ const StaffForm = () => {
           <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
             {isEditMode ? "Update Staff" : "Add New Staff"}
           </h1>
-
         </div>
         <div className="flex items-center gap-3 mt-4 md:mt-0">
           <button
@@ -477,7 +478,7 @@ const StaffForm = () => {
                 )}
               </div>
 
-              {/* ✅ Resume Section */}
+              {/* Resume Section */}
               <div>
                 <label className="block text-sm text-gray-500 mb-1">
                   Resume (Optional)
@@ -521,7 +522,6 @@ const StaffForm = () => {
                   </div>
                 )}
               </div>
-
             </div>
             {/* Permissions Section */}
             <div className="space-y-4">

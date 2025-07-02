@@ -3,14 +3,11 @@ import { tokenRefreshInterceptor } from "../../utils/axiosInstance";
 
 const API_BASE_URL = "/admin/staff";
 
-// 🔒 All requests are authenticated, companyId is handled in backend via token
+// Thunks
 
-// 🔹 Thunks
-
-// Fetch all staff (excluding company admin)
 export const fetchStaffs = createAsyncThunk("staff/fetchStaffs", async (_, thunkAPI) => {
   try {
-    const timestamp = Date.now(); // Avoid cache
+    const timestamp = Date.now();
     const res = await tokenRefreshInterceptor.get(`${API_BASE_URL}?_=${timestamp}`);
     return res.data.staffList.filter(staff => staff.role !== "admin");
   } catch (err) {
@@ -18,7 +15,6 @@ export const fetchStaffs = createAsyncThunk("staff/fetchStaffs", async (_, thunk
   }
 });
 
-// Add staff to current company
 export const addStaff = createAsyncThunk("staff/addStaff", async (formData, thunkAPI) => {
   try {
     const res = await tokenRefreshInterceptor.post(API_BASE_URL, formData);
@@ -28,17 +24,23 @@ export const addStaff = createAsyncThunk("staff/addStaff", async (formData, thun
   }
 });
 
-// Update staff (multipart for profile/resume)
-export const updateStaff = createAsyncThunk("staff/updateStaff", async ({ id, formData }, thunkAPI) => {
-  try {
-    const res = await tokenRefreshInterceptor.put(`${API_BASE_URL}/${id}`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return res.data.updatedStaff || res.data;
-  } catch (err) {
-    return thunkAPI.rejectWithValue(err.response?.data?.message || "Failed to update staff.");
+// --- Fully robust updateStaff thunk ---
+export const updateStaff = createAsyncThunk(
+  "staff/updateStaff",
+  async ({ id, formData }, thunkAPI) => {
+    try {
+      const res = await tokenRefreshInterceptor.put(
+        `${API_BASE_URL}/${id}`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      // Return the updated staff object
+      return res.data.updatedStaff || res.data;
+    } catch (err) {
+      return thunkAPI.rejectWithValue(err.response?.data?.message || "Failed to update staff.");
+    }
   }
-});
+);
 
 // Delete staff
 export const deleteStaff = createAsyncThunk("staff/deleteStaff", async (id, thunkAPI) => {
@@ -70,8 +72,7 @@ export const fetchMyProfile = createAsyncThunk("staff/fetchMyProfile", async (_,
   }
 });
 
-// 🔹 Slice
-
+// --- Slice ---
 const staffSlice = createSlice({
   name: "staff",
   initialState: {
@@ -155,6 +156,6 @@ const staffSlice = createSlice({
   },
 });
 
-// 🔹 Exports
+// Exports
 export const { resetStaffStatus } = staffSlice.actions;
 export default staffSlice.reducer;

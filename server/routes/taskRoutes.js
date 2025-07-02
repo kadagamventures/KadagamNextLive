@@ -29,7 +29,7 @@ const taskService = require("../services/taskService");
 const {
   uploadDailyUpdateFile,
   uploadSingleTaskAttachment,
-  validateFile,
+  requireFileOrComment,  // <-- Import here!
 } = require("../middlewares/fileUploadMiddleware");
 
 // 🔒 Protect all task routes
@@ -78,7 +78,6 @@ router.put("/review/:taskId", checkPermissions("manage_task"), handleReviewDecis
 
 router.post("/adjust-priorities", checkPermissions("manage_task"), autoAdjustTaskPriorities);
 
-
 // ==============================
 // ✅ Daily Comments
 // ==============================
@@ -86,7 +85,13 @@ router.post("/adjust-priorities", checkPermissions("manage_task"), autoAdjustTas
 router.get("/my-daily-comments", checkPermissions("manage_task"), getDailyCommentsByCreatorHandler);
 router.get("/daily-comments", checkPermissions("manage_task"), getDailyComments);
 
-router.post("/:id/daily-comment", uploadDailyUpdateFile("attachment"), validateFile, addDailyComment);
+// ✅ Use the new middleware for comment-or-file-required!
+router.post(
+  "/:id/daily-comment",
+  uploadDailyUpdateFile("attachment"),
+  requireFileOrComment,         // <--- Ensures comment or file is required
+  addDailyComment
+);
 
 // ==============================
 // ✅ CRUD Core Routes

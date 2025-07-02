@@ -6,7 +6,7 @@ import kadagamLogo from '../../assets/kadagamlogo.png';
 import { FiLock } from 'react-icons/fi';
 
 export default function ResetPassword() {
-  const { token } = useParams();           // <-- read from path param
+  const { token } = useParams();           
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState(null);

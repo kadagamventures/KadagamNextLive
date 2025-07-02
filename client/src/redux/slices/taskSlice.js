@@ -57,33 +57,54 @@ export const updateTask = createAsyncThunk("tasks/updateTask", async ({ id, form
   }
 });
 
-export const updateTaskStatusAction = createAsyncThunk("tasks/updateTaskStatus", async ({ id, status, priority }, thunkAPI) => {
-  try {
-    const validStatuses = ["To Do", "Ongoing", "Review", "Completed"];
-    const correctedStatus = validStatuses.find((s) => s.toLowerCase() === status?.toLowerCase()) || status;
-    const { data } = await tokenRefreshInterceptor.put(`/tasks/staff/${id}`, {
-      status: correctedStatus,
-      priority,
-    });
-    return data;
-  } catch (error) {
-    return thunkAPI.rejectWithValue(error.response?.data?.message || error.message);
+export const updateTaskStatusAction = createAsyncThunk(
+  "tasks/updateTaskStatus",
+  async ({ id, status, priority }, thunkAPI) => {
+    try {
+      const validStatuses = ["To Do", "Ongoing", "Review", "Completed"];
+      const correctedStatus = validStatuses.find(
+        (s) => s.toLowerCase() === status?.toLowerCase()
+      ) || status;
+      const { data } = await tokenRefreshInterceptor.put(`/tasks/staff/${id}`, {
+        status: correctedStatus,
+        priority,
+      });
+      return data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.response?.data?.message || error.message);
+    }
   }
-});
+);
 
-export const submitDailyTaskUpdate = createAsyncThunk("tasks/submitDailyUpdate", async ({ id, comment, attachment }, thunkAPI) => {
-  try {
-    const formData = new FormData();
-    formData.append("comment", comment);
-    if (attachment) formData.append("attachment", attachment);
-    const { data } = await tokenRefreshInterceptor.post(`/tasks/${id}/daily-comment`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return data;
-  } catch (error) {
-    return thunkAPI.rejectWithValue(error.response?.data?.message || error.message);
+// ✅ IMPROVED: Only append fields if present (prevents 400 on empty)
+export const submitDailyTaskUpdate = createAsyncThunk(
+  "tasks/submitDailyUpdate",
+  async ({ id, comment, attachment }, thunkAPI) => {
+    try {
+      const formData = new FormData();
+      if (comment && comment.trim()) {
+        formData.append("comment", comment.trim());
+      }
+      if (attachment) {
+        formData.append("attachment", attachment);
+      }
+      // If neither present, block request
+      if (!formData.has("comment") && !formData.has("attachment")) {
+        return thunkAPI.rejectWithValue("Please add a comment or attachment.");
+      }
+      const { data } = await tokenRefreshInterceptor.post(
+        `/tasks/${id}/daily-comment`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      return data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.response?.data?.message || error.message);
+    }
   }
-});
+);
 
 export const deleteTask = createAsyncThunk("tasks/deleteTask", async (id, thunkAPI) => {
   try {
@@ -127,17 +148,20 @@ export const moveToReview = createAsyncThunk("tasks/moveToReview", async ({ task
   }
 });
 
-export const handleReviewDecision = createAsyncThunk("tasks/handleReviewDecision", async ({ taskId, decision, comment, newDueDate, newPriority }, thunkAPI) => {
-  try {
-    const payload = { decision, comment };
-    if (newDueDate) payload.newDueDate = newDueDate;
-    if (newPriority) payload.newPriority = newPriority;
-    const { data } = await tokenRefreshInterceptor.put(`/tasks/review/${taskId}`, payload);
-    return data;
-  } catch (error) {
-    return thunkAPI.rejectWithValue(error.response?.data?.message || error.message);
+export const handleReviewDecision = createAsyncThunk(
+  "tasks/handleReviewDecision",
+  async ({ taskId, decision, comment, newDueDate, newPriority }, thunkAPI) => {
+    try {
+      const payload = { decision, comment };
+      if (newDueDate) payload.newDueDate = newDueDate;
+      if (newPriority) payload.newPriority = newPriority;
+      const { data } = await tokenRefreshInterceptor.put(`/tasks/review/${taskId}`, payload);
+      return data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.response?.data?.message || error.message);
+    }
   }
-});
+);
 
 // 🔹 Slice
 

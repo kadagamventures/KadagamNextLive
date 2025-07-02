@@ -69,7 +69,7 @@ const Attendance = () => {
     // If nothing was loaded from localStorage, then fetch from API
     if (!loadedFromLocalStorage) {
       axios
-        .get("/api/office-timing")
+        .get("/office-timing")
         .then(({ data }) => {
           const { startTime: s, endTime: e } = data.data || data;
           if (s) {

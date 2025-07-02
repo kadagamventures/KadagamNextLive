@@ -3,7 +3,7 @@ import { tokenRefreshInterceptor as axiosInstance } from "../../utils/axiosInsta
 import StaffSidebar from "../../components/staffSidebar";
 import { FaFileAlt } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
-import NotificationBell from "../../components/notificationBell"; // ✅ Add this at top
+import NotificationBell from "../../components/notificationBell";
 
 const statusColors = {
   todo: "bg-white border border-blue-200",
@@ -199,8 +199,8 @@ const StaffDashboard = () => {
               task.priority === "High"
                 ? "text-red-600"
                 : task.priority === "Medium"
-                  ? "text-yellow-500"
-                  : "text-green-600"
+                ? "text-yellow-500"
+                : "text-green-600"
             }
           >
             {task.priority}
@@ -353,7 +353,7 @@ const StaffDashboard = () => {
 
       {/* Daily Update Modal */}
       {dailyModal.open && (
-        <divz
+        <div
           className="fixed inset-0 bg-opacity-50 backdrop-blur-xs flex items-center justify-center z-50"
           onClick={() => setDailyModal((m) => ({ ...m, open: false }))}
         >
@@ -361,7 +361,6 @@ const StaffDashboard = () => {
             className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-4xl flex flex-col md:flex-row gap-8"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Left Side: Task Details */}
             {/* Left Side: Task Details */}
             <div className="w-full md:w-1/2">
               <h3 className="text-lg font-semibold mb-2">Task Description</h3>
@@ -501,14 +500,15 @@ const StaffDashboard = () => {
                   className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-full"
                   onClick={async () => {
                     const { task, comment, file } = dailyModal;
-                    if (!comment && !file) {
+                    if (!comment.trim() && !file) {
                       alert("Please add a comment or file.");
                       return;
                     }
 
                     const formData = new FormData();
-                    formData.append("comment", comment);
-
+                    if (comment.trim()) {
+                      formData.append("comment", comment.trim());
+                    }
                     if (file) {
                       const ext = file.name?.split(".").pop() || "bin";
                       const fallbackName = `attachment-${Date.now()}.${ext}`;
@@ -541,7 +541,7 @@ const StaffDashboard = () => {
               </div>
             </div>
           </div>
-        </divz>
+        </div>
       )}
     </div>
   );

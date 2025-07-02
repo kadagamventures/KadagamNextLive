@@ -99,6 +99,7 @@ const updateStaff = asyncHandler(async (req, res) => {
   const companyId = req.user.companyId.toString();
   const { email, staffId } = req.body;
 
+  // Email and staffId uniqueness checks
   if (email) {
     const existingUser = await userService.getStaffByEmail(email, companyId);
     if (existingUser && existingUser._id.toString() !== req.params.id) {
@@ -112,6 +113,7 @@ const updateStaff = asyncHandler(async (req, res) => {
     }
   }
 
+  // Parse arrays from formdata or JSON string
   const updatedData = { ...req.body };
   try {
     updatedData.assignedProjects = Array.isArray(req.body.assignedProjects)
@@ -129,26 +131,38 @@ const updateStaff = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "Staff not found" });
   }
 
+  // --------- FILE HANDLING ---------
   try {
+    // Handle Profile Pic
     const pp = req.files?.profilePic?.[0];
-    const rs = req.files?.resume?.[0];
     if (pp) {
+      // New file uploaded
       updatedData.profilePic = await fileService.uploadStaffFile(
         pp.buffer, pp.mimetype,
         { fileType: "profilePic", staffId: staffId || existingStaff.staffId, companyId }
       );
-    } else if (typeof req.body.profilePic === "string") {
+    } else if (typeof req.body.profilePic === "string" && req.body.profilePic.trim() !== "") {
+      // No file, but field present and not empty: retain previous S3 url string
       updatedData.profilePic = req.body.profilePic;
+    } else if (typeof req.body.profilePic === "string" && req.body.profilePic === "") {
+      // Explicit empty string: user wants to remove the file
+      updatedData.profilePic = null;
     } else {
+      // Field not present: fallback to previous value
       updatedData.profilePic = existingStaff.profilePic;
     }
+
+    // Handle Resume
+    const rs = req.files?.resume?.[0];
     if (rs) {
       updatedData.resume = await fileService.uploadStaffFile(
         rs.buffer, rs.mimetype,
         { fileType: "resume", staffId: staffId || existingStaff.staffId, companyId }
       );
-    } else if (typeof req.body.resume === "string") {
+    } else if (typeof req.body.resume === "string" && req.body.resume.trim() !== "") {
       updatedData.resume = req.body.resume;
+    } else if (typeof req.body.resume === "string" && req.body.resume === "") {
+      updatedData.resume = null;
     } else {
       updatedData.resume = existingStaff.resume;
     }
@@ -156,6 +170,7 @@ const updateStaff = asyncHandler(async (req, res) => {
     console.error("❌ Upload failed:", uploadErr);
     return res.status(500).json({ message: "Upload error", error: uploadErr.message });
   }
+  // --------- END FILE HANDLING ---------
 
   try {
     const updatedStaff = await userService.updateStaff(req.params.id, updatedData, companyId);
@@ -179,6 +194,7 @@ const updateStaff = asyncHandler(async (req, res) => {
     res.status(500).json({ message: "Internal Server Error", error: err.message });
   }
 });
+
 
 const deleteStaff = asyncHandler(async (req, res) => {
   const companyId = req.user.companyId.toString();

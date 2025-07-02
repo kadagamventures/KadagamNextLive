@@ -77,11 +77,10 @@ const uploadDailyUpdateFile = (fieldName) => (req, res, next) => {
       console.error("❌ Multer Error (Daily Update):", err.message);
       return res.status(400).json({ success: false, message: err.message });
     }
-    console.log("✅ File received in upload middleware:", req.file?.originalname);
+    // File is optional, so don't throw error if not present
     next();
   });
 };
-
 
 const uploadSingleTaskAttachment = (fieldName) => (req, res, next) => {
   uploadTaskAttachment.single(fieldName)(req, res, (err) => {
@@ -90,10 +89,21 @@ const uploadSingleTaskAttachment = (fieldName) => (req, res, next) => {
   });
 };
 
-// Validation middleware
+// Validation middleware: file is REQUIRED (not for daily-comment)
 const validateFile = (req, res, next) => {
   if (!req.file && (!req.files || req.files.length === 0)) {
     return res.status(400).json({ success: false, message: "No file uploaded" });
+  }
+  next();
+};
+
+// ⭐️ Bonus: Require at least comment OR file for daily update/comment
+const requireFileOrComment = (req, res, next) => {
+  if (
+    (!req.file && (!req.files || req.files.length === 0)) &&
+    (!req.body.comment || req.body.comment.trim() === "")
+  ) {
+    return res.status(400).json({ success: false, message: "Comment or file is required" });
   }
   next();
 };
@@ -114,7 +124,8 @@ module.exports = {
   uploadSingleProfilePic,
   uploadSingleResume,
   uploadDailyUpdateFile,
-  uploadSingleTaskAttachment, // ✅ Added for task attachments
+  uploadSingleTaskAttachment, // ✅ For task attachments
   validateFile,
+  requireFileOrComment,       // ⭐️ <-- Use this for daily-comment!
   multerErrorHandler
 };

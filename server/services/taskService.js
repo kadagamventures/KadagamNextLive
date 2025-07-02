@@ -224,40 +224,46 @@ const deleteTask = async (taskId, companyId) => {
 };
 
 // ✅ Add Daily Comment (Scoped)
+// ✅ Add Daily Comment (Scoped)
 const addDailyComment = async (staffId, taskId, comment, file = null, companyId) => {
   const task = await Task.findOne({ _id: taskId, companyId });
   if (!task) throw new Error("Task not found.");
 
+  if (!comment && !file) {
+    throw new Error("Comment or file is required.");
+  }
+
   const dailyUpdate = {
     staffId,
-    comment,
+    comment: comment || "",
     date: new Date(),
   };
 
   if (file) {
     const { buffer, originalname, mimetype } = file;
-    if (!buffer || !originalname || !taskId) {
-      throw new Error("❌ Buffer, filename, and task ID are required for daily upload.");
+
+    // Only proceed with file upload if all file data is valid
+    if (buffer && originalname && mimetype) {
+      const uploaded = await taskFileService.uploadDailyUpdateAttachment(
+        buffer,
+        originalname,
+        mimetype,
+        taskId,
+        companyId
+      );
+
+      dailyUpdate.attachment = {
+        fileUrl: uploaded.fileUrl,
+        fileType: uploaded.fileType,
+        fileName: uploaded.fileName || originalname,
+      };
     }
-
-    const uploaded = await taskFileService.uploadDailyUpdateAttachment(
-      file.buffer,
-      originalname,
-      mimetype,
-      taskId,
-      companyId
-    );
-
-    dailyUpdate.attachment = {
-      fileUrl: uploaded.fileUrl,
-      fileType: uploaded.fileType,
-      fileName: uploaded.fileName || originalname,
-    };
   }
 
   task.dailyUpdates.push(dailyUpdate);
   await task.save();
 };
+
 
 // ✅ Auto Adjust Priorities (Per Company)
 const autoAdjustTaskPriorities = async (companyId) => {

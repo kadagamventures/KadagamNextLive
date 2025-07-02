@@ -202,12 +202,14 @@ const deleteTask = async (req, res, next) => {
 };
 
 // ✅ Add Daily Comment (Scoped)
+// ✅ Add Daily Comment (Scoped)
 const addDailyComment = async (req, res, next) => {
   try {
     const { comment } = req.body;
     const file = req.file || null;
     const taskId = req.params.id;
 
+    // Allow either comment or file — but at least one must exist
     if (!comment && !file) {
       return res.status(400).json({ message: "Comment or file is required." });
     }
@@ -228,6 +230,7 @@ const addDailyComment = async (req, res, next) => {
 };
 
 const submitDailyComment = addDailyComment;
+
 
 // ✅ Auto Adjust Task Priorities (Scoped)
 const autoAdjustTaskPriorities = async (req, res, next) => {
