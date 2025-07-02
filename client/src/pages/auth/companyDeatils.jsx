@@ -29,7 +29,7 @@ export default function CompanyDetailsPage() {
 
   useEffect(() => {
     if (!companyId || !adminPassword) {
-      navigate("/signup", { replace: true });
+      navigate("/signin", { replace: true });
     }
   }, [companyId, adminPassword, navigate]);
 
