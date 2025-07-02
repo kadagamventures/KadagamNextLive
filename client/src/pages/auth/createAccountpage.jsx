@@ -70,7 +70,7 @@ export default function CreateAccountPage() {
     } catch (err) {
       const resp = err.response?.data;
 
-      // ✅ Handle EMAIL_TAKEN but unverified case
+      // Handle EMAIL_TAKEN but unverified case
       if (
         err.response?.status === 409 &&
         resp?.message?.toLowerCase().includes("email") &&
@@ -82,11 +82,10 @@ export default function CreateAccountPage() {
             {},
             {
               headers: {
-                "x-company-id": resp.existingCompanyId, // if using header auth
+                "x-company-id": resp.existingCompanyId,
               },
             }
           );
-
           navigate("/verification", {
             state: {
               companyId: resp.existingCompanyId,
@@ -94,11 +93,11 @@ export default function CreateAccountPage() {
             },
           });
         } catch (resendError) {
-          console.error("Resend OTP failed:", resendError);
           setServerErrors({
             form: "Email already registered. Could not resend OTP.",
           });
         }
+        setLoading(false);
         return;
       }
 
@@ -169,6 +168,9 @@ export default function CreateAccountPage() {
       )}
     </div>
   );
+
+  // Determine your Google Auth endpoint
+  const GOOGLE_AUTH_URL = `${import.meta.env.VITE_API_URL}/auth/google`;
 
   return (
     <div
@@ -293,7 +295,7 @@ export default function CreateAccountPage() {
 
           <div className="flex flex-col items-center mt-4">
             <p className="text-sm text-gray-700">Sign up via Google account</p>
-            <a href={`${import.meta.env.VITE_API_URL}/auth/google`}>
+            <a href={GOOGLE_AUTH_URL}>
               <button
                 type="button"
                 className="p-2 border rounded-full hover:bg-gray-100"

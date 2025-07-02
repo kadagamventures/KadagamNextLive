@@ -12,7 +12,7 @@ import About from "./pages/kadagamNext/about";
 
 // Auth Pages
 import CreateAccountPage from "./pages/auth/createAccountpage";
-import CompanyDeatils from "./pages/auth/companyDeatils";
+import CompanyDetails from "./pages/auth/companyDeatils"; // Corrected import
 import SuperAdminLogin from "./pages/auth/superAdminlogin";
 import ProfileSetupPage from "./pages/auth/profileSetuppage";
 import AdminLogin from "./pages/auth/login";
@@ -20,6 +20,7 @@ import StaffLogin from "./pages/auth/staffLogin";
 import ForgotPassword from "./pages/auth/forgotPassword";
 import ResetPassword from "./pages/auth/resetPassword";
 import VerificationPage from "./pages/auth/verficationpage";
+import GoogleAuthSuccess from "./pages/auth/googleAuthSuccess"; // NEW: Add this import
 
 // Routes & Components
 import SuperAdminRoute from "./routes/superAdminRoutes";
@@ -90,7 +91,7 @@ function App() {
 
           {/* Auth Routes */}
           <Route path="/signin" element={<CreateAccountPage />} />
-          <Route path="/company-details" element={<CompanyDeatils />} />
+          <Route path="/company-details" element={<CompanyDetails />} /> {/* <-- Fixed name */}
           <Route path="/superadmin/login" element={<SuperAdminLogin />} />
           <Route path="/profile-setup" element={<ProfileSetupPage />} />
           <Route path="/admin/login" element={<AdminLogin />} />
@@ -98,6 +99,9 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
           <Route path="/verification" element={<VerificationPage />} />
+
+          {/* Google Auth Redirect */}
+          <Route path="/google-auth-success" element={<GoogleAuthSuccess />} /> {/* <-- New Route */}
 
           {/* Protected Routes */}
           <Route path="/superadmin/*" element={<SuperAdminRoute />} />
