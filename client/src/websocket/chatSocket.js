@@ -24,7 +24,8 @@ export const initializeChatSocket = async (handlers = {}) => {
   socketInitialized = true;
 
   try {
-    const token = localStorage.getItem("token");
+    // Always use "accessToken" for consistency with your app
+    const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
     if (!token) throw new Error("No authentication token found.");
 
     socket = io(SOCKET_URL, { auth: { token } });
@@ -42,11 +43,9 @@ export const initializeChatSocket = async (handlers = {}) => {
 
     socket.on("connect_error", (err) => {
       reconnectionAttempts++;
-
       if (err?.message?.toLowerCase().includes("jwt expired")) {
         handlers.onJwtExpired?.();
       }
-
       if (reconnectionAttempts >= MAX_RECONNECTION_ATTEMPTS) {
         socket.disconnect();
         socketInitialized = false;
