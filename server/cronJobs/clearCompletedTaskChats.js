@@ -6,17 +6,17 @@ dotenv.config();
 
 const Task = require("../models/Task");
 const Chat = require("../models/Chat");
-const Company = require("../models/Company"); // Add your company model path here
+const Company = require("../models/Company");
 
 const MONGO_URI = process.env.MONGO_URI;
 
 /**
- * Clear chats associated with completed or deleted tasks, company by company.
+ * Clear chats associated with completed or deleted tasks for a specific company.
  * @param {string} companyId
  */
 const clearCompletedTaskChatsForCompany = async (companyId) => {
   try {
-    console.log(`🧹 Starting chat cleanup for completed tasks for company ${companyId}...`);
+    console.log(`🧹 Starting chat cleanup for completed/deleted tasks for company ${companyId}...`);
 
     // Find completed or deleted tasks for this company
     const completedTasks = await Task.find({
@@ -55,7 +55,7 @@ const clearCompletedTaskChats = async () => {
     const companies = await Company.find({}, { _id: 1 }).lean();
 
     for (const company of companies) {
-      await clearCompletedTaskChatsForCompany(company._id);
+      await clearCompletedTaskChatsForCompany(company._id.toString());
     }
   } catch (error) {
     console.error("❌ MongoDB connection error or cleanup failed:", error);

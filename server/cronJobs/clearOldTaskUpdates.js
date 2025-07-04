@@ -1,20 +1,22 @@
 const cron = require("node-cron");
+const mongoose = require("mongoose");
 const Task = require("../models/Task");
-const Company = require("../models/Company"); // Add your company model path
+const Company = require("../models/Company");
 const { emitDashboardUpdate } = require("../services/websocketService");
 const { extractFileKey, deleteFile } = require("../utils/fileUtils");
-const mongoose = require("mongoose");
+
 const MONGO_URI = process.env.MONGO_URI;
 
 /**
- * Cleanup daily updates older than 2 days per company
- * @param {string} companyId 
+ * Cleanup daily updates older than 2 days for a specific company.
+ * @param {string} companyId
  */
 const cleanupDailyUpdatesForCompany = async (companyId) => {
   try {
     const twoDaysAgo = new Date();
     twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 
+    // Find tasks with dailyUpdates for this company that are not deleted
     const tasks = await Task.find({
       companyId,
       "dailyUpdates.0": { $exists: true },
@@ -25,8 +27,10 @@ const cleanupDailyUpdatesForCompany = async (companyId) => {
     let totalFilesDeleted = 0;
 
     for (const task of tasks) {
-      const oldUpdates = task.dailyUpdates.filter(update => update.date < twoDaysAgo);
+      // Filter updates older than 2 days
+      const oldUpdates = task.dailyUpdates.filter((update) => update.date < twoDaysAgo);
 
+      // Delete attachments from S3 for old updates if any
       for (const update of oldUpdates) {
         if (update.attachment?.fileUrl) {
           const fileKey = extractFileKey(update.attachment.fileUrl);
@@ -37,7 +41,8 @@ const cleanupDailyUpdatesForCompany = async (companyId) => {
         }
       }
 
-      const newUpdates = task.dailyUpdates.filter(update => update.date >= twoDaysAgo);
+      // Keep only updates newer or equal to 2 days ago
+      const newUpdates = task.dailyUpdates.filter((update) => update.date >= twoDaysAgo);
 
       if (newUpdates.length !== task.dailyUpdates.length) {
         const removedCount = task.dailyUpdates.length - newUpdates.length;
@@ -49,14 +54,13 @@ const cleanupDailyUpdatesForCompany = async (companyId) => {
 
     console.log(`✅ [Company: ${companyId}] Daily Updates Cleanup: Removed ${totalDeletedUpdates} outdated updates.`);
     console.log(`✅ [Company: ${companyId}] Attachments deleted from S3: ${totalFilesDeleted}`);
-
   } catch (error) {
     console.error(`❌ Error during daily updates cleanup for company ${companyId}:`, error);
   }
 };
 
 /**
- * Scheduled Cleanup: Runs daily at 2 AM UTC
+ * Scheduled Cleanup Job: Runs daily at 2 AM UTC
  */
 cron.schedule("0 2 * * *", async () => {
   try {
@@ -69,12 +73,11 @@ cron.schedule("0 2 * * *", async () => {
     const companies = await Company.find({}, { _id: 1 }).lean();
 
     for (const company of companies) {
-      await cleanupDailyUpdatesForCompany(company._id);
+      await cleanupDailyUpdatesForCompany(company._id.toString());
     }
 
     // Notify dashboards once after all companies cleaned
     emitDashboardUpdate(null, "taskUpdatesCleared");
-
   } catch (error) {
     console.error("❌ Critical error during scheduled daily updates cleanup:", error);
   } finally {
