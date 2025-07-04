@@ -4,7 +4,7 @@ const mongoose = require("mongoose");
 
 const invoiceSchema = new mongoose.Schema(
   {
-    // Sequential invoice number: INV-<COMPANY_ID>-<YYYY>-000001
+    // Sequential invoice number: INV-0001, INV-0002, ...
     invoiceNumber: {
       type: String,
       required: true,
@@ -12,7 +12,7 @@ const invoiceSchema = new mongoose.Schema(
       index: true,
     },
 
-    // Link to the Company; its _id is already your 6‑digit code
+    // Link to the Company
     companyId: {
       type: String,
       ref: "Company",
@@ -104,7 +104,7 @@ const invoiceSchema = new mongoose.Schema(
       index: true,
     },
 
-    // ✅ New: Presigned download URL
+    // Presigned download URL
     downloadUrl: {
       type: String,
       default: null,
@@ -116,29 +116,6 @@ const invoiceSchema = new mongoose.Schema(
     toObject:  { virtuals: true },
   }
 );
-
-// Auto‑generate sequential invoiceNumber per company per year:
-// INV-<COMPANY_ID>-<YYYY>-<000001>
-invoiceSchema.pre("validate", async function (next) {
-  if (this.isNew && !this.invoiceNumber) {
-    const Invoice = mongoose.models.Invoice;
-    const year = new Date().getFullYear();
-
-    // Count existing invoices for this company in the current year
-    const start = new Date(`${year}-01-01T00:00:00.000Z`);
-    const end   = new Date(`${year + 1}-01-01T00:00:00.000Z`);
-    const count = await Invoice.countDocuments({
-      companyId:    this.companyId,
-      invoiceDate: { $gte: start, $lt: end },
-    });
-
-    // Sequence is count+1, padded to 6 digits
-    const seq = String(count + 1).padStart(6, "0");
-
-    this.invoiceNumber = `INV-${this.companyId}-${year}-${seq}`;
-  }
-  next();
-});
 
 // GST breakdown virtuals (split evenly)
 invoiceSchema.virtual("cgst").get(function () {

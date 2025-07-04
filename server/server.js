@@ -55,6 +55,7 @@ const superAdminRoutes       = require("./routes/superAdminRoutes");
 const deleteFileRoute        = require("./routes/deleteFile");
 const officeTimingRoutes     = require("./routes/officeAttendanceTiming");
 const paymentStatusRoutes    = require("./routes/paymentStatusRoutes");
+const invoiceTestRoutes = require("./routes/invoicetest");
 
 const { registerCompany } = require("./controllers/companyController");
 
@@ -146,6 +147,7 @@ app.use("/api/verify",        verificationRoutes);
 app.use("/api/payment",       paymentRoutes);
 app.use("/api/plan",          planRoutes);
 app.use("/api/invoices",      invoiceRoutes);
+app.use("/api/invoicetest", invoiceTestRoutes);
 
 // Public company registration
 app.post(

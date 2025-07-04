@@ -7,7 +7,7 @@ const InvoiceService = require("../services/invoiceService");
 const router = express.Router();
 
 /**
- * @route   POST /api/invoices/generate
+ * @route   POST /api/invoicetest/generate
  * @desc    Generate a new invoice (manual)
  * @access  Protected (add your auth middleware as needed)
  */
@@ -42,17 +42,21 @@ router.post(
         periodEnd,
       } = req.body;
 
-      const invoiceResult = await InvoiceService.processInvoice({
+      // Compose invoice data
+      const invoiceArgs = {
         companyId,
         planId,
         planName,
         baseAmount: Number(baseAmount),
         gstPercentage: Number(gstPercentage),
-        paymentMethod: "manual",                    // more descriptive
-        transactionId: `MANUAL-${Date.now()}`,      // unique manual txn id
-        periodStart:   new Date(periodStart),
-        periodEnd:     new Date(periodEnd),
-      });
+        paymentMethod: "manual",
+        transactionId: `MANUAL-${Date.now()}`,
+        periodStart: new Date(periodStart),
+        periodEnd: new Date(periodEnd),
+      };
+
+      // Generate and save invoice
+      const invoiceResult = await InvoiceService.processInvoice(invoiceArgs);
 
       return res
         .status(201)
