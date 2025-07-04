@@ -11,6 +11,7 @@ const session = require("express-session");
 const cookieParser = require("cookie-parser");
 const { body } = require("express-validator");
 
+// ─── CONFIGS ─────────────────────────────
 const cookieOptions = require("./config/cookieOptions");
 require("./config/passport");
 
@@ -30,7 +31,7 @@ const {
 const connectDB = require("./config/dbConfig");
 const { connectRedis } = require("./config/redisConfig");
 
-// Routes
+// ─── ROUTES ──────────────────────────────
 const authRoutes             = require("./routes/authRoutes");
 const verificationRoutes     = require("./routes/verificationRoutes");
 const paymentRoutes          = require("./routes/paymentRoutes");
@@ -55,7 +56,7 @@ const superAdminRoutes       = require("./routes/superAdminRoutes");
 const deleteFileRoute        = require("./routes/deleteFile");
 const officeTimingRoutes     = require("./routes/officeAttendanceTiming");
 const paymentStatusRoutes    = require("./routes/paymentStatusRoutes");
-const invoiceTestRoutes = require("./routes/invoicetest");
+const invoiceTestRoutes      = require("./routes/invoicetest");
 
 const { registerCompany } = require("./controllers/companyController");
 
@@ -63,7 +64,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const isProd = process.env.NODE_ENV === "production";
 
-// ─── SESSION CONFIG ─────────────────────────────
+// ─── SESSION CONFIG ─────────────────────
 const SESSION_SECRET = isProd
   ? process.env.SESSION_SECRET || (() => { throw new Error("SESSION_SECRET required"); })()
   : "dev_secret_change_me";
@@ -84,7 +85,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.use(cookieParser());
 
-// ─── CORS ───────────────────────────────────────
+// ─── CORS ───────────────────────────────
 const CLIENT_URLS = [
   "https://www.kadagamnext.com",
   "https://kadagamnext.com",
@@ -105,18 +106,17 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
-// ─── CORE MIDDLEWARES ───────────────────────────
+// ─── CORE MIDDLEWARES ───────────────────
 app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(helmet());
 app.use(morgan("combined"));
 
-// ─── HEALTH CHECK & VERSION ─────────────────────
+// ─── HEALTH CHECK & VERSION ─────────────
 app.get("/health", (req, res) => res.json({ status: "UP" }));
 app.get("/",       (req, res) => res.json({ message: "🟢 Welcome to KadagamNext API. Use /api" }));
 
-// Version endpoint (bump with your deploy or CI)
 app.get("/version", (req, res) => {
   res.json({
     version: process.env.APP_VERSION || "1.0.0",
@@ -124,7 +124,7 @@ app.get("/version", (req, res) => {
   });
 });
 
-// ─── DB + REDIS INIT ────────────────────────────
+// ─── DB + REDIS INIT ────────────────────
 (async () => {
   try {
     await connectDB();
@@ -141,13 +141,21 @@ app.get("/version", (req, res) => {
   }
 })();
 
-// ─── ROUTES ─────────────────────────────────────
+// ─── CRON JOBS (All run on server boot) ──────────────────────────────
+// Add all your recurring background jobs here
+require("./cronJobs/clearCompletedTaskChats.js");
+require("./cronJobs/clearOldTaskUpdates.js");
+require("./cronJobs/paymentReminderCron.js");
+require("./cronJobs/tenantDataPurgeCron.js");
+// Add more as you build new ones, just require here
+
+// ─── ROUTES ─────────────────────────────
 app.use("/api/auth",          authRoutes);
 app.use("/api/verify",        verificationRoutes);
 app.use("/api/payment",       paymentRoutes);
 app.use("/api/plan",          planRoutes);
 app.use("/api/invoices",      invoiceRoutes);
-app.use("/api/invoicetest", invoiceTestRoutes);
+app.use("/api/invoicetest",   invoiceTestRoutes);
 
 // Public company registration
 app.post(
@@ -190,23 +198,23 @@ app.use("/api/payment-status",...subMware, paymentStatusRoutes);
 // Super Admin Routes
 app.use("/api/super-admin", superAdminRoutes);
 
-// ─── ERROR HANDLING ─────────────────────────────
+// ─── ERROR HANDLING ─────────────────────
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// ─── SOCKET.IO ──────────────────────────────────
+// ─── SOCKET.IO ──────────────────────────
 const server = http.createServer(app);
 const { initializeWebSocket } = require("./config/websocketConfig");
 const io = initializeWebSocket(server);
 app.set("io", io);
 
-// ─── START SERVER ───────────────────────────────
+// ─── START SERVER ───────────────────────
 server.listen(PORT, () => {
   console.log(`🚀 Server listening on http://localhost:${PORT}`);
   console.log(`📡 WebSocket available at ws://localhost:${PORT}`);
 });
 
-// ─── GRACEFUL SHUTDOWN ─────────────────────────
+// ─── GRACEFUL SHUTDOWN ─────────────────
 function gracefulShutdown(signal) {
   console.log(`\n${signal} received. Shutting down HTTP server...`);
   server.close(() => {
