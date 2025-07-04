@@ -124,30 +124,37 @@ app.get("/version", (req, res) => {
   });
 });
 
-// ─── DB + REDIS INIT ────────────────────
+// ─── SOCKET.IO ──────────────────────────
+const server = http.createServer(app);
+const { initializeWebSocket } = require("./config/websocketConfig");
+const io = initializeWebSocket(server);
+app.set("io", io);
+
+// ─── DB + REDIS INIT + CRON JOBS ────────────────────
 (async () => {
   try {
     await connectDB();
     console.log("🟢 MongoDB Connected");
+
+    try {
+      await connectRedis();
+      console.log("🟢 Redis Connected");
+    } catch (err) {
+      console.error("❌ Redis Error:", err);
+    }
+
+    // ─── CRON JOBS (Only start after DB+Redis) ───────────
+    require("./cronJobs/clearCompletedTaskChats.js");
+    require("./cronJobs/clearOldTaskUpdates.js");
+    require("./cronJobs/paymentReminderCron.js");
+    require("./cronJobs/tenantDataPurgeCron.js");
+    // Add more here as needed
+
   } catch (err) {
     console.error("❌ MongoDB Error:", err);
     process.exit(1);
   }
-  try {
-    await connectRedis();
-    console.log("🟢 Redis Connected");
-  } catch (err) {
-    console.error("❌ Redis Error:", err);
-  }
 })();
-
-// ─── CRON JOBS (All run on server boot) ──────────────────────────────
-// Add all your recurring background jobs here
-require("./cronJobs/clearCompletedTaskChats.js");
-require("./cronJobs/clearOldTaskUpdates.js");
-require("./cronJobs/paymentReminderCron.js");
-require("./cronJobs/tenantDataPurgeCron.js");
-// Add more as you build new ones, just require here
 
 // ─── ROUTES ─────────────────────────────
 app.use("/api/auth",          authRoutes);
@@ -201,12 +208,6 @@ app.use("/api/super-admin", superAdminRoutes);
 // ─── ERROR HANDLING ─────────────────────
 app.use(notFoundHandler);
 app.use(errorHandler);
-
-// ─── SOCKET.IO ──────────────────────────
-const server = http.createServer(app);
-const { initializeWebSocket } = require("./config/websocketConfig");
-const io = initializeWebSocket(server);
-app.set("io", io);
 
 // ─── START SERVER ───────────────────────
 server.listen(PORT, () => {
