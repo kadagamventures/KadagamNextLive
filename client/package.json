@@ -26,6 +26,7 @@
     "classnames": "^2.5.1",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.13",
+    "emoji-mart": "^3.0.1",
     "emoji-picker-react": "^4.12.2",
     "framer-motion": "^12.6.2",
     "jspdf": "^3.0.0",

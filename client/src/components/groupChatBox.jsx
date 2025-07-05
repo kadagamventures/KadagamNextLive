@@ -30,10 +30,13 @@ import {
   Pencil,
   Save,
   X,
+  Smile,
 } from "lucide-react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { FaTrash } from "react-icons/fa";
+import { Picker } from "emoji-mart";
+import "emoji-mart/css/emoji-mart.css"; // Keep if emoji not styled, otherwise remove for v5+
 
 dayjs.extend(relativeTime);
 
@@ -41,6 +44,7 @@ const GroupChatBox = ({ roomId, currentUser }) => {
   const dispatch = useDispatch();
   const scrollRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const inputRef = useRef(null);
 
   const [newMessage, setNewMessage] = useState("");
   const [typing, setTyping] = useState(false);
@@ -54,6 +58,7 @@ const GroupChatBox = ({ roomId, currentUser }) => {
   const [editingMsgId, setEditingMsgId] = useState(null);
   const [editText, setEditText] = useState("");
   const [showDeleteRoomConfirm, setShowDeleteRoomConfirm] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const { messages } = useSelector((state) => state.roomChat);
 
@@ -157,12 +162,15 @@ const GroupChatBox = ({ roomId, currentUser }) => {
       if (
         !e.target.closest(".chat-msg-bubble") &&
         !e.target.closest(".chat-msg-action") &&
-        !e.target.closest(".chat-msg-confirm")
+        !e.target.closest(".chat-msg-confirm") &&
+        !e.target.closest(".emoji-mart") &&
+        !e.target.closest(".emoji-btn")
       ) {
         setActiveMsgId(null);
         setConfirmDeleteId(null);
         setEditingMsgId(null);
         setEditText("");
+        setShowEmojiPicker(false);
       }
     };
     document.addEventListener("click", handleClickOutside);
@@ -254,6 +262,28 @@ const GroupChatBox = ({ roomId, currentUser }) => {
 
   const handleDeleteRoom = () => {
     setShowDeleteRoomConfirm(true);
+  };
+
+  // Emoji: insert at cursor position
+  const handleEmojiSelect = (emoji) => {
+    if (inputRef.current) {
+      const { selectionStart, selectionEnd } = inputRef.current;
+      const text =
+        newMessage.slice(0, selectionStart) +
+        emoji.native +
+        newMessage.slice(selectionEnd);
+      setNewMessage(text);
+      setTimeout(() => {
+        inputRef.current.focus();
+        inputRef.current.setSelectionRange(
+          selectionStart + emoji.native.length,
+          selectionStart + emoji.native.length
+        );
+      }, 0);
+    } else {
+      setNewMessage((msg) => msg + emoji.native);
+    }
+    setShowEmojiPicker(false);
   };
 
   let lastDate = "";
@@ -461,8 +491,32 @@ const GroupChatBox = ({ roomId, currentUser }) => {
       </div>
 
       {/* INPUT */}
-      <div className="p-3 border-t bg-white flex items-center gap-3">
+      <div className="p-3 border-t bg-white flex items-center gap-2 relative">
+        {/* Emoji Button */}
+        <button
+          className="emoji-btn px-2 text-2xl hover:bg-gray-100 rounded-full"
+          type="button"
+          onClick={() => setShowEmojiPicker((v) => !v)}
+          tabIndex={-1}
+          aria-label="Add emoji"
+        >
+          <Smile className="w-6 h-6" />
+        </button>
+        {/* Emoji Picker */}
+        {showEmojiPicker && (
+          <div className="absolute bottom-14 left-0 z-50">
+            <Picker
+              theme="light"
+              onEmojiSelect={handleEmojiSelect}
+              onSelect={handleEmojiSelect}
+              showPreview={false}
+              showSkinTones={false}
+              locale="en"
+            />
+          </div>
+        )}
         <input
+          ref={inputRef}
           type="text"
           placeholder={socketConnected ? "Type a message..." : "Reconnecting..."}
           value={newMessage}

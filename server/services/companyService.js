@@ -54,7 +54,7 @@ async function registerCompany(payload) {
 
 /**
  * Step 2: Fill in the additional company details (GSTIN, CIN, PAN, etc.),
- * then create the tenant-admin user and send only the welcome email.
+ * then create the tenant-admin user and send the branded welcome email.
  */
 async function completeRegistrationAndCreateAdmin(payload) {
   const {
@@ -95,37 +95,17 @@ async function completeRegistrationAndCreateAdmin(payload) {
     isDeleted: false,
   });
 
-  // Send welcome email
-  const welcomeSubject = "Welcome to KadagamNext";
-  const welcomeText = `
-Hello ${adminUser.name},
-
-Your account is ready!
- • Company Code: ${company._id}
- • Your Staff ID:   ${adminUser.staffId}
-
-Next, please verify your email with the code we'll send you via the verification endpoint.
-Thanks,
-KadagamNext Team`.trim();
-
-  const welcomeHtml = `
-<p>Hello <strong>${adminUser.name}</strong>,</p>
-<p>Your tenant account has been created.</p>
-<ul>
-  <li><strong>Company Code:</strong> ${company._id}</li>
-  <li><strong>Staff ID:</strong> ${adminUser.staffId}</li>
-</ul>
-<p>Please verify your email using the verification code you will receive via the verification endpoint.</p>
-<p>Thank you,<br/>KadagamNext Team</p>
-`.trim();
-
-  EmailService.sendEmail(
-    adminUser.email,
-    welcomeSubject,
-    welcomeText,
-    welcomeHtml,
-    `${company.name} Admin`
-  ).catch(err => console.error("Welcome email error:", err));
+  // Enhanced, branded welcome email!
+  try {
+    await EmailService.sendWelcomeEmail(
+      adminUser.email,
+      { name: adminUser.name, companyId: company._id },
+      company.name // This appears as 'SkyTech Admin', etc.
+    );
+  } catch (err) {
+    console.error("Welcome email error:", err);
+    // Do not throw; registration should not fail if mail fails
+  }
 
   return { company, adminUser };
 }

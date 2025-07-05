@@ -3,12 +3,11 @@ import {
   FaProjectDiagram,
   FaUsers,
   FaTasks,
-  FaSpinner, // Keep FaSpinner for Ongoing Task
-  FaCheckCircle, // Keep FaCheckCircle for Completed Task
+  FaSpinner, // Ongoing Task
+  FaCheckCircle, // Completed Task
 } from "react-icons/fa";
 import NotificationBell from "../../components/notificationBell";
 import { tokenRefreshInterceptor as axiosInstance } from "../../utils/axiosInstance";
-
 import tasksIcon from "../../assets/icons/task-icon.png";
 import boltIcon from "../../assets/icons/bolt-icon.png";
 
@@ -28,28 +27,26 @@ const Dashboard = () => {
       const ov = ovRes.data.data;
       const ch = chRes.data.data;
 
+      // Always set cards in the correct order:
       setOverviewData([
         { name: "Total Project", value: ov.totalProjects || 0 },
         { name: "Total Staff", value: ov.totalStaff || 0 },
         { name: "Total Tasks", value: ov.totalTasks || 0 },
-        { name: "Ongoing Task", value: ov.ongoingTasks || 0 }, // Fourth card
-        { name: "Completed Task", value: ov.completedTasks || 0 }, // Fifth card
+        { name: "Ongoing Task", value: ov.ongoingTasks || 0 },
+        { name: "Completed Task", value: ov.completedTasks || 0 },
       ]);
 
+      // Task chart always has all three segments
       const ongoing = ch.pieData.find(d => d.name === "Ongoing")?.value || 0;
       const todoOrPending = (ch.pieData.find(d => d.name === "To Do")?.value || 0) +
         (ch.pieData.find(d => d.name === "Pending")?.value || 0);
       const completed = ch.pieData.find(d => d.name === "Completed")?.value || 0;
-
-      // Log the values before setting taskChartData
-      console.log("Task Data fetched: Ongoing:", ongoing, "Pending:", todoOrPending, "Completed:", completed);
 
       setTaskChartData([
         { name: "Ongoing Task", value: Number(ongoing) },
         { name: "Pending", value: Number(todoOrPending) },
         { name: "Completed Task", value: Number(completed) },
       ]);
-
     } catch (err) {
       console.error("Error fetching dashboard data:", err);
       setError("Failed to load dashboard data. Please try again later.");
@@ -66,7 +63,6 @@ const Dashboard = () => {
     <div className="bg-gray-100 p-4 sm:p-6 lg:pl-64 min-h-screen lg:pr-6">
       {/* Header */}
       <div className="flex items-start justify-between mb-4 sm:mb-6">
-        {/* Adjusted this div to have consistent padding */}
         <div className="w-full px-4 lg:px-12">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
             Welcome, Kadagam Ventures
@@ -75,7 +71,6 @@ const Dashboard = () => {
             Analytics Overview
           </h2>
         </div>
-        {/* Notification bell remains outside for top-right positioning */}
         <NotificationBell />
       </div>
 
@@ -89,9 +84,9 @@ const Dashboard = () => {
         <p className="text-center text-gray-600">Loading...</p>
       ) : (
         <>
-          {/* Top 5 cards - Changed to lg:grid-cols-5 */}
+          {/* Top 5 cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-8 mb-4 sm:mb-8 px-4 lg:px-12">
-            {[FaProjectDiagram, FaUsers, FaTasks, FaSpinner, FaCheckCircle].map( // Added FaCheckCircle for 5th card
+            {[FaProjectDiagram, FaUsers, FaTasks, FaSpinner, FaCheckCircle].map(
               (Icon, i) => (
                 <OverviewCard
                   key={i}
@@ -101,35 +96,33 @@ const Dashboard = () => {
                     "Total Project",
                     "Total Staff",
                     "Total Tasks",
-                    "Ongoing Task", // Fourth label
-                    "Completed Task", // Fifth label
+                    "Ongoing Task",
+                    "Completed Task",
                   ][i]}
                   value={overviewData[i]?.value || 0}
                   bgColor={[
                     "bg-blue-200",
                     "bg-purple-200",
                     "bg-pink-200",
-                    "bg-orange-200", // Background for Ongoing Task
-                    "bg-green-200",  // Background for Completed Task
+                    "bg-orange-200",
+                    "bg-green-200",
                   ][i]}
                   iconColor={[
                     "text-blue-600",
                     "text-purple-600",
                     "text-pink-600",
-                    "text-orange-600", // Icon for Ongoing Task
-                    "text-green-600",  // Icon for Completed Task
+                    "text-orange-600",
+                    "text-green-600",
                   ][i]}
                 />
               )
             )}
           </div>
 
-          {/* Bottom charts row - MODIFIED TO USE PX-4 LG:PX-12 FOR CONSISTENT ALIGNMENT */}
-          {/* Removed fixed ml-12 and used px-4 lg:px-12 for consistency with cards */}
+          {/* Bottom charts row */}
           <div className="flex flex-col lg:flex-row space-y-4 lg:space-y-0 lg:space-x-8 px-4 lg:px-12">
             {/* Task Distribution Donut Chart */}
             <div className="w-full lg:w-3/5 flex-1 min-w-0 min-h-full">
-              {/* Passing default props explicitly to ensure consistency or overriding if needed */}
               <TaskDistributionDonut
                 data={taskChartData}
                 size={240}
@@ -141,9 +134,8 @@ const Dashboard = () => {
             </div>
             {/* Dashboard Overview Donut Chart */}
             <div className="w-full lg:w-3/5 flex-1 min-w-0 min-h-full">
-              {/* Passing default props explicitly to ensure consistency or overriding if needed */}
               <OverviewDonut
-                data={overviewData}
+                overviewData={overviewData}
                 size={240}
                 radius={100}
                 strokeWidth={24}
@@ -160,7 +152,7 @@ const Dashboard = () => {
 
 export default Dashboard;
 
-// OverviewCard (No changes to its internal structure, just props passed from parent)
+// OverviewCard
 const OverviewCard = ({
   className = "",
   icon,
@@ -180,7 +172,7 @@ const OverviewCard = ({
   </div>
 );
 
-// TaskDistributionDonut - Reverting to previous design with labels on the left
+// TaskDistributionDonut: Always shows Ongoing, Pending, Completed
 const TaskDistributionDonut = ({
   data,
   size = 240,
@@ -189,7 +181,7 @@ const TaskDistributionDonut = ({
   fontSize = 16,
   iconSize = 32,
 }) => {
-  const COLORS = ["#FF9800", "#F44336", "#4CAF50"]; // Colors for Ongoing, Pending, Completed
+  const COLORS = ["#FF9800", "#F44336", "#4CAF50"];
   const total = data.reduce((sum, d) => sum + (d.value || 0), 0);
 
   const cx = size / 2;
@@ -218,9 +210,6 @@ const TaskDistributionDonut = ({
     angleAcc += ang;
     return { path, color: COLORS[i], label: val, x: mid.x, y: mid.y, name: d.name };
   });
-
-  // Log the slices data to see calculated angles and values
-  console.log("TaskDistributionDonut slices:", slices);
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-6 sm:p-12 h-full flex flex-col">
@@ -278,28 +267,26 @@ const TaskDistributionDonut = ({
   );
 };
 
-// OverviewDonut - Reverting to previous design with labels on the left
+// OverviewDonut: Excludes "Completed Task"
 const OverviewDonut = ({
-  data,
+  overviewData,
   size = 240,
   radius = 100,
   strokeWidth = 24,
   fontSize = 16,
   iconSize = 32,
 }) => {
-  // Filter out "Completed Task" from the data for this specific donut chart
-  const filteredData = data.filter(d => d.name !== "Completed Task");
+  // Only use the first 4 items (order guaranteed in overviewData above)
+  const filteredData = overviewData.slice(0, 4);
 
-  // Adjusted COLORS and labels to match the filtered data
-  const COLORS = ["#29B6F6", "#AB47BC", "#FF4081", "#FF9800"]; // Removed #4CAF50 (Completed Task color)
-  const labels = ["Total Project", "Total Staff", "Total Tasks", "Ongoing Task"]; // Removed "Completed Task" label
-
+  const COLORS = ["#29B6F6", "#AB47BC", "#FF4081", "#FF9800"];
+  const labels = ["Total Project", "Total Staff", "Total Tasks", "Ongoing Task"];
   const total = filteredData.reduce((sum, d) => sum + (d.value || 0), 0);
 
   const cx = size / 2;
   const cy = size / 2;
   const iconX = cx - iconSize / 2;
-  const iconY = cy - iconSize / 2; // Fixed a typo here, should be iconY / 2 if used for positioning or similar
+  const iconY = cy - iconSize / 2;
 
   const toRad = deg => ((deg - 90) * Math.PI) / 180;
   const polarToCartesian = (cx, cy, r, deg) => ({
@@ -314,13 +301,13 @@ const OverviewDonut = ({
   };
 
   let acc = 0;
-  const slices = filteredData.map((d, i) => { // Use filteredData here
+  const slices = filteredData.map((d, i) => {
     const val = d.value || 0;
     const ang = total ? (val / total) * 360 : 0;
     const path = describeArc(cx, cy, radius, acc, acc + ang);
     const mid = polarToCartesian(cx, cy, radius, acc + ang / 2);
     acc += ang;
-    return { path, color: COLORS[i], label: val, x: mid.x, y: mid.y, name: labels[i] }; // Use labels for names
+    return { path, color: COLORS[i], label: val, x: mid.x, y: mid.y, name: labels[i] };
   });
 
   return (
@@ -336,7 +323,7 @@ const OverviewDonut = ({
             </li>
           ))}
         </ul>
-        {/* Right: larger donut chart */}
+        {/* Right: donut chart */}
         <div className="flex-1 flex items-center justify-center">
           {total === 0 ? (
             <div className="text-gray-500 text-lg font-medium text-center">

@@ -162,19 +162,8 @@ const leaveService = {
 
     if (!updatedLeave) return null;
 
-    // 🔔 Notify staff via email
-    const leaveType = updatedLeave.type === "leave" ? "Leave" : "Work From Home";
-    const statusText = status === "approved" ? "Approved ✅" : "Rejected ❌";
-    const formattedStart = format(new Date(updatedLeave.startDate), "yyyy-MM-dd");
-    const formattedEnd = format(new Date(updatedLeave.endDate), "yyyy-MM-dd");
-
-    const subject = `Your ${leaveType} Request Has Been ${status.toUpperCase()}`;
-    const text = `Hello,\n\nYour request for ${leaveType} from ${formattedStart} to ${formattedEnd} has been ${status.toUpperCase()}.\n\n📝 Reason: ${adminReason}`;
-    const html = `<p>Hello,</p>
-      <p>Your request for <strong>${leaveType}</strong> from <strong>${formattedStart}</strong> to <strong>${formattedEnd}</strong> has been <strong>${statusText}</strong>.</p>
-      <p><strong>📝 Reason:</strong> ${adminReason}</p>`;
-
-    await emailService.sendEmail(updatedLeave.staff.email, subject, text, html);
+    // ❌ Removed: direct email to staff here. 
+    // Email will be sent from the controller using sendLeaveStatusEmail.
 
     return updatedLeave;
   },

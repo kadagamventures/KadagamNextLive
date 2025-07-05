@@ -9,10 +9,12 @@ import {
   editChatMessage,
 } from "../redux/slices/chatSlice";
 import { getSocket, emitChatEvent, joinRoom, leaveRoom } from "../websocket/chatSocket";
-import { UserCircle2, Check, CheckCheck, Trash2, Pencil, Save, X } from "lucide-react";
+import { UserCircle2, Check, CheckCheck, Trash2, Pencil, Save, X, Smile } from "lucide-react";
 import ConfirmPopup from "./confirmPopup";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
+import { Picker } from "emoji-mart";
+import "emoji-mart/css/emoji-mart.css"; 
 
 dayjs.extend(relativeTime);
 
@@ -20,6 +22,7 @@ const ChatBox = ({ taskId, receiver, taskTitle, currentUser: passedUser }) => {
   const dispatch = useDispatch();
   const scrollRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const inputRef = useRef(null);
 
   const [newMessage, setNewMessage] = useState("");
   const [typing, setTyping] = useState(false);
@@ -31,6 +34,8 @@ const ChatBox = ({ taskId, receiver, taskTitle, currentUser: passedUser }) => {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [editMsgId, setEditMsgId] = useState(null);
   const [editText, setEditText] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [emojiPickerPosition, setEmojiPickerPosition] = useState({ left: 0 });
 
   const { messages } = useSelector((state) => state.chat);
   const fallbackUser = useSelector((state) => state.auth.user || state.staffAuth.user);
@@ -106,11 +111,14 @@ const ChatBox = ({ taskId, receiver, taskTitle, currentUser: passedUser }) => {
       if (
         !e.target.closest(".chat-msg") &&
         !e.target.closest(".chat-msg-action") &&
-        !e.target.closest(".chat-msg-confirm")
+        !e.target.closest(".chat-msg-confirm") &&
+        !e.target.closest(".emoji-mart") && // Prevent closing when clicking emoji picker
+        !e.target.closest(".emoji-btn")
       ) {
         setActiveMsgId(null);
         setConfirmDeleteId(null);
         setEditMsgId(null);
+        setShowEmojiPicker(false);
       }
     };
     document.addEventListener("click", handleClickOutside);
@@ -188,14 +196,36 @@ const ChatBox = ({ taskId, receiver, taskTitle, currentUser: passedUser }) => {
       ? "Today"
       : dayjs(timestamp).isSame(dayjs().subtract(1, "day"), "day")
         ? "Yesterday"
-        : dayjs(timestamp).format("DD MMM YYYY"); // Corrected to DD MMM YYYY for clarity and consistency
+        : dayjs(timestamp).format("DD MMM YYYY");
 
   const formatTime = (timestamp) => dayjs(timestamp).format("hh:mm A");
+
+  // Insert emoji at current cursor position
+  const handleEmojiSelect = (emoji) => {
+    if (inputRef.current) {
+      const { selectionStart, selectionEnd } = inputRef.current;
+      const text =
+        newMessage.slice(0, selectionStart) +
+        emoji.native +
+        newMessage.slice(selectionEnd);
+      setNewMessage(text);
+      // Move cursor after emoji
+      setTimeout(() => {
+        inputRef.current.focus();
+        inputRef.current.setSelectionRange(
+          selectionStart + emoji.native.length,
+          selectionStart + emoji.native.length
+        );
+      }, 0);
+    } else {
+      setNewMessage((msg) => msg + emoji.native);
+    }
+    setShowEmojiPicker(false);
+  };
 
   let lastDate = "";
 
   return (
-    // Removed fixed height. Added flex flex-col and h-full so it fills its parent's height.
     <div className="chat-box flex flex-col bg-white rounded-xl shadow-lg border overflow-hidden h-full">
       <div className="p-4 bg-violet-700 text-white flex items-center gap-3 sticky top-0 z-10">
         <UserCircle2 className="w-8 h-8" />
@@ -204,9 +234,6 @@ const ChatBox = ({ taskId, receiver, taskTitle, currentUser: passedUser }) => {
           <p className="text-xs text-blue-200 truncate">{taskTitle}</p>
         </div>
       </div>
-
-      {/* The message area should fill the remaining space and scroll */}
-      {/* Use flex-1 to make this div take all available vertical space */}
       <div className="flex-1 overflow-y-auto px-4 py-3 bg-gray-50 space-y-3">
         {messages
           .filter((m) => m.taskId === taskId)
@@ -305,9 +332,40 @@ const ChatBox = ({ taskId, receiver, taskTitle, currentUser: passedUser }) => {
         {otherUserTyping && <div className="text-sm text-gray-500 animate-pulse">Typing{typingDots}</div>}
         <div ref={scrollRef} />
       </div>
-
-      <div className="p-3 border-t bg-white flex items-center gap-3">
+      <div className="p-3 border-t bg-white flex items-center gap-2 relative">
+        {/* Emoji Button */}
+        <button
+          className="emoji-btn px-2 text-2xl hover:bg-gray-100 rounded-full"
+          type="button"
+          onClick={(e) => {
+            const rect = e.target.getBoundingClientRect();
+            setEmojiPickerPosition({ left: rect.left });
+            setShowEmojiPicker((v) => !v);
+          }}
+          tabIndex={-1}
+          aria-label="Add emoji"
+        >
+          <Smile className="w-6 h-6" />
+        </button>
+        {/* Emoji Picker */}
+        {showEmojiPicker && (
+          <div
+            className="absolute bottom-14 left-0 z-50"
+            style={{ left: 0 }}
+          >
+            <Picker
+              data={undefined} // For v5+, remove if not needed
+              theme="light"
+              onEmojiSelect={handleEmojiSelect}
+              onSelect={handleEmojiSelect}
+              showPreview={false}
+              showSkinTones={false}
+              locale="en"
+            />
+          </div>
+        )}
         <input
+          ref={inputRef}
           type="text"
           placeholder={socketConnected ? "Type a message..." : "Reconnecting..."}
           value={newMessage}

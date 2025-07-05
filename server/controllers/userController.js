@@ -7,7 +7,9 @@ const bcrypt = require("bcryptjs");
 const tokenUtils = require("../utils/tokenUtils");
 
 const addStaff = asyncHandler(async (req, res) => {
-  const companyId = req.user.companyId.toString();
+  const companyId = (req.user.companyId || "").toString();
+  const companyName = req.user.companyName || "KadagamNext";
+
   let { name, email, role, salary, phone, assignedProjects, permissions = [], assignedTeam, staffId } = req.body;
 
   if (!name || !email) {
@@ -70,22 +72,51 @@ const addStaff = asyncHandler(async (req, res) => {
     companyId
   });
 
-   try {
+  // --- Enhanced Email ---
+  try {
+    const staffLoginUrl = `${process.env.FRONTEND_URL.replace(/\/$/, "")}/staff/login`;
+    const html = `
+      <div style="max-width:600px;margin:32px auto;padding:32px 24px;background:#f7fafd;border-radius:12px;border:1px solid #eee;font-family:'Segoe UI',Arial,sans-serif;">
+        <div style="text-align:center;margin-bottom:20px;">
+          <h2 style="color:#015cad;margin:0 0 8px 0;">${companyName} Admin</h2>
+        </div>
+        <div style="background:#fff;padding:24px 18px;border-radius:8px;box-shadow:0 2px 12px #e3e9f5;">
+          <h3 style="margin:0 0 16px 0;color:#176ee6;">Welcome to ${companyName}!</h3>
+          <p style="font-size:16px;">Hello <b>${staff.name}</b>,</p>
+          <p>Your staff credentials for <b>${companyName}</b>:</p>
+          <table style="margin:12px 0 20px 0;">
+            <tr><td style="font-weight:bold;">Company ID:</td><td style="padding-left:8px;">${companyId}</td></tr>
+            <tr><td style="font-weight:bold;">Staff ID:</td><td style="padding-left:8px;">${finalStaffId}</td></tr>
+            <tr><td style="font-weight:bold;">Password:</td><td style="padding-left:8px;">${rawPassword}</td></tr>
+          </table>
+          <a href="${staffLoginUrl}" style="display:inline-block;margin-top:16px;background:#015cad;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:500;font-size:15px;">Login to KadagamNext</a>
+          <p style="color:#D36F2C;font-size:14px;margin-top:18px;">Please change your password after first login.</p>
+        </div>
+        <div style="margin-top:32px;font-size:13px;color:#9b9b9b;text-align:center;">
+          &copy; ${new Date().getFullYear()} KadagamNext &middot; Powered by KadagamVentures
+        </div>
+      </div>
+    `;
+
     await emailService.sendEmail(
       staff.email,
-      "Your Nithya Task Manager Credentials",
-      "",
-      `<p>Hello ${staff.name},</p>
-       <p><strong>Company ID:</strong> ${req.user.companyId}</p>
-       <p><strong>Staff ID:</strong> ${finalStaffId}</p>
-       <p><strong>Password:</strong> ${rawPassword}</p>`,
-      req.user.companyName,
-      req.user.companyId         
+      "Your KadagamNext Staff Credentials",
+      // Plain text fallback:
+      `Hello ${staff.name},
+
+Company ID: ${companyId}
+Staff ID: ${finalStaffId}
+Password: ${rawPassword}
+
+Login: ${staffLoginUrl}
+
+Please change your password after first login.`,
+      html,
+      companyName
     );
   } catch (emailErr) {
     console.error(`❌ Email to ${staff.email} failed:`, emailErr.message);
   }
-
 
   res.status(201).json({
     success: true,

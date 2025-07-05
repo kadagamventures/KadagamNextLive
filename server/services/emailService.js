@@ -4,8 +4,23 @@ const { SendEmailCommand, SendRawEmailCommand } = require("@aws-sdk/client-ses")
 const MailComposer = require("nodemailer/lib/mail-composer");
 const { ses } = require("../config/awsConfig");
 
+function getBaseTemplate({ companyName, contentHtml, footerHtml }) {
+  return `
+    <div style="max-width:600px;margin:32px auto;padding:32px 24px;background:#f7fafd;border-radius:12px;border:1px solid #eee;font-family:'Segoe UI',Arial,sans-serif;">
+      <div style="text-align:center;margin-bottom:20px;">
+        <h2 style="color:#015cad;margin:0 0 8px 0;">${companyName} Admin</h2>
+      </div>
+      <div style="background:#fff;padding:24px 18px;border-radius:8px;box-shadow:0 2px 12px #e3e9f5;">
+        ${contentHtml}
+      </div>
+      <div style="margin-top:32px;font-size:13px;color:#9b9b9b;text-align:center;">
+        ${footerHtml || `&copy; ${new Date().getFullYear()} ${companyName} · Powered by KadagamVentures`}
+      </div>
+    </div>
+  `;
+}
+
 class EmailService {
-  
   async sendEmail(to, subject, text, html = null, companyName = "KadagamNext") {
     if (!to || !subject || (!text && !html)) {
       throw new Error("Missing parameters for sending email.");
@@ -39,11 +54,6 @@ class EmailService {
     }
   }
 
-  /**
-   * Send an email with attachments (e.g., PDF invoice).
-   *
-   * @param {{ to: string, subject: string, text?: string, html?: string, attachments: Array<{filename: string, content: Buffer|string}> }} options
-   */
   async sendEmailWithAttachment({ to, subject, text = "", html, attachments }) {
     if (!to || !subject || (!text && !html) || !Array.isArray(attachments) || attachments.length === 0) {
       throw new Error("Missing parameters for sendEmailWithAttachment.");
@@ -55,7 +65,6 @@ class EmailService {
       return;
     }
 
-    // Build raw MIME message
     const mail = new MailComposer({
       from: sourceEmail,
       to,
@@ -101,12 +110,18 @@ Thanks,
 The KadagamNext Team
     `.trim();
 
-    const html = `
-      <p>Hello,</p>
-      <p>Your KadagamNext verification code is: <strong>${code}</strong></p>
-      <p>It expires in ${ttlMin} minutes.</p>
-      <p>Thanks,<br/>The KadagamNext Team</p>
-    `.trim();
+    const contentHtml = `
+      <h3 style="margin:0 0 16px 0;color:#176ee6;">Verify Your Email</h3>
+      <p style="font-size:16px;">Your KadagamNext verification code is:</p>
+      <div style="font-size:28px;letter-spacing:12px;font-weight:600;color:#015cad;padding:16px 0;">${code}</div>
+      <p style="color:#777;">This code expires in <b>${ttlMin} minutes</b>.</p>
+      <p style="margin-top:20px;color:#888;font-size:13px;">If you did not request this, you can safely ignore this email.</p>
+    `;
+
+    const html = getBaseTemplate({
+      companyName,
+      contentHtml,
+    });
 
     await this.sendEmail(to, subject, text, html, companyName);
   }
@@ -125,12 +140,19 @@ Thank you for joining us,
 The KadagamNext Team
     `.trim();
 
-    const html = `
-      <p>Hello <strong>${name}</strong>,</p>
-      <p>Your company (<strong>${name.replace(' Admin','')}</strong>) has been successfully verified!</p>
-      <p>Your Company Code: <strong>${companyId}</strong></p>
-      <p>Thank you for joining us,<br/>The KadagamNext Team</p>
-    `.trim();
+    const contentHtml = `
+      <h3 style="margin:0 0 12px 0;font-size:20px;color:#176ee6;">Welcome to ${companyName}!</h3>
+      <p style="font-size:16px;color:#222;">Hello <b>${name}</b>,</p>
+      <p>Your company (<b>${name.replace(' Admin','')}</b>) has been <span style="color:green;font-weight:600;">successfully verified</span>!</p>
+      <p><b>Your Company Code:</b> <span style="background:#eef6fb;padding:2px 8px;border-radius:4px;font-size:17px;letter-spacing:2px;color:#015cad;">${companyId}</span></p>
+      <a href="${process.env.FRONTEND_URL}/admin/login" style="display:inline-block;margin-top:16px;background:#015cad;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:500;font-size:15px;">Login to KadagamNext</a>
+      <p style="margin-top:32px;font-size:15px;color:#777;">Thank you for joining us,<br><b>${companyName} Team</b></p>
+    `;
+
+    const html = getBaseTemplate({
+      companyName,
+      contentHtml,
+    });
 
     await this.sendEmail(to, subject, text, html, companyName);
   }
@@ -149,22 +171,29 @@ Best,
 ${companyName} Team
     `.trim();
 
-    const html = `
-      <p>Welcome to <strong>${companyName}</strong>!</p>
-      <p>Your login credentials:</p>
-      <ul>
-        <li><strong>Staff ID:</strong> ${staffId}</li>
-        <li><strong>Password:</strong> ${password}</li>
-      </ul>
-      <p>Please change your password after login.</p>
-      <p>Best regards,<br/>${companyName} Team</p>
-    `.trim();
+    const contentHtml = `
+      <h3 style="margin:0 0 16px 0;color:#176ee6;">Welcome to ${companyName}!</h3>
+      <p style="font-size:16px;">Your login credentials:</p>
+      <table style="margin:12px 0 20px 0;">
+        <tr><td style="font-weight:bold;">Staff ID:</td><td style="padding-left:8px;">${staffId}</td></tr>
+        <tr><td style="font-weight:bold;">Password:</td><td style="padding-left:8px;">${password}</td></tr>
+      </table>
+      <p style="color:#D36F2C;font-size:14px;">Please change your password after login.</p>
+      <p style="margin-top:28px;color:#888;font-size:13px;">Best regards,<br/>${companyName} Team</p>
+    `;
+
+    const html = getBaseTemplate({
+      companyName,
+      contentHtml,
+    });
 
     await this.sendEmail(to, subject, text, html, companyName);
   }
 
   async sendLeaveStatusEmail(to, status, leaveDates, adminReason, companyName = "KadagamNext") {
-    const statusText = status === "approved" ? "APPROVED ✅" : "REJECTED ❌";
+    const statusText = status === "approved"
+      ? '<span style="color:green;font-weight:bold;">APPROVED ✅</span>'
+      : '<span style="color:red;font-weight:bold;">REJECTED ❌</span>';
     const subject = `Your Leave Request Has Been ${status.toUpperCase()}`;
     const text = `
 Hello,
@@ -179,13 +208,18 @@ Best,
 ${companyName} Team
     `.trim();
 
-    const html = `
-      <p>Hello,</p>
-      <p>Your leave request for <strong>${leaveDates}</strong> has been <strong>${statusText}</strong>.</p>
-      <p><strong>Reason:</strong> ${adminReason}</p>
-      <p>Check your dashboard for more info.</p>
-      <p>Best regards,<br/>${companyName} Team</p>
-    `.trim();
+    const contentHtml = `
+      <h3 style="margin:0 0 16px 0;">Leave Status Update</h3>
+      <p>Your leave request for <b>${leaveDates}</b> has been ${statusText}.</p>
+      <p><b>Reason:</b> ${adminReason}</p>
+      <a href="${process.env.FRONTEND_URL}/staff/dashboard" style="display:inline-block;margin:20px 0 0 0;background:#015cad;color:#fff;text-decoration:none;padding:10px 22px;border-radius:5px;font-weight:500;font-size:15px;">View Dashboard</a>
+      <p style="margin-top:28px;color:#888;font-size:13px;">Best regards,<br/>${companyName} Team</p>
+    `;
+
+    const html = getBaseTemplate({
+      companyName,
+      contentHtml,
+    });
 
     await this.sendEmail(to, subject, text, html, companyName);
   }
@@ -205,11 +239,17 @@ ${resetLink}
 If you did not request this, please ignore this email.
     `.trim();
 
-    const html = `
-      <p>Click the link below to reset your password:</p>
-      <p><a href="${resetLink}" target="_blank">${resetLink}</a></p>
-      <p>If you did not request this, please ignore this email.</p>
-    `.trim();
+    const contentHtml = `
+      <h3 style="margin:0 0 16px 0;color:#176ee6;">Password Reset Requested</h3>
+      <p>Click the button below to reset your password:</p>
+      <a href="${resetLink}" target="_blank" style="display:inline-block;margin:18px 0 18px 0;background:#176ee6;color:#fff;text-decoration:none;padding:11px 25px;border-radius:5px;font-weight:500;font-size:16px;">Reset Password</a>
+      <p style="color:#777;margin:18px 0 0 0;">If you did not request this, please ignore this email.</p>
+    `;
+
+    const html = getBaseTemplate({
+      companyName,
+      contentHtml,
+    });
 
     await this.sendEmail(to, subject, text, html, companyName);
   }
@@ -226,12 +266,17 @@ Please login and approve or reject it.
 Thank you!
     `.trim();
 
-    const html = `
-      <p>Hello,</p>
-      <p>The task titled <strong>"${taskTitle}"</strong> is now in <strong>Review</strong>.</p>
-      <p>Please login to ${companyName} and approve or reject it.</p>
-      <p>Thank you!</p>
-    `.trim();
+    const contentHtml = `
+      <h3 style="margin:0 0 16px 0;">Task Under Review</h3>
+      <p>The task titled <b>"${taskTitle}"</b> is now in <b style="color:#f9a825;">Review</b>.</p>
+      <a href="${process.env.FRONTEND_URL}/admin/dashboard" style="display:inline-block;margin:20px 0 0 0;background:#015cad;color:#fff;text-decoration:none;padding:10px 22px;border-radius:5px;font-weight:500;font-size:15px;">Login to Dashboard</a>
+      <p style="margin-top:28px;color:#888;font-size:13px;">Thank you!</p>
+    `;
+
+    const html = getBaseTemplate({
+      companyName,
+      contentHtml,
+    });
 
     await this.sendEmail(to, subject, text, html, companyName);
   }
@@ -249,13 +294,18 @@ Best,
 ${companyName} Team
     `.trim();
 
-    const html = `
-      <p>Hello,</p>
-      <p>Your task <strong>"${task.title}"</strong> has been <strong style="color:green;">APPROVED</strong>.</p>
-      <p><strong>Reason:</strong> ${reason}</p>
-      <p>Check your dashboard for details.</p>
-      <p>Best regards,<br/>${companyName} Team</p>
-    `.trim();
+    const contentHtml = `
+      <h3 style="margin:0 0 16px 0;color:green;">Task Approved</h3>
+      <p>Your task <b>"${task.title}"</b> has been <span style="color:green;font-weight:600;">APPROVED</span>.</p>
+      <p><b>Reason:</b> ${reason}</p>
+      <a href="${process.env.FRONTEND_URL}/staff/dashboard" style="display:inline-block;margin:20px 0 0 0;background:#015cad;color:#fff;text-decoration:none;padding:10px 22px;border-radius:5px;font-weight:500;font-size:15px;">View Dashboard</a>
+      <p style="margin-top:28px;color:#888;font-size:13px;">Best regards,<br/>${companyName} Team</p>
+    `;
+
+    const html = getBaseTemplate({
+      companyName,
+      contentHtml,
+    });
 
     await this.sendEmail(task.assignedTo.email, subject, text, html, companyName);
   }
@@ -275,14 +325,23 @@ ${companyName} Team
     ].filter(Boolean);
     const text = textLines.join("\n");
 
-    const html = `
-      <p>Hello,</p>
-      <p>Your task <strong>"${task.title}"</strong> has been <strong style="color:red;">REJECTED</strong>.</p>
-      <p><strong>Reason:</strong> ${reason}</p>
-      ${attachmentLink ? `<p>Download file: <a href="${attachmentLink}" target="_blank">${attachmentLink}</a></p>` : ''}
-      <p>Check your dashboard for updates.</p>
-      <p>Best regards,<br/>${companyName} Team</p>
-    `.trim();
+    const contentHtml = `
+      <h3 style="margin:0 0 16px 0;color:red;">Task Rejected</h3>
+      <p>Your task <b>"${task.title}"</b> has been <span style="color:red;font-weight:600;">REJECTED</span>.</p>
+      <p><b>Reason:</b> ${reason}</p>
+      ${
+        attachmentLink
+          ? `<p>Download file: <a href="${attachmentLink}" target="_blank" style="color:#015cad;">${attachmentLink}</a></p>`
+          : ""
+      }
+      <a href="${process.env.FRONTEND_URL}/staff/dashboard" style="display:inline-block;margin:20px 0 0 0;background:#015cad;color:#fff;text-decoration:none;padding:10px 22px;border-radius:5px;font-weight:500;font-size:15px;">View Dashboard</a>
+      <p style="margin-top:28px;color:#888;font-size:13px;">Best regards,<br/>${companyName} Team</p>
+    `;
+
+    const html = getBaseTemplate({
+      companyName,
+      contentHtml,
+    });
 
     await this.sendEmail(task.assignedTo.email, subject, text, html, companyName);
   }
